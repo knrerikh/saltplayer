@@ -445,16 +445,49 @@ export class TorrentEngine {
 
   /**
    * Prioritize pieces for streaming
+   * Deselects all files except the current one to optimize bandwidth
+   * and enables sequential downloading for smooth playback
    */
   private prioritizeStreamingPieces(file: any): void {
     if (!this.currentTorrent) return;
 
-    // Select the file for streaming
+    // Deselect all files first to stop downloading unnecessary content
+    this.currentTorrent.files.forEach((f: any) => {
+      f.deselect();
+    });
+
+    // Select only the file we want to stream
     file.select();
 
-    // Prioritize first pieces for quick playback start
-    // Note: WebTorrent handles piece prioritization internally
-    // We rely on file.select() to prioritize this file's pieces
+    // Get piece indices for the selected file
+    const pieceLength = this.currentTorrent.pieceLength;
+    const startPiece = Math.floor(file.offset / pieceLength);
+    const endPiece = Math.floor((file.offset + file.length - 1) / pieceLength);
+
+    // Prioritize pieces sequentially from start to end
+    // This ensures smooth playback without interruptions
+    const criticalPieces = Math.min(10, endPiece - startPiece + 1); // First ~10 pieces are critical
+    
+    for (let i = 0; i < criticalPieces; i++) {
+      const pieceIndex = startPiece + i;
+      if (pieceIndex <= endPiece) {
+        // Critical pieces get highest priority
+        this.currentTorrent.select(pieceIndex, pieceIndex, true);
+      }
+    }
+
+    // Select remaining pieces with normal priority for sequential download
+    if (startPiece + criticalPieces <= endPiece) {
+      this.currentTorrent.select(
+        startPiece + criticalPieces,
+        endPiece,
+        false
+      );
+    }
+
+    console.log(`Prioritized streaming for file: ${file.name}`);
+    console.log(`File pieces: ${startPiece} to ${endPiece} (total: ${endPiece - startPiece + 1})`);
+    console.log(`Critical pieces: ${criticalPieces}, Sequential: ${endPiece - startPiece + 1 - criticalPieces}`);
   }
 
   /**
