@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Codec Support Test</title>
+</head>
+<body>
+    <h1>Audio Codec Support Test</h1>
+    <div id="results"></div>
+    
+    <script>
+        const video = document.createElement('video');
+        const codecs = [
+            'video/mp4; codecs="avc1.42E01E, mp4a.40.2"',  // H.264 + AAC
+            'video/mp4; codecs="avc1.42E01E, ac-3"',        // H.264 + AC-3 (Dolby Digital)
+            'video/mp4; codecs="avc1.42E01E, ec-3"',        // H.264 + E-AC-3 (Dolby Digital Plus)
+            'video/webm; codecs="vp8, vorbis"',             // VP8 + Vorbis
+            'video/webm; codecs="vp9, opus"',               // VP9 + Opus
+            'video/x-matroska; codecs="avc1.42E01E, mp4a.40.2"',  // MKV with H.264 + AAC
+            'video/x-matroska; codecs="avc1.42E01E, ac-3"',       // MKV with H.264 + AC-3
+            'video/x-matroska; codecs="avc1.42E01E, ec-3"',       // MKV with H.264 + E-AC-3
+        ];
+        
+        const results = document.getElementById('results');
+        
+        codecs.forEach(codec => {
+            const support = video.canPlayType(codec);
+            const div = document.createElement('div');
+            div.style.padding = '10px';
+            div.style.marginBottom = '5px';
+            div.style.backgroundColor = support === 'probably' ? '#90EE90' : 
+                                       support === 'maybe' ? '#FFD700' : '#FFB6C1';
+            div.innerHTML = `<strong>${codec}</strong><br>Support: <em>${support || 'no'}</em>`;
+            results.appendChild(div);
+        });
+        
+        // Also check Electron/Chromium version
+        const versionDiv = document.createElement('div');
+        versionDiv.style.marginTop = '20px';
+        versionDiv.style.padding = '10px';
+        versionDiv.style.backgroundColor = '#E0E0E0';
+        versionDiv.innerHTML = `
+            <strong>Environment:</strong><br>
+            Chrome: ${navigator.userAgent.match(/Chrome\/([0-9.]+)/)?.[1] || 'N/A'}<br>
+            Electron: ${process?.versions?.electron || 'N/A'}
+        `;
+        results.appendChild(versionDiv);
+    </script>
+</body>
+</html>
+
