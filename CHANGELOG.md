@@ -45,5 +45,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simple video player implementation
 - Prototype UI
 
-[1.0.0]: https://github.com/krerikh/saltplayer/releases/tag/v1.0.0
-[0.1.0]: https://github.com/krerikh/saltplayer/releases/tag/v0.1.0
+[1.0.0]: https://github.com/knrerikh/saltplayer/releases/tag/v1.0.0
+[0.1.0]: https://github.com/knrerikh/saltplayer/releases/tag/v0.1.0

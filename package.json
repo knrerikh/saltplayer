@@ -17,11 +17,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/krerikh/saltplayer.git"
+    "url": "https://github.com/knrerikh/saltplayer.git"
   },
-  "homepage": "https://github.com/krerikh/saltplayer#readme",
+  "homepage": "https://github.com/knrerikh/saltplayer#readme",
   "bugs": {
-    "url": "https://github.com/krerikh/saltplayer/issues"
+    "url": "https://github.com/knrerikh/saltplayer/issues"
   },
   "scripts": {
     "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\" \"npm run start:dev\"",

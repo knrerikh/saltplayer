@@ -42,13 +42,13 @@ Download the latest release for your platform:
 - **macOS**: `Salt-Player-1.0.0.dmg`
 - **Linux**: `Salt-Player-1.0.0.AppImage`, `.deb`, or `.rpm`
 
-[Download from GitHub Releases](https://github.com/krerikh/saltplayer/releases/latest)
+[Download from GitHub Releases](https://github.com/knrerikh/saltplayer/releases/latest)
 
 ### Build from Source
 
 ```bash
 # Clone the repository
-git clone https://github.com/krerikh/saltplayer.git
+git clone https://github.com/knrerikh/saltplayer.git
 cd saltplayer
 
 # Install dependencies
@@ -240,11 +240,11 @@ Saltplayer is a neutral tool. Users are responsible for ensuring they have the l
 
 ## 📞 Support
 
-- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/krerikh/saltplayer/issues)
-- 💡 **Feature Requests**: [GitHub Discussions](https://github.com/krerikh/saltplayer/discussions)
+- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/knrerikh/saltplayer/issues)
+- 💡 **Feature Requests**: [GitHub Discussions](https://github.com/knrerikh/saltplayer/discussions)
 - 📖 **Documentation**: [docs/](docs/)
 
 ---
 
-Made with ❤️ by [Konstantin Rerikh](https://github.com/krerikh)
+Made with ❤️ by [Konstantin Rerikh](https://github.com/knrerikh)
 
