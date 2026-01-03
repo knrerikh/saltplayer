@@ -10,7 +10,13 @@
     "dist/**/*",
     "package.json"
   ],
-  "extraResources": [],
+  "extraResources": [
+    {
+      "from": "assets",
+      "to": "assets",
+      "filter": ["icon.png"]
+    }
+  ],
   "mac": {
     "target": [
       {
