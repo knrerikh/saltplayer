@@ -12,6 +12,16 @@ let mainWindow: BrowserWindow | null = null;
 let torrentEngine: TorrentEngine | null = null;
 let storageManager: StorageManager | null = null;
 
+// Helper to get icon path for both dev and production
+function getIconPath(): string {
+  if (app.isPackaged) {
+    // In production, icon is in resources folder
+    return path.join(process.resourcesPath, 'assets', 'icon.png');
+  }
+  // In development, icon is in assets folder relative to main.ts
+  return path.join(__dirname, '../../assets/icon.png');
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -19,7 +29,7 @@ function createWindow(): void {
     minWidth: 800,
     minHeight: 600,
     title: 'Salt Player',
-    icon: path.join(__dirname, '../../assets/icon.png'),
+    icon: getIconPath(),
     backgroundColor: '#1a1a1a',
     webPreferences: {
       nodeIntegration: false,
