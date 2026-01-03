@@ -88,21 +88,18 @@
       "package.json"
     ],
     "mac": {
-      "icon": "assets/icon.png",
       "target": [
         "dmg"
       ],
       "category": "public.app-category.video"
     },
     "win": {
-      "icon": "assets/icon.png",
       "target": [
         "nsis",
         "portable"
       ]
     },
     "linux": {
-      "icon": "assets/icon.png",
       "target": [
         "AppImage",
         "deb",
