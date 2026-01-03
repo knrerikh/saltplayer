@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Minimalist torrent player with progressive streaming",
   "main": "dist/main/main.js",
-  "author": "Konstantin Rerikh <krerikh@gmail.com>",
+  "author": "Konstantin Rerikh <knrerikh@gmail.com>",
   "license": "MIT",
   "private": false,
   "keywords": [
