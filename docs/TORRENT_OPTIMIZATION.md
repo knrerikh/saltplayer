@@ -59,6 +59,19 @@ if (startPiece + criticalPieces <= endPiece) {
 }
 ```
 
+### 4. Progress Tracking Improvement
+
+The progress indicator now reflects the download status of the **selected file** rather than the entire torrent.
+
+```typescript
+// If a file is selected, show progress relative to that file
+const progress = this.selectedFile 
+  ? this.selectedFile.progress * 100 
+  : this.currentTorrent.progress * 100;
+```
+
+This ensures the user sees accurate progress (0-100%) for the episode they are watching.
+
 ## Implementation Details
 
 ### Modified Method: `prioritizeStreamingPieces()`

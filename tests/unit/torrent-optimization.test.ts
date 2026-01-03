@@ -236,6 +236,40 @@ describe('TorrentEngine - Optimization', () => {
       // Should restart streaming server with new file
       expect((torrentEngine as any).startStreamingServer).toHaveBeenCalledWith(mockTorrent, episode2);
     });
+
+    it('should re-apply optimization when switching episodes', async () => {
+      const episode1 = createMockFile('Episode 01.mp4', 500 * 1024 * 1024, 0);
+      const episode2 = createMockFile('Episode 02.mp4', 500 * 1024 * 1024, 500 * 1024 * 1024);
+      
+      const mockTorrent = createMockTorrent([episode1, episode2]);
+      (torrentEngine as any).currentTorrent = mockTorrent;
+      
+      const prioritizeMethod = (torrentEngine as any).prioritizeStreamingPieces.bind(torrentEngine);
+      
+      // 1. Select first episode
+      prioritizeMethod(episode1);
+      
+      // Verify episode 1 selected, episode 2 deselected
+      expect(episode1.select).toHaveBeenCalled();
+      expect(episode2.deselect).toHaveBeenCalled();
+      
+      // Reset mocks to clear call history
+      vi.clearAllMocks();
+      
+      // 2. Switch to second episode (simulate what happens in selectFile -> startStreamingServer)
+      prioritizeMethod(episode2);
+      
+      // Verify episode 2 selected, episode 1 deselected
+      expect(episode2.select).toHaveBeenCalled(); // New file selected
+      expect(episode1.deselect).toHaveBeenCalled(); // Old file deselected
+      
+      // Verify correct piece range calculation for second file
+      // Episode 2 starts at 500MB
+      expect(mockTorrent.select).toHaveBeenCalled();
+      const firstCall = (mockTorrent.select as any).mock.calls[0];
+      // 500MB / 16KB = 32000 pieces
+      expect(firstCall[0]).toBe(32000); 
+    });
   });
 
   describe('Edge Cases', () => {
@@ -311,6 +345,66 @@ describe('TorrentEngine - Optimization', () => {
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Critical pieces:'));
       
       consoleSpy.mockRestore();
+    });
+  });
+
+  describe('Progress Calculation', () => {
+    it('should calculate progress relative to selected file', async () => {
+      // Mock a file that is 50% downloaded
+      const file = createMockFile('Episode 01.mp4', 500 * 1024 * 1024, 0);
+      (file as any).progress = 0.5;
+
+      // Mock a torrent that is 10% downloaded overall (e.g. 1 file out of 10)
+      const mockTorrent = createMockTorrent([file]);
+      mockTorrent.progress = 0.1;
+      
+      const prioritizeMethod = (torrentEngine as any).prioritizeStreamingPieces.bind(torrentEngine);
+      const getStatusMethod = (torrentEngine as any).getStatus.bind(torrentEngine);
+      
+      (torrentEngine as any).currentTorrent = mockTorrent;
+      
+      prioritizeMethod(file);
+
+      const status = getStatusMethod();
+      
+      // Should reflect FILE progress (50%), not torrent progress (10%)
+      expect(status.progress).toBe(50);
+    });
+
+    it('should fallback to torrent progress if no file is selected', async () => {
+      const mockTorrent = createMockTorrent([]);
+      mockTorrent.progress = 0.75;
+      
+      const getStatusMethod = (torrentEngine as any).getStatus.bind(torrentEngine);
+      (torrentEngine as any).currentTorrent = mockTorrent;
+      (torrentEngine as any).selectedFile = null;
+
+      const status = getStatusMethod();
+      
+      expect(status.progress).toBe(75);
+    });
+
+    it('should calculate buffering status based on selected file', async () => {
+      const file = createMockFile('Episode 01.mp4', 500 * 1024 * 1024, 0);
+      (file as any).progress = 0.01; // 1% downloaded
+      
+      const mockTorrent = createMockTorrent([file]);
+      mockTorrent.progress = 0.01;
+
+      const prioritizeMethod = (torrentEngine as any).prioritizeStreamingPieces.bind(torrentEngine);
+      const getStatusMethod = (torrentEngine as any).getStatus.bind(torrentEngine);
+      
+      (torrentEngine as any).currentTorrent = mockTorrent;
+      prioritizeMethod(file);
+
+      // Should be buffering (< 5%)
+      expect(getStatusMethod().isBuffering).toBe(true);
+
+      // Update progress to 10%
+      (file as any).progress = 0.1;
+      
+      // Should not be buffering (> 5%)
+      expect(getStatusMethod().isBuffering).toBe(false);
     });
   });
 });

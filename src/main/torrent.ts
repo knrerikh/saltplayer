@@ -23,6 +23,7 @@ const VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.avi', '.mov', '.webm', '.m4v', '.flv
 export class TorrentEngine {
   private client: any | null = null;
   private currentTorrent: any | null = null;
+  private selectedFile: any | null = null;
   private storageManager: StorageManager;
   private server: any = null;
   private serverPort: number | null = null;
@@ -451,6 +452,8 @@ export class TorrentEngine {
   private prioritizeStreamingPieces(file: any): void {
     if (!this.currentTorrent) return;
 
+    this.selectedFile = file;
+
     // Deselect all files first to stop downloading unnecessary content
     this.currentTorrent.files.forEach((f: any) => {
       f.deselect();
@@ -458,6 +461,9 @@ export class TorrentEngine {
 
     // Select only the file we want to stream
     file.select();
+
+    console.log(`[TorrentOptimization] 🚀 Starting optimization for: ${file.name}`);
+    console.log(`[TorrentOptimization] 📉 Deselected ${this.currentTorrent.files.length - 1} other files`);
 
     // Get piece indices for the selected file
     const pieceLength = this.currentTorrent.pieceLength;
@@ -524,8 +530,16 @@ export class TorrentEngine {
       };
     }
 
+    // If a file is selected, show progress relative to that file
+    const progress = this.selectedFile 
+      ? this.selectedFile.progress * 100 
+      : this.currentTorrent.progress * 100;
+
+    // Use total downloaded bytes for the torrent, as that's accurate network usage
+    // But for progress bar, we want to see completion of the video
+
     return {
-      progress: this.currentTorrent.progress * 100,
+      progress: progress,
       downloadSpeed: this.currentTorrent.downloadSpeed,
       uploadSpeed: this.currentTorrent.uploadSpeed,
       numPeers: this.currentTorrent.numPeers,
@@ -533,7 +547,7 @@ export class TorrentEngine {
       uploaded: this.currentTorrent.uploaded,
       timeRemaining: this.currentTorrent.timeRemaining,
       isReady: this.currentTorrent.ready,
-      isBuffering: this.currentTorrent.progress < 0.05, // Less than 5% downloaded
+      isBuffering: this.selectedFile ? this.selectedFile.progress < 0.05 : this.currentTorrent.progress < 0.05,
     };
   }
 
@@ -558,11 +572,13 @@ export class TorrentEngine {
         this.client.remove(infoHash, undefined, (err: Error | string) => {
           if (err) console.error('Error removing torrent:', err);
           this.currentTorrent = null;
+          this.selectedFile = null;
           console.log('Torrent stopped');
           resolve();
         });
       } else {
         this.currentTorrent = null;
+        this.selectedFile = null;
         resolve();
       }
     });
@@ -612,6 +628,7 @@ export class TorrentEngine {
           if (err) console.error('Error destroying client:', err);
           this.client = null;
           this.currentTorrent = null;
+          this.selectedFile = null;
           console.log('Torrent client destroyed');
           resolve();
         });
