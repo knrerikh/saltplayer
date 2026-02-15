@@ -50,7 +50,18 @@ To verify the torrent optimization feature works correctly with real torrents, f
    - Seeking works correctly
    - Download progresses sequentially from start to end
 
-#### Test 4: Verify Episode Switching
+#### Test 4: Verify Seek in Transcode Mode
+
+1. **Load an MKV** with unsupported browser audio codec (e.g. EAC3)
+2. **Start playback** and wait until video is stable
+3. **Seek** to ~30-40% of the timeline
+4. **Expected behavior**:
+   - Playback resumes without long freeze
+   - Video and audio are both present after seek
+   - No random/corrupted video fragments
+   - A small initial A/V offset right after seek is acceptable and may self-correct
+
+#### Test 5: Verify Episode Switching
 
 1. **Load a multi-episode torrent**
 2. **Start playing Episode 1**
@@ -61,7 +72,7 @@ To verify the torrent optimization feature works correctly with real torrents, f
    - Episode 2 should start downloading
    - Playback should start quickly for Episode 2
 
-#### Test 5: Verify Console Logs
+#### Test 6: Verify Console Logs
 
 1. **Open Developer Tools** (if available in packaged app, or run in dev mode)
 2. **Load a torrent**
@@ -96,6 +107,7 @@ If optimization doesn't seem to work:
 - **Single-file torrents**: Optimization has no visible effect (already optimal)
 - **Very small files**: All pieces may be "critical" (< 10 pieces total)
 - **Slow connections**: Benefits may be less noticeable
+- **Transcode seek sync**: A brief audio/video sync offset can appear immediately after seek on some files
 
 ### Automated Testing
 
@@ -111,7 +123,7 @@ Run only optimization tests:
 npm test -- torrent-optimization
 ```
 
-All 97 tests should pass, including 12 new optimization tests.
+All tests should pass, including optimization and seek reprioritization coverage.
 
 ### Reporting Issues
 

@@ -72,6 +72,30 @@ const progress = this.selectedFile
 
 This ensures the user sees accurate progress (0-100%) for the episode they are watching.
 
+### 5. Transcode Seek Stability
+
+When the source file has unsupported audio codecs (for example EAC3), Salt Player enables a transcode stream.
+For seek operations in this mode, the server now uses the internal HTTP file URL as FFmpeg input instead of piping raw bytes from an arbitrary byte offset.
+
+```typescript
+const rawFileUrl = `http://127.0.0.1:${this.serverPort}${pathname}`;
+const command = ffmpeg(rawFileUrl);
+
+if (startTime > 0) {
+  command.seekInput(startTime);
+}
+
+command
+  .videoCodec('copy')
+  .audioCodec('aac')
+  .format('matroska');
+```
+
+Why this matters:
+- FFmpeg can parse container headers/index before seeking
+- Video stream remains decodable after seek
+- Playback recovery is much faster and more reliable than byte-offset piping
+
 ## Implementation Details
 
 ### Modified Method: `prioritizeStreamingPieces()`
@@ -128,8 +152,9 @@ Comprehensive test suite in `tests/unit/torrent-optimization.test.ts` covers:
 - ✅ Edge cases (null torrent, zero offset, large files)
 - ✅ Multi-episode torrents
 - ✅ File switching with `selectFile()`
+- ✅ Seek-triggered reprioritization and byte offset calculation
 
-All 12 optimization tests pass, plus 85 existing tests remain passing.
+Optimization tests validate selective downloading, sequential priorities, episode switching, and seek reprioritization logic.
 
 ## Usage
 

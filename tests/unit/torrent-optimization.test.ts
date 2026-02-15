@@ -272,6 +272,56 @@ describe('TorrentEngine - Optimization', () => {
     });
   });
 
+  describe('Seek Reprioritization', () => {
+    it('should reprioritize selected file from seek target byte', async () => {
+      const pieceLength = 100;
+      const file = createMockFile('Episode 01.mp4', 1000, 0);
+      const mockTorrent = createMockTorrent([file]);
+      mockTorrent.pieceLength = pieceLength;
+
+      (torrentEngine as any).currentTorrent = mockTorrent;
+      (torrentEngine as any).selectedFile = file;
+      (torrentEngine as any).lastKnownDurationSec = 100;
+
+      const prioritizeSpy = vi.spyOn(torrentEngine as any, 'prioritizeStreamingPieces');
+
+      await torrentEngine.seek(30);
+
+      expect(prioritizeSpy).toHaveBeenCalledWith(file, 300);
+    });
+
+    it('should clamp seek ratio to file bounds', async () => {
+      const file = createMockFile('Episode 01.mp4', 1000, 0);
+      const mockTorrent = createMockTorrent([file]);
+
+      (torrentEngine as any).currentTorrent = mockTorrent;
+      (torrentEngine as any).selectedFile = file;
+      (torrentEngine as any).lastKnownDurationSec = 100;
+
+      const prioritizeSpy = vi.spyOn(torrentEngine as any, 'prioritizeStreamingPieces');
+
+      await torrentEngine.seek(200);
+
+      expect(prioritizeSpy).toHaveBeenCalledWith(file, 1000);
+    });
+
+    it('should skip seek reprioritization when duration/time is invalid', async () => {
+      const file = createMockFile('Episode 01.mp4', 1000, 0);
+      const mockTorrent = createMockTorrent([file]);
+
+      (torrentEngine as any).currentTorrent = mockTorrent;
+      (torrentEngine as any).selectedFile = file;
+
+      const prioritizeSpy = vi.spyOn(torrentEngine as any, 'prioritizeStreamingPieces');
+
+      (torrentEngine as any).lastKnownDurationSec = 0;
+      await torrentEngine.seek(30);
+      await torrentEngine.seek(-1);
+
+      expect(prioritizeSpy).not.toHaveBeenCalled();
+    });
+  });
+
   describe('Edge Cases', () => {
     it('should handle null currentTorrent gracefully', async () => {
       const file = createMockFile('Video.mp4', 1024 * 1024 * 1024, 0);

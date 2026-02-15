@@ -17,10 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Modified `prioritizeStreamingPieces()` to deselect all files except the currently playing one
 - Improved piece selection algorithm for better streaming performance
 
+### Fixed
+- **Transcode Seek Reliability**: Switched FFmpeg input from byte-offset torrent streams to the internal HTTP source URL, so container metadata/index stay available during seeks
+- **Seek Playback Recovery**: Restored stable video playback after seek in transcode mode by using `seekInput()` on URL-based input with `video copy + audio AAC` output
+
 ### Technical
-- Added comprehensive test suite for torrent optimization (12 new tests)
+- Added comprehensive test coverage for torrent optimization and seek reprioritization
 - Created detailed documentation in `docs/TORRENT_OPTIMIZATION.md`
-- All 97 tests passing
+- Full automated test suite passing
 
 ## [1.0.0] - 2025-01-03
 
