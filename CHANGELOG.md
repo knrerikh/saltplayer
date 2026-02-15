@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Optimized Torrent Download**: Implemented selective file downloading for multi-file torrents
+- **Sequential Piece Download**: Pieces are now downloaded sequentially to prevent playback interruptions
+- **Critical Piece Prioritization**: First 10 pieces download with high priority for faster playback start
+- **Bandwidth Efficiency**: Only the currently playing episode downloads, preventing waste
+
+### Changed
+- Modified `prioritizeStreamingPieces()` to deselect all files except the currently playing one
+- Improved piece selection algorithm for better streaming performance
+
+### Fixed
+- **Transcode Seek Reliability**: Switched FFmpeg input from byte-offset torrent streams to the internal HTTP source URL, so container metadata/index stay available during seeks
+- **Seek Playback Recovery**: Restored stable video playback after seek in transcode mode by using `seekInput()` on URL-based input with `video copy + audio AAC` output
+
+### Technical
+- Added comprehensive test coverage for torrent optimization and seek reprioritization
+- Created detailed documentation in `docs/TORRENT_OPTIMIZATION.md`
+- Full automated test suite passing
+
 ## [1.0.0] - 2025-01-03
 
 ### Added

@@ -2,7 +2,7 @@ import { TorrentFile, TorrentMetadata, TorrentStatus, IPC_CHANNELS } from '@/sha
 import { StorageManager } from './storage';
 import { BrowserWindow } from 'electron';
 import * as http from 'http';
-import { pipeline } from 'stream';
+import { pipeline, PassThrough } from 'stream';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegPath from 'ffmpeg-static';
 import ffprobePath from 'ffprobe-static';
@@ -23,6 +23,8 @@ const VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.avi', '.mov', '.webm', '.m4v', '.flv
 export class TorrentEngine {
   private client: any | null = null;
   private currentTorrent: any | null = null;
+  private selectedFile: any | null = null;
+  private lastKnownDurationSec = 0;
   private storageManager: StorageManager;
   private server: any = null;
   private serverPort: number | null = null;
@@ -289,6 +291,7 @@ export class TorrentEngine {
     const encodedName = encodeURIComponent(file.name);
     const pathname = `/${encodedName}`;
     const totalSize: number = typeof file.length === 'number' ? file.length : Number(file.length);
+    let lastReprioritizedStart = 0;
 
     this.server = http.createServer(async (req, res) => {
       try {
@@ -302,27 +305,29 @@ export class TorrentEngine {
           return;
         }
 
-          if (isTranscode) {
-            // TRANSCODING MODE (FFmpeg)
-            res.writeHead(200, {
-            'Content-Type': 'video/mp4',
+        if (isTranscode) {
+          // Use the raw HTTP URL as FFmpeg input (not a pipe).
+          // This allows FFmpeg to read MKV headers via HTTP range requests
+          // and seek properly using the container's index.
+          const rawFileUrl = `http://127.0.0.1:${this.serverPort}${pathname}`;
+
+          res.writeHead(200, {
+            'Content-Type': 'video/x-matroska',
             'Transfer-Encoding': 'chunked',
           });
 
-          // Create ffmpeg command
-          const command = ffmpeg(file.createReadStream());
+          const command = ffmpeg(rawFileUrl);
 
           if (startTime > 0) {
             command.seekInput(startTime);
           }
 
           command
-            .videoCodec('copy') // Copy video stream (fast)
-            .audioCodec('aac')  // Transcode audio to AAC (supported)
-            .audioChannels(2)   // Downmix to stereo (safe)
-            .format('matroska') // Use MKV container for stream
+            .videoCodec('copy')
+            .audioCodec('aac')
+            .audioChannels(2)
+            .format('matroska')
             .on('codecData', (data) => {
-              // Extract duration from ffmpeg transcoding process (backup for probeStream timeout)
               if (data.duration) {
                 const parts = data.duration.split(':');
                 if (parts.length === 3) {
@@ -334,17 +339,26 @@ export class TorrentEngine {
               }
             })
             .on('error', (err) => {
-              if (!err.message.includes('Output stream closed')) {
+              if (!err.message.includes('Output stream closed') && !err.message.includes('Premature close')) {
                 console.error('FFmpeg error:', err);
               }
             });
 
-          // Pipe ffmpeg output to response
-          command.pipe(res, { end: true });
+          const out = new PassThrough();
+
+          res.once('close', () => {
+            try {
+              command.kill('SIGKILL');
+            } catch {
+              // no-op
+            }
+          });
+
+          command.pipe(out, { end: true });
+          pipeline(out, res, () => {});
           return;
         }
 
-        // STANDARD MODE (Raw file)
         const rangeHeader = req.headers.range;
         const contentType = this.guessVideoContentType(file.name);
 
@@ -366,13 +380,12 @@ export class TorrentEngine {
           return;
         }
 
-        let startStr = m[1];
-        let endStr = m[2];
+        const startStr = m[1];
+        const endStr = m[2];
         let start: number;
         let end: number;
 
         if (startStr === '' && endStr !== '') {
-          // suffix range: last N bytes
           const suffixLen = Math.max(0, Number(endStr));
           start = Math.max(0, totalSize - suffixLen);
           end = totalSize - 1;
@@ -389,6 +402,18 @@ export class TorrentEngine {
         }
 
         const chunkSize = end - start + 1;
+        const jumpFromLastPriority = Math.abs(start - lastReprioritizedStart);
+        const isLargeJump = jumpFromLastPriority > 8 * 1024 * 1024;
+        const isNearEnd = start >= Math.max(0, totalSize - 2 * 1024 * 1024);
+        const isTinyRange = chunkSize <= 256 * 1024;
+        const isLikelyMetadataProbe = isNearEnd && isTinyRange;
+        const shouldReprioritize = isLargeJump && !isLikelyMetadataProbe;
+
+        if (shouldReprioritize) {
+          this.prioritizeStreamingPieces(file, start);
+          lastReprioritizedStart = start;
+        }
+
         res.writeHead(206, {
           'Content-Type': contentType,
           'Content-Length': String(chunkSize),
@@ -396,8 +421,8 @@ export class TorrentEngine {
           'Accept-Ranges': 'bytes',
         });
         const rs = file.createReadStream({ start, end });
-        pipeline(rs, res, () => {});
 
+        pipeline(rs, res, () => {});
       } catch (e) {
         if (!res.headersSent) {
           res.statusCode = 500;
@@ -410,14 +435,11 @@ export class TorrentEngine {
     this.server.listen(0, async () => {
       const address = this.server.address();
       this.serverPort = address?.port ?? null;
-      let streamUrl = `http://127.0.0.1:${this.serverPort}${pathname}`; // Force IPv4
+      let streamUrl = `http://127.0.0.1:${this.serverPort}${pathname}`;
 
       console.log(`Streaming server started at ${streamUrl}`);
-
-      // Probe stream for codecs and duration
       const probeResult = await this.probeStream(streamUrl);
-      
-      // Send duration to renderer (critical for seeking in transcoded streams)
+
       if (probeResult.duration > 0) {
         this.sendVideoMetadata(probeResult.duration);
       }
@@ -428,7 +450,7 @@ export class TorrentEngine {
       }
 
       this.sendVideoUrl(streamUrl);
-      this.prioritizeStreamingPieces(file);
+      this.prioritizeStreamingPieces(file, 0);
     });
   }
 
@@ -444,17 +466,38 @@ export class TorrentEngine {
   }
 
   /**
-   * Prioritize pieces for streaming
+   * Prioritize pieces for streaming from a byte offset.
    */
-  private prioritizeStreamingPieces(file: any): void {
+  private prioritizeStreamingPieces(file: any, startByte: number = 0): void {
     if (!this.currentTorrent) return;
 
-    // Select the file for streaming
+    this.selectedFile = file;
+
+    this.currentTorrent.files.forEach((f: any) => {
+      f.deselect();
+    });
     file.select();
 
-    // Prioritize first pieces for quick playback start
-    // Note: WebTorrent handles piece prioritization internally
-    // We rely on file.select() to prioritize this file's pieces
+    const pieceLength = this.currentTorrent.pieceLength;
+    const absoluteStart = file.offset + startByte;
+    const startPiece = Math.floor(absoluteStart / pieceLength);
+    const endPiece = Math.floor((file.offset + file.length - 1) / pieceLength);
+    const criticalPiecesCount = Math.min(10, endPiece - startPiece + 1);
+
+    for (let i = 0; i < criticalPiecesCount; i++) {
+      const pieceIndex = startPiece + i;
+      if (pieceIndex <= endPiece) {
+        this.currentTorrent.select(pieceIndex, pieceIndex, true);
+      }
+    }
+
+    if (startPiece + criticalPiecesCount <= endPiece) {
+      this.currentTorrent.select(startPiece + criticalPiecesCount, endPiece, false);
+    }
+
+    console.log(`Prioritized streaming for file: ${file.name}`);
+    console.log(`File pieces: ${startPiece} to ${endPiece} (total: ${endPiece - startPiece + 1})`);
+    console.log(`Critical pieces: ${criticalPiecesCount}, Sequential: ${endPiece - startPiece + 1 - criticalPiecesCount}`);
   }
 
   /**
@@ -491,8 +534,16 @@ export class TorrentEngine {
       };
     }
 
+    // If a file is selected, show progress relative to that file
+    const progress = this.selectedFile 
+      ? this.selectedFile.progress * 100 
+      : this.currentTorrent.progress * 100;
+
+    // Use total downloaded bytes for the torrent, as that's accurate network usage
+    // But for progress bar, we want to see completion of the video
+
     return {
-      progress: this.currentTorrent.progress * 100,
+      progress: progress,
       downloadSpeed: this.currentTorrent.downloadSpeed,
       uploadSpeed: this.currentTorrent.uploadSpeed,
       numPeers: this.currentTorrent.numPeers,
@@ -500,7 +551,7 @@ export class TorrentEngine {
       uploaded: this.currentTorrent.uploaded,
       timeRemaining: this.currentTorrent.timeRemaining,
       isReady: this.currentTorrent.ready,
-      isBuffering: this.currentTorrent.progress < 0.05, // Less than 5% downloaded
+      isBuffering: this.selectedFile ? this.selectedFile.progress < 0.05 : this.currentTorrent.progress < 0.05,
     };
   }
 
@@ -525,11 +576,13 @@ export class TorrentEngine {
         this.client.remove(infoHash, undefined, (err: Error | string) => {
           if (err) console.error('Error removing torrent:', err);
           this.currentTorrent = null;
+          this.selectedFile = null;
           console.log('Torrent stopped');
           resolve();
         });
       } else {
         this.currentTorrent = null;
+        this.selectedFile = null;
         resolve();
       }
     });
@@ -549,14 +602,19 @@ export class TorrentEngine {
    */
   async seek(time: number): Promise<void> {
     console.log(`Seek requested: ${time}s`);
-    
-    if (!this.currentTorrent) {
+
+    if (!this.currentTorrent || !this.selectedFile) return;
+
+    const durationSec = this.lastKnownDurationSec;
+    if (!Number.isFinite(durationSec) || durationSec <= 0 || !Number.isFinite(time) || time < 0) {
       return;
     }
 
-    // In WebTorrent, seeking is handled automatically by HTTP range requests
-    // We could prioritize specific pieces here based on seek position
-    // For MVP, the default behavior is sufficient
+    const ratio = Math.max(0, Math.min(1, time / durationSec));
+    const fileLength = Number(this.selectedFile.length || 0);
+    const startByte = Math.floor(fileLength * ratio);
+
+    this.prioritizeStreamingPieces(this.selectedFile, startByte);
   }
 
   /**
@@ -579,6 +637,7 @@ export class TorrentEngine {
           if (err) console.error('Error destroying client:', err);
           this.client = null;
           this.currentTorrent = null;
+          this.selectedFile = null;
           console.log('Torrent client destroyed');
           resolve();
         });
@@ -612,6 +671,8 @@ export class TorrentEngine {
    * Send video metadata (duration) to renderer
    */
   private sendVideoMetadata(duration: number): void {
+    this.lastKnownDurationSec = duration;
+
     const windows = BrowserWindow.getAllWindows();
     windows.forEach(window => {
       window.webContents.send(IPC_CHANNELS.VIDEO_METADATA, { duration });
