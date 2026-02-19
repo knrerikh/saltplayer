@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import TorrentInput from './components/TorrentInput';
 import VideoPlayer from './components/VideoPlayer';
 import StatusBar from './components/StatusBar';
-import { TorrentStatus, TorrentMetadata, ErrorInfo } from '@/shared/types';
+import { TorrentStatus, TorrentMetadata, ErrorInfo, TorrentFile } from '@/shared/types';
 
 const VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.avi', '.mov', '.webm', '.m4v', '.flv', '.wmv'];
 
@@ -192,6 +192,8 @@ const App: React.FC = () => {
       <StatusBar  
         status={torrentStatus} 
         metadata={metadata}
+        currentVideoFile={currentIndex !== -1 ? videoFiles[currentIndex] : null}
+        videoDuration={serverDuration}
       />
       
       {error && (
