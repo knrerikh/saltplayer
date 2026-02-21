@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { IPC_CHANNELS, TorrentStatus, TorrentMetadata, ErrorInfo } from '@/shared/types';
+import { IPC_CHANNELS, TorrentStatus, TorrentMetadata, ErrorInfo, SubtitleData } from '@/shared/types';
 
 // Expose safe API to renderer process
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -28,6 +28,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onVideoMetadata: (callback: (metadata: { duration: number }) => void) => {
     ipcRenderer.on(IPC_CHANNELS.VIDEO_METADATA, (_, metadata) => callback(metadata));
   },
+  onSubtitles: (callback: (data: SubtitleData) => void) => {
+    ipcRenderer.on(IPC_CHANNELS.SUBTITLES, (_, data) => callback(data));
+  },
   onError: (callback: (error: ErrorInfo) => void) => {
     ipcRenderer.on(IPC_CHANNELS.ERROR, (_, error) => callback(error));
   },
@@ -52,6 +55,7 @@ declare global {
       onTorrentStatus: (callback: (status: TorrentStatus) => void) => void;
       onVideoUrl: (callback: (url: string) => void) => void;
       onVideoMetadata: (callback: (metadata: { duration: number }) => void) => void;
+      onSubtitles: (callback: (data: SubtitleData) => void) => void;
       onError: (callback: (error: ErrorInfo) => void) => void;
       removeAllListeners: (channel: string) => void;
     };

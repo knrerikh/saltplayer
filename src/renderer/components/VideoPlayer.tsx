@@ -1,16 +1,18 @@
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
+import { SubtitleData } from '@/shared/types';
 
 interface VideoPlayerProps {
   videoUrl: string | null;
   serverDuration?: number | null;
   isLoading: boolean;
-  isBuffering: boolean; // We'll ignore this prop mostly, relying on native events
+  isBuffering: boolean;
   onClose?: () => void;
   onPrev?: () => void;
   onNext?: () => void;
   title?: string;
   videoFiles?: { name: string }[];
   onSelectFile?: (fileName: string) => void;
+  subtitleData?: SubtitleData | null;
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({ 
@@ -22,7 +24,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onNext,
   title,
   videoFiles,
-  onSelectFile
+  onSelectFile,
+  subtitleData
   }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -34,6 +37,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [isBuffering, setIsBuffering] = useState(false);
   const [timeOffset, setTimeOffset] = useState(0);
   const [overlayIcon, setOverlayIcon] = useState<'play' | 'pause' | null>(null);
+  const [subtitlesEnabled, setSubtitlesEnabled] = useState(false);
+  const [currentSubtitleIndex, setCurrentSubtitleIndex] = useState(0);
 
   const isTranscode = useMemo(() => {
     return videoUrl?.includes('transcode=true') || false;
@@ -42,6 +47,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   // Reset time offset when video URL changes (new file)
   useEffect(() => {
     setTimeOffset(0);
+    setSubtitlesEnabled(false);
   }, [videoUrl]);
 
   useEffect(() => {
@@ -268,7 +274,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             autoPlay
             controls={false}
             onClick={togglePlay}
-          />
+          >
+            {subtitleData?.tracks && subtitleData.tracks.length > 0 && subtitlesEnabled && (
+              <track
+                kind="subtitles"
+                src={subtitleData.tracks[currentSubtitleIndex]?.url}
+                srcLang={subtitleData.tracks[currentSubtitleIndex]?.language}
+                default
+              />
+            )}
+          </video>
           
           {onClose && (
             <button className="close-button" onClick={onClose} title="Close">
@@ -382,6 +397,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 value={volume}
                 onChange={handleVolumeChange}
               />
+              
+              {subtitleData?.hasEmbeddedSubtitles && (
+                <button 
+                  className="control-button" 
+                  onClick={() => setSubtitlesEnabled(!subtitlesEnabled)}
+                  title={subtitlesEnabled ? 'Disable subtitles' : 'Enable subtitles'}
+                  style={{ opacity: subtitlesEnabled ? 1 : 0.5 }}
+                >
+                  CC
+                </button>
+              )}
               
               <button className="control-button" onClick={toggleFullscreen}>
                 {isFullscreen ? '⊗' : '⛶'}
