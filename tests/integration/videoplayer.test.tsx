@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import VideoPlayer from '@/renderer/components/VideoPlayer';
+import { SubtitleData } from '@/shared/types';
 
 describe('VideoPlayer Component', () => {
   beforeEach(() => {
@@ -322,6 +323,175 @@ describe('VideoPlayer Component', () => {
       );
 
       expect(video.src).toContain('video2.mp4');
+    });
+  });
+
+  describe('Subtitles', () => {
+    const mockSubtitleData: SubtitleData = {
+      tracks: [
+        { index: 0, language: 'eng', title: 'English', url: 'http://localhost:8080/subtitle/0.vtt' },
+        { index: 1, language: 'rus', title: 'Russian', url: 'http://localhost:8080/subtitle/1.vtt' }
+      ],
+      hasEmbeddedSubtitles: true
+    };
+
+    it('should show CC button when subtitles are available', () => {
+      const { container } = render(
+        <VideoPlayer 
+          videoUrl="http://localhost:8080/video.mp4"
+          title="Test Video"
+          onClose={vi.fn()}
+          subtitleData={mockSubtitleData}
+        />
+      );
+
+      const ccButton = Array.from(container.querySelectorAll('.control-button')).find(
+        btn => btn.textContent === 'CC'
+      );
+      expect(ccButton).toBeTruthy();
+    });
+
+    it('should not show CC button when no subtitles available', () => {
+      const { container } = render(
+        <VideoPlayer 
+          videoUrl="http://localhost:8080/video.mp4"
+          title="Test Video"
+          onClose={vi.fn()}
+          subtitleData={{ tracks: [], hasEmbeddedSubtitles: false }}
+        />
+      );
+
+      const ccButton = Array.from(container.querySelectorAll('.control-button')).find(
+        btn => btn.textContent === 'CC'
+      );
+      expect(ccButton).toBeFalsy();
+    });
+
+    it('should not show CC button when subtitleData is null', () => {
+      const { container } = render(
+        <VideoPlayer 
+          videoUrl="http://localhost:8080/video.mp4"
+          title="Test Video"
+          onClose={vi.fn()}
+          subtitleData={null}
+        />
+      );
+
+      const ccButton = Array.from(container.querySelectorAll('.control-button')).find(
+        btn => btn.textContent === 'CC'
+      );
+      expect(ccButton).toBeFalsy();
+    });
+
+    it('should have subtitles disabled by default', () => {
+      const { container } = render(
+        <VideoPlayer 
+          videoUrl="http://localhost:8080/video.mp4"
+          title="Test Video"
+          onClose={vi.fn()}
+          subtitleData={mockSubtitleData}
+        />
+      );
+
+      const ccButton = Array.from(container.querySelectorAll('.control-button')).find(
+        btn => btn.textContent === 'CC'
+      ) as HTMLButtonElement;
+
+      expect(ccButton.style.opacity).toBe('0.5');
+    });
+
+    it('should toggle subtitles when CC button is clicked', () => {
+      const { container } = render(
+        <VideoPlayer 
+          videoUrl="http://localhost:8080/video.mp4"
+          title="Test Video"
+          onClose={vi.fn()}
+          subtitleData={mockSubtitleData}
+        />
+      );
+
+      const ccButton = Array.from(container.querySelectorAll('.control-button')).find(
+        btn => btn.textContent === 'CC'
+      ) as HTMLButtonElement;
+
+      expect(ccButton.style.opacity).toBe('0.5');
+
+      fireEvent.click(ccButton);
+
+      expect(ccButton.style.opacity).toBe('1');
+
+      fireEvent.click(ccButton);
+
+      expect(ccButton.style.opacity).toBe('0.5');
+    });
+
+    it('should render track element when subtitles are enabled', () => {
+      const { container } = render(
+        <VideoPlayer 
+          videoUrl="http://localhost:8080/video.mp4"
+          title="Test Video"
+          onClose={vi.fn()}
+          subtitleData={mockSubtitleData}
+        />
+      );
+
+      const ccButton = Array.from(container.querySelectorAll('.control-button')).find(
+        btn => btn.textContent === 'CC'
+      ) as HTMLButtonElement;
+
+      fireEvent.click(ccButton);
+
+      const track = container.querySelector('track');
+      expect(track).toBeTruthy();
+      expect(track?.getAttribute('src')).toBe('http://localhost:8080/subtitle/0.vtt');
+      expect(track?.getAttribute('kind')).toBe('subtitles');
+    });
+
+    it('should not render track element when subtitles are disabled', () => {
+      const { container } = render(
+        <VideoPlayer 
+          videoUrl="http://localhost:8080/video.mp4"
+          title="Test Video"
+          onClose={vi.fn()}
+          subtitleData={mockSubtitleData}
+        />
+      );
+
+      const track = container.querySelector('track');
+      expect(track).toBeFalsy();
+    });
+
+    it('should reset subtitles when video URL changes', () => {
+      const { container, rerender } = render(
+        <VideoPlayer 
+          videoUrl="http://localhost:8080/video1.mp4"
+          title="Video 1"
+          onClose={vi.fn()}
+          subtitleData={mockSubtitleData}
+        />
+      );
+
+      const ccButton = Array.from(container.querySelectorAll('.control-button')).find(
+        btn => btn.textContent === 'CC'
+      ) as HTMLButtonElement;
+
+      fireEvent.click(ccButton);
+      expect(ccButton.style.opacity).toBe('1');
+
+      rerender(
+        <VideoPlayer 
+          videoUrl="http://localhost:8080/video2.mp4"
+          title="Video 2"
+          onClose={vi.fn()}
+          subtitleData={mockSubtitleData}
+        />
+      );
+
+      const ccButtonAfter = Array.from(container.querySelectorAll('.control-button')).find(
+        btn => btn.textContent === 'CC'
+      ) as HTMLButtonElement;
+
+      expect(ccButtonAfter.style.opacity).toBe('0.5');
     });
   });
 });

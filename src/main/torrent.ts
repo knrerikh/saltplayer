@@ -1,4 +1,4 @@
-import { TorrentFile, TorrentMetadata, TorrentStatus, IPC_CHANNELS } from '@/shared/types';
+import { TorrentFile, TorrentMetadata, TorrentStatus, IPC_CHANNELS, SubtitleTrack } from '@/shared/types';
 import { StorageManager } from './storage';
 import { BrowserWindow } from 'electron';
 import * as http from 'http';
@@ -29,6 +29,7 @@ export class TorrentEngine {
   private server: any = null;
   private serverPort: number | null = null;
   private statusInterval: NodeJS.Timeout | null = null;
+  private subtitleTracks: SubtitleTrack[] = [];
 
   constructor(storageManager: StorageManager) {
     this.storageManager = storageManager;
@@ -226,25 +227,22 @@ export class TorrentEngine {
       const command = ffmpeg(streamUrl);
       let isResolved = false;
       
-      // Add timeout to prevent hanging forever
       const timeoutId = setTimeout(() => {
         console.warn('FFprobe timed out, proceeding with fallback check');
         isResolved = true;
         
-        // Fallback: If timeout, assume transcode needed for containers likely to have unsupported audio (MKV, AVI)
         const ext = streamUrl.split('?')[0].split('.').pop()?.toLowerCase();
         const unsafeExtensions = ['mkv', 'avi', 'wmv', 'flv', 'mov'];
         const fallbackTranscode = unsafeExtensions.includes(ext || '');
         
         resolve({ needsTranscode: fallbackTranscode, duration: 0 });
         
-        // Don't kill immediately, let it try to finish to get duration later
         setTimeout(() => {
             try {
                 command.kill('SIGKILL');
             } catch (e) {}
-        }, 60000); // Hard kill after 60s
-      }, 10000); // 10 seconds timeout for server start
+        }, 60000);
+      }, 10000);
 
       command.ffprobe((err, metadata) => {
         clearTimeout(timeoutId);
@@ -259,7 +257,6 @@ export class TorrentEngine {
         
         const duration = metadata.format?.duration ? Number(metadata.format.duration) : 0;
         
-        // If we resolved early (timeout), we still want to send the duration now that we have it
         if (isResolved && duration > 0) {
             this.sendVideoMetadata(duration);
         }
@@ -281,6 +278,54 @@ export class TorrentEngine {
     });
   }
 
+  private async extractSubtitles(streamUrl: string): Promise<void> {
+    return new Promise((resolve) => {
+      this.subtitleTracks = [];
+      
+      const command = ffmpeg(streamUrl);
+      
+      const timeoutId = setTimeout(() => {
+        console.warn('Subtitle extraction timed out');
+        command.kill('SIGKILL');
+        resolve();
+      }, 15000);
+
+      command.ffprobe((err, metadata) => {
+        clearTimeout(timeoutId);
+        
+        if (err) {
+          console.error('FFprobe subtitle error:', err.message);
+          resolve();
+          return;
+        }
+        
+        const subtitleStreams = metadata.streams.filter(s => s.codec_type === 'subtitle');
+        
+        if (subtitleStreams.length === 0) {
+          console.log('No embedded subtitles found');
+          this.sendSubtitles([]);
+          resolve();
+          return;
+        }
+
+        console.log(`Found ${subtitleStreams.length} subtitle track(s)`);
+        
+        subtitleStreams.forEach((stream, index) => {
+          const track: SubtitleTrack = {
+            index: stream.index,
+            language: stream.tags?.language || 'und',
+            title: stream.tags?.title || `Track ${index + 1}`,
+            url: `http://127.0.0.1:${this.serverPort}/subtitle/${stream.index}.vtt`
+          };
+          this.subtitleTracks.push(track);
+        });
+
+        this.sendSubtitles(this.subtitleTracks);
+        resolve();
+      });
+    });
+  }
+
   /**
    * Start HTTP streaming server
    */
@@ -298,6 +343,13 @@ export class TorrentEngine {
         const reqUrl = new URL(req.url ?? '/', 'http://127.0.0.1');
         const isTranscode = reqUrl.searchParams.get('transcode') === 'true';
         const startTime = Number(reqUrl.searchParams.get('startTime') || '0');
+
+        const subtitleMatch = reqUrl.pathname.match(/^\/subtitle\/(\d+)\.vtt$/);
+        if (subtitleMatch) {
+          const streamIndex = parseInt(subtitleMatch[1], 10);
+          await this.serveSubtitle(streamIndex, res, file);
+          return;
+        }
 
         if (reqUrl.pathname !== pathname) {
           res.statusCode = 404;
@@ -444,8 +496,10 @@ export class TorrentEngine {
         this.sendVideoMetadata(probeResult.duration);
       }
 
+      this.extractSubtitles(streamUrl);
+
       if (probeResult.needsTranscode) {
-        console.log('⚠️ Transcoding enabled due to unsupported audio codec');
+        console.log('Transcoding enabled due to unsupported audio codec');
         streamUrl += '?transcode=true';
       }
 
@@ -458,11 +512,42 @@ export class TorrentEngine {
     const lower = filename.toLowerCase();
     if (lower.endsWith('.mp4') || lower.endsWith('.m4v')) return 'video/mp4';
     if (lower.endsWith('.webm')) return 'video/webm';
-    // Use video/x-matroska for MKV to let Chromium properly detect codecs
     if (lower.endsWith('.mkv')) return 'video/x-matroska';
     if (lower.endsWith('.avi')) return 'video/x-msvideo';
     if (lower.endsWith('.mov')) return 'video/quicktime';
     return 'application/octet-stream';
+  }
+
+  private async serveSubtitle(streamIndex: number, res: http.ServerResponse, file: any): Promise<void> {
+    const rawFileUrl = `http://127.0.0.1:${this.serverPort}/${encodeURIComponent(file.name)}`;
+    
+    res.writeHead(200, {
+      'Content-Type': 'text/vtt; charset=utf-8',
+      'Cache-Control': 'no-cache',
+    });
+
+    const command = ffmpeg(rawFileUrl)
+      .outputOptions([`-map 0:${streamIndex}`])
+      .format('webvtt');
+
+    const out = new PassThrough();
+
+    res.once('close', () => {
+      try {
+        command.kill('SIGKILL');
+      } catch {}
+    });
+
+    command.on('error', (err) => {
+      console.error('Subtitle extraction error:', err.message);
+      if (!res.headersSent) {
+        res.statusCode = 500;
+        res.end('Subtitle extraction failed');
+      }
+    });
+
+    command.pipe(out, { end: true });
+    pipeline(out, res, () => {});
   }
 
   /**
@@ -676,6 +761,13 @@ export class TorrentEngine {
     const windows = BrowserWindow.getAllWindows();
     windows.forEach(window => {
       window.webContents.send(IPC_CHANNELS.VIDEO_METADATA, { duration });
+    });
+  }
+
+  private sendSubtitles(tracks: SubtitleTrack[]): void {
+    const windows = BrowserWindow.getAllWindows();
+    windows.forEach(window => {
+      window.webContents.send(IPC_CHANNELS.SUBTITLES, { tracks, hasEmbeddedSubtitles: tracks.length > 0 });
     });
   }
 

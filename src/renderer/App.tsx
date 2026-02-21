@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import TorrentInput from './components/TorrentInput';
 import VideoPlayer from './components/VideoPlayer';
 import StatusBar from './components/StatusBar';
-import { TorrentStatus, TorrentMetadata, ErrorInfo, TorrentFile } from '@/shared/types';
+import { TorrentStatus, TorrentMetadata, ErrorInfo, TorrentFile, SubtitleData } from '@/shared/types';
 
 const VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.avi', '.mov', '.webm', '.m4v', '.flv', '.wmv'];
 
@@ -20,6 +20,7 @@ declare global {
       onTorrentStatus: (callback: (status: TorrentStatus) => void) => void;
       onVideoUrl: (callback: (url: string) => void) => void;
       onVideoMetadata: (callback: (metadata: { duration: number }) => void) => void;
+      onSubtitles: (callback: (data: SubtitleData) => void) => void;
       onError: (callback: (error: ErrorInfo) => void) => void;
       removeAllListeners: (channel: string) => void;
     };
@@ -33,6 +34,7 @@ const App: React.FC = () => {
   const [metadata, setMetadata] = useState<TorrentMetadata | null>(null);
   const [error, setError] = useState<ErrorInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [subtitleData, setSubtitleData] = useState<SubtitleData | null>(null);
 
   useEffect(() => {
     // Set application title
@@ -50,8 +52,12 @@ const App: React.FC = () => {
       console.log('Received video metadata:', meta);
       setServerDuration(meta.duration);
     });
+
+    window.electronAPI.onSubtitles((data) => {
+      console.log('Received subtitles:', data);
+      setSubtitleData(data);
+    });
     
-    // Listen for torrent status updates
     window.electronAPI.onTorrentStatus((status) => {
       setTorrentStatus(status);
     });
@@ -64,9 +70,9 @@ const App: React.FC = () => {
     });
 
     return () => {
-      // Cleanup listeners
       window.electronAPI.removeAllListeners('video:url');
       window.electronAPI.removeAllListeners('video:metadata');
+      window.electronAPI.removeAllListeners('subtitles:available');
       window.electronAPI.removeAllListeners('torrent:status');
       window.electronAPI.removeAllListeners('error');
     };
@@ -96,7 +102,8 @@ const App: React.FC = () => {
       setTorrentStatus(null);
       setMetadata(null);
       setIsLoading(false);
-    } catch (err) {
+      setSubtitleData(null);
+    } catch (err: any) {
       console.error('Error stopping torrent:', err);
     }
   };
@@ -187,6 +194,7 @@ const App: React.FC = () => {
         title={currentIndex !== -1 ? videoFiles[currentIndex].name : undefined}
         videoFiles={videoFiles}
         onSelectFile={handleSelectFile}
+        subtitleData={subtitleData}
       />
       
       <StatusBar  

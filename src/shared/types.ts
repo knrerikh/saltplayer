@@ -52,7 +52,20 @@ export const IPC_CHANNELS = {
   VIDEO_URL: 'video:url',
   TORRENT_SELECT_FILE: 'torrent:selectFile',
   VIDEO_METADATA: 'video:metadata',
+  SUBTITLES: 'subtitles:available',
 } as const;
 
 export type PlaybackControlAction = 'play' | 'pause' | 'stop';
+
+export interface SubtitleTrack {
+  index: number;
+  language: string;
+  title?: string;
+  url: string;
+}
+
+export interface SubtitleData {
+  tracks: SubtitleTrack[];
+  hasEmbeddedSubtitles: boolean;
+}
 
