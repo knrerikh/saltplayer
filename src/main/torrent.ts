@@ -20,6 +20,14 @@ let WebTorrentClass: any = null;
 
 const VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.avi', '.mov', '.webm', '.m4v', '.flv', '.wmv'];
 
+/** Extract ISO 639-2 language code from values like "rus-sub", "eng-forced" */
+function normalizeSubtitleLanguage(raw: string): string {
+  const s = (raw || 'und').trim().toLowerCase();
+  if (!s || s === 'und') return 'und';
+  const match = s.match(/^([a-z]{2,3})(?:[-_].*)?$/);
+  return match ? match[1] : s;
+}
+
 export class TorrentEngine {
   private client: any | null = null;
   private currentTorrent: any | null = null;
@@ -311,10 +319,13 @@ export class TorrentEngine {
         console.log(`Found ${subtitleStreams.length} subtitle track(s)`);
         
         subtitleStreams.forEach((stream, index) => {
+          const streamAny = stream as { tags?: { language?: string; title?: string; LANGUAGE?: string }; language?: string };
+          const rawLang = streamAny.tags?.language ?? streamAny.tags?.LANGUAGE ?? streamAny.language ?? 'und';
+          const lang = normalizeSubtitleLanguage(typeof rawLang === 'string' ? rawLang : 'und');
           const track: SubtitleTrack = {
             index: stream.index,
-            language: stream.tags?.language || 'und',
-            title: stream.tags?.title || `Track ${index + 1}`,
+            language: lang,
+            title: streamAny.tags?.title ?? `Track ${index + 1}`,
             url: `http://127.0.0.1:${this.serverPort}/subtitle/${stream.index}.vtt`
           };
           this.subtitleTracks.push(track);
