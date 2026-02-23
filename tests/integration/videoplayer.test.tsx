@@ -345,10 +345,24 @@ describe('VideoPlayer Component', () => {
         />
       );
 
-      const ccButton = Array.from(container.querySelectorAll('.control-button')).find(
-        btn => btn.textContent === 'CC'
-      );
+      const ccButton = container.querySelector('.subtitle-control-cc');
       expect(ccButton).toBeTruthy();
+      expect(ccButton?.textContent).toBe('CC');
+    });
+
+    it('should show arrow button when subtitles are available', () => {
+      const { container } = render(
+        <VideoPlayer 
+          videoUrl="http://localhost:8080/video.mp4"
+          title="Test Video"
+          onClose={vi.fn()}
+          subtitleData={mockSubtitleData}
+        />
+      );
+
+      const arrowButton = container.querySelector('.subtitle-control-arrow');
+      expect(arrowButton).toBeTruthy();
+      expect(arrowButton?.textContent).toBe('▼');
     });
 
     it('should not show CC button when no subtitles available', () => {
@@ -361,10 +375,8 @@ describe('VideoPlayer Component', () => {
         />
       );
 
-      const ccButton = Array.from(container.querySelectorAll('.control-button')).find(
-        btn => btn.textContent === 'CC'
-      );
-      expect(ccButton).toBeFalsy();
+      const subtitleControl = container.querySelector('.subtitle-control');
+      expect(subtitleControl).toBeFalsy();
     });
 
     it('should not show CC button when subtitleData is null', () => {
@@ -377,10 +389,8 @@ describe('VideoPlayer Component', () => {
         />
       );
 
-      const ccButton = Array.from(container.querySelectorAll('.control-button')).find(
-        btn => btn.textContent === 'CC'
-      );
-      expect(ccButton).toBeFalsy();
+      const subtitleControl = container.querySelector('.subtitle-control');
+      expect(subtitleControl).toBeFalsy();
     });
 
     it('should have subtitles disabled by default', () => {
@@ -393,10 +403,7 @@ describe('VideoPlayer Component', () => {
         />
       );
 
-      const ccButton = Array.from(container.querySelectorAll('.control-button')).find(
-        btn => btn.textContent === 'CC'
-      ) as HTMLButtonElement;
-
+      const ccButton = container.querySelector('.subtitle-control-cc') as HTMLButtonElement;
       expect(ccButton.style.opacity).toBe('0.5');
     });
 
@@ -410,9 +417,7 @@ describe('VideoPlayer Component', () => {
         />
       );
 
-      const ccButton = Array.from(container.querySelectorAll('.control-button')).find(
-        btn => btn.textContent === 'CC'
-      ) as HTMLButtonElement;
+      const ccButton = container.querySelector('.subtitle-control-cc') as HTMLButtonElement;
 
       expect(ccButton.style.opacity).toBe('0.5');
 
@@ -435,9 +440,7 @@ describe('VideoPlayer Component', () => {
         />
       );
 
-      const ccButton = Array.from(container.querySelectorAll('.control-button')).find(
-        btn => btn.textContent === 'CC'
-      ) as HTMLButtonElement;
+      const ccButton = container.querySelector('.subtitle-control-cc') as HTMLButtonElement;
 
       fireEvent.click(ccButton);
 
@@ -461,6 +464,111 @@ describe('VideoPlayer Component', () => {
       expect(track).toBeFalsy();
     });
 
+    it('should open language menu when arrow is clicked', () => {
+      const { container } = render(
+        <VideoPlayer 
+          videoUrl="http://localhost:8080/video.mp4"
+          title="Test Video"
+          onClose={vi.fn()}
+          subtitleData={mockSubtitleData}
+        />
+      );
+
+      const arrowButton = container.querySelector('.subtitle-control-arrow') as HTMLButtonElement;
+      expect(container.querySelector('.subtitle-menu')).toBeFalsy();
+
+      fireEvent.click(arrowButton);
+
+      const menu = container.querySelector('.subtitle-menu');
+      expect(menu).toBeTruthy();
+      const items = menu?.querySelectorAll('.subtitle-menu-item');
+      expect(items).toHaveLength(3); // Off + English + Russian
+      expect(items?.[0].textContent).toBe('Off');
+      expect(items?.[1].textContent).toBe('English');
+      expect(items?.[2].textContent).toBe('Russian');
+    });
+
+    it('should enable subtitles and set track when selecting language from menu', () => {
+      const { container } = render(
+        <VideoPlayer 
+          videoUrl="http://localhost:8080/video.mp4"
+          title="Test Video"
+          onClose={vi.fn()}
+          subtitleData={mockSubtitleData}
+        />
+      );
+
+      const arrowButton = container.querySelector('.subtitle-control-arrow') as HTMLButtonElement;
+      fireEvent.click(arrowButton);
+
+      const menu = container.querySelector('.subtitle-menu');
+      const russianItem = Array.from(menu?.querySelectorAll('.subtitle-menu-item') ?? []).find(
+        el => el.textContent === 'Russian'
+      ) as HTMLButtonElement;
+      fireEvent.click(russianItem);
+
+      const track = container.querySelector('track');
+      expect(track).toBeTruthy();
+      expect(track?.getAttribute('src')).toBe('http://localhost:8080/subtitle/1.vtt');
+
+      const ccButton = container.querySelector('.subtitle-control-cc') as HTMLButtonElement;
+      expect(ccButton.style.opacity).toBe('1');
+    });
+
+    it('should disable subtitles and close menu when selecting Off', () => {
+      const { container } = render(
+        <VideoPlayer 
+          videoUrl="http://localhost:8080/video.mp4"
+          title="Test Video"
+          onClose={vi.fn()}
+          subtitleData={mockSubtitleData}
+        />
+      );
+
+      const ccButton = container.querySelector('.subtitle-control-cc') as HTMLButtonElement;
+      fireEvent.click(ccButton);
+      expect(ccButton.style.opacity).toBe('1');
+
+      const arrowButton = container.querySelector('.subtitle-control-arrow') as HTMLButtonElement;
+      fireEvent.click(arrowButton);
+
+      const menu = container.querySelector('.subtitle-menu');
+      const offItem = menu?.querySelector('.subtitle-menu-item') as HTMLButtonElement;
+      fireEvent.click(offItem);
+
+      expect(container.querySelector('.subtitle-menu')).toBeFalsy();
+      expect(ccButton.style.opacity).toBe('0.5');
+      expect(container.querySelector('track')).toBeFalsy();
+    });
+
+    it('should display human-readable language for technical codes (rus-sub, SDH)', () => {
+      const technicalSubtitleData: SubtitleData = {
+        tracks: [
+          { index: 0, language: 'rus-sub', title: 'rus-sub', url: 'http://localhost:8080/subtitle/0.vtt' },
+          { index: 1, language: 'eng', title: 'SDH', url: 'http://localhost:8080/subtitle/1.vtt' },
+          { index: 2, language: 'und', title: 'rus-sub', url: 'http://localhost:8080/subtitle/2.vtt' }
+        ],
+        hasEmbeddedSubtitles: true
+      };
+      const { container } = render(
+        <VideoPlayer 
+          videoUrl="http://localhost:8080/video.mp4"
+          title="Test Video"
+          onClose={vi.fn()}
+          subtitleData={technicalSubtitleData}
+        />
+      );
+
+      const arrowButton = container.querySelector('.subtitle-control-arrow') as HTMLButtonElement;
+      fireEvent.click(arrowButton);
+
+      const menu = container.querySelector('.subtitle-menu');
+      const items = menu?.querySelectorAll('.subtitle-menu-item');
+      expect(items?.[1].textContent).toBe('Russian');
+      expect(items?.[2].textContent).toBe('English (SDH)');
+      expect(items?.[3].textContent).toBe('Russian');
+    });
+
     it('should reset subtitles when video URL changes', () => {
       const { container, rerender } = render(
         <VideoPlayer 
@@ -471,9 +579,7 @@ describe('VideoPlayer Component', () => {
         />
       );
 
-      const ccButton = Array.from(container.querySelectorAll('.control-button')).find(
-        btn => btn.textContent === 'CC'
-      ) as HTMLButtonElement;
+      const ccButton = container.querySelector('.subtitle-control-cc') as HTMLButtonElement;
 
       fireEvent.click(ccButton);
       expect(ccButton.style.opacity).toBe('1');
@@ -487,9 +593,7 @@ describe('VideoPlayer Component', () => {
         />
       );
 
-      const ccButtonAfter = Array.from(container.querySelectorAll('.control-button')).find(
-        btn => btn.textContent === 'CC'
-      ) as HTMLButtonElement;
+      const ccButtonAfter = container.querySelector('.subtitle-control-cc') as HTMLButtonElement;
 
       expect(ccButtonAfter.style.opacity).toBe('0.5');
     });

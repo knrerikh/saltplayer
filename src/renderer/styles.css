@@ -326,6 +326,79 @@ body {
   background-color: rgba(255, 255, 255, 0.2);
 }
 
+/* Subtitle control: split button [ CC | ▼ ] + dropdown */
+.subtitle-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 36px;
+  border-radius: 50%;
+  overflow: visible;
+}
+
+.subtitle-control-cc,
+.subtitle-control-arrow {
+  height: 36px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+  padding: 0;
+}
+
+.subtitle-control-cc {
+  width: 28px;
+  border-radius: 50% 0 0 50%;
+  font-size: 12px;
+}
+
+.subtitle-control-arrow {
+  width: 20px;
+  border-radius: 0 50% 50% 0;
+  font-size: 8px;
+  margin-left: -1px;
+}
+
+.subtitle-control-cc:hover,
+.subtitle-control-arrow:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.subtitle-menu {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: 4px;
+  background-color: rgba(0, 0, 0, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  padding: 4px 0;
+  min-width: 120px;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.subtitle-menu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.subtitle-menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
 .seek-bar {
   flex: 1;
   height: 6px;
