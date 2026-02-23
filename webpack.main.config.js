@@ -35,6 +35,10 @@ module.exports = {
     'ffmpeg-static': 'commonjs ffmpeg-static',
     'ffprobe-static': 'commonjs ffprobe-static',
     'fluent-ffmpeg': 'commonjs fluent-ffmpeg',
-  }
+  },
+  ignoreWarnings: [
+    { module: /node_modules\/fs-native-extensions/ },
+    { module: /node_modules\/require-addon/ },
+  ],
 };
 
