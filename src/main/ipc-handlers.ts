@@ -71,7 +71,16 @@ export function setupIPCHandlers(
     }
   });
 
-  // Open a URL in the OS default handler (e.g. VLC can register as handler, or user can copy/paste)
+  // Select audio track
+  ipcMain.handle(IPC_CHANNELS.AUDIO_SELECT, async (_, streamIndex: number) => {
+    try {
+      await torrentEngine.selectAudioTrack(streamIndex);
+    } catch (error) {
+      console.error('Error selecting audio track:', error);
+      throw error;
+    }
+  });
+
   ipcMain.handle(IPC_CHANNELS.APP_OPEN_EXTERNAL, async (_, url: string) => {
     await shell.openExternal(url);
     return true;

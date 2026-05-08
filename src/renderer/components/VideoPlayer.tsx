@@ -1,8 +1,7 @@
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
-import { SubtitleData, SubtitleTrack } from '@/shared/types';
+import { SubtitleData, SubtitleTrack, AudioData, AudioTrack } from '@/shared/types';
 
-// ISO 639-2 language codes → human-readable names (for subtitle menu)
-const SUBTITLE_LANGUAGE_NAMES: Record<string, string> = {
+const LANGUAGE_NAMES: Record<string, string> = {
   eng: 'English', rus: 'Russian', spa: 'Spanish', fra: 'French', deu: 'German',
   ita: 'Italian', por: 'Portuguese', jpn: 'Japanese', kor: 'Korean', zho: 'Chinese',
   ara: 'Arabic', hin: 'Hindi', tur: 'Turkish', pol: 'Polish', ukr: 'Ukrainian',
@@ -27,7 +26,7 @@ function getSubtitleDisplayName(track: SubtitleTrack): string {
     const extracted = t.match(/^([a-z]{2,3})-/i);
     if (extracted) lang = extracted[1].toLowerCase();
   }
-  const langName = SUBTITLE_LANGUAGE_NAMES[lang] || SUBTITLE_LANGUAGE_NAMES[track.language] || 'Unknown';
+  const langName = LANGUAGE_NAMES[lang] || LANGUAGE_NAMES[track.language] || 'Unknown';
   const isGenericTitle = !t || /^Track\s+\d+$/i.test(t) || /^\d+$/.test(t);
   const isTechnicalCode = TECHNICAL_TITLE_PATTERN.test(t);
   const isTechnicalDescriptor = TECHNICAL_TITLES.has(t.toLowerCase());
@@ -36,6 +35,14 @@ function getSubtitleDisplayName(track: SubtitleTrack): string {
     return track.title!;
   }
   return langName;
+}
+
+function getAudioDisplayName(track: AudioTrack): string {
+  const lang = normalizeLanguageForDisplay(track.language);
+  const langName = LANGUAGE_NAMES[lang] || LANGUAGE_NAMES[track.language] || 'Unknown';
+  const codec = (track.codec || '').toUpperCase();
+  const channelLabel = track.channels >= 6 ? '5.1' : track.channels === 1 ? 'Mono' : 'Stereo';
+  return `${langName} (${codec} ${channelLabel})`;
 }
 
 interface VideoPlayerProps {
@@ -50,6 +57,8 @@ interface VideoPlayerProps {
   videoFiles?: { name: string }[];
   onSelectFile?: (fileName: string) => void;
   subtitleData?: SubtitleData | null;
+  audioData?: AudioData | null;
+  onSelectAudioTrack?: (streamIndex: number) => void;
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({ 
@@ -62,7 +71,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   title,
   videoFiles,
   onSelectFile,
-  subtitleData
+  subtitleData,
+  audioData,
+  onSelectAudioTrack,
   }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -77,7 +88,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [subtitlesEnabled, setSubtitlesEnabled] = useState(false);
   const [currentSubtitleIndex, setCurrentSubtitleIndex] = useState(0);
   const [subtitleMenuOpen, setSubtitleMenuOpen] = useState(false);
+  const [audioMenuOpen, setAudioMenuOpen] = useState(false);
+  const [selectedAudioTrackIndex, setSelectedAudioTrackIndex] = useState(0);
   const subtitleControlRef = useRef<HTMLDivElement>(null);
+  const audioControlRef = useRef<HTMLDivElement>(null);
 
   const isTranscode = useMemo(() => {
     return videoUrl?.includes('transcode=true') || false;
@@ -116,6 +130,24 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [subtitleMenuOpen]);
+
+  useEffect(() => {
+    if (!audioMenuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (audioControlRef.current && !audioControlRef.current.contains(e.target as Node)) {
+        setAudioMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setAudioMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [audioMenuOpen]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -465,6 +497,39 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 onChange={handleVolumeChange}
               />
               
+              {audioData && audioData.tracks.length > 1 && onSelectAudioTrack && (
+                <div className="audio-control" ref={audioControlRef}>
+                  <button
+                    type="button"
+                    className="audio-control-btn"
+                    onClick={(e) => { e.stopPropagation(); setAudioMenuOpen((open) => !open); }}
+                    title="Audio track"
+                    aria-expanded={audioMenuOpen}
+                  >
+                    🔊
+                  </button>
+                  {audioMenuOpen && (
+                    <div className="audio-menu" role="menu">
+                      {audioData.tracks.map((track, index) => (
+                        <button
+                          key={track.index}
+                          type="button"
+                          role="menuitem"
+                          className={`audio-menu-item${index === selectedAudioTrackIndex ? ' active' : ''}`}
+                          onClick={() => {
+                            setSelectedAudioTrackIndex(index);
+                            onSelectAudioTrack(track.index);
+                            setAudioMenuOpen(false);
+                          }}
+                        >
+                          {getAudioDisplayName(track)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {subtitleData?.hasEmbeddedSubtitles && (
                 <div className="subtitle-control" ref={subtitleControlRef}>
                   <button

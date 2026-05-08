@@ -53,6 +53,8 @@ export const IPC_CHANNELS = {
   TORRENT_SELECT_FILE: 'torrent:selectFile',
   VIDEO_METADATA: 'video:metadata',
   SUBTITLES: 'subtitles:available',
+  AUDIO_TRACKS: 'audio:available',
+  AUDIO_SELECT: 'audio:selectTrack',
 } as const;
 
 export type PlaybackControlAction = 'play' | 'pause' | 'stop';
@@ -67,5 +69,18 @@ export interface SubtitleTrack {
 export interface SubtitleData {
   tracks: SubtitleTrack[];
   hasEmbeddedSubtitles: boolean;
+}
+
+export interface AudioTrack {
+  index: number;
+  language: string;
+  title?: string;
+  codec: string;
+  channels: number;
+}
+
+export interface AudioData {
+  tracks: AudioTrack[];
+  currentTrackIndex: number;
 }
 

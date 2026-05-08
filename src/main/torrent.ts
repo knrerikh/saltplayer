@@ -1,4 +1,4 @@
-import { TorrentFile, TorrentMetadata, TorrentStatus, IPC_CHANNELS, SubtitleTrack } from '@/shared/types';
+import { TorrentFile, TorrentMetadata, TorrentStatus, IPC_CHANNELS, SubtitleTrack, AudioTrack } from '@/shared/types';
 import { StorageManager } from './storage';
 import { BrowserWindow } from 'electron';
 import * as http from 'http';
@@ -20,8 +20,10 @@ let WebTorrentClass: any = null;
 
 const VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.avi', '.mov', '.webm', '.m4v', '.flv', '.wmv'];
 
+const UNSUPPORTED_AUDIO_CODECS = ['ac3', 'ac-3', 'eac3', 'ec-3', 'dts', 'truehd', 'mlp', 'vorbis'];
+
 /** Extract ISO 639-2 language code from values like "rus-sub", "eng-forced" */
-function normalizeSubtitleLanguage(raw: string): string {
+function normalizeLanguage(raw: string): string {
   const s = (raw || 'und').trim().toLowerCase();
   if (!s || s === 'und') return 'und';
   const match = s.match(/^([a-z]{2,3})(?:[-_].*)?$/);
@@ -38,6 +40,10 @@ export class TorrentEngine {
   private serverPort: number | null = null;
   private statusInterval: NodeJS.Timeout | null = null;
   private subtitleTracks: SubtitleTrack[] = [];
+  private audioTracks: AudioTrack[] = [];
+  private selectedAudioIndex: number | null = null;
+  private currentStreamUrl: string | null = null;
+  private currentFilePathname: string | null = null;
 
   constructor(storageManager: StorageManager) {
     this.storageManager = storageManager;
@@ -270,12 +276,13 @@ export class TorrentEngine {
         }
 
         if (!isResolved) {
+            this.extractAudioTracks(metadata);
+
             let needsTranscode = false;
             const audioStream = metadata.streams.find(s => s.codec_type === 'audio');
             if (audioStream) {
               const codec = audioStream.codec_name?.toLowerCase();
-              const unsupportedCodecs = ['ac3', 'ac-3', 'eac3', 'ec-3', 'dts', 'truehd', 'mlp', 'vorbis']; 
-              if (codec && unsupportedCodecs.includes(codec)) {
+              if (codec && UNSUPPORTED_AUDIO_CODECS.includes(codec)) {
                 console.log(`Transcoding required for codec: ${codec}`);
                 needsTranscode = true;
               }
@@ -321,7 +328,7 @@ export class TorrentEngine {
         subtitleStreams.forEach((stream, index) => {
           const streamAny = stream as { tags?: { language?: string; title?: string; LANGUAGE?: string }; language?: string };
           const rawLang = streamAny.tags?.language ?? streamAny.tags?.LANGUAGE ?? streamAny.language ?? 'und';
-          const lang = normalizeSubtitleLanguage(typeof rawLang === 'string' ? rawLang : 'und');
+          const lang = normalizeLanguage(typeof rawLang === 'string' ? rawLang : 'und');
           const track: SubtitleTrack = {
             index: stream.index,
             language: lang,
@@ -369,10 +376,8 @@ export class TorrentEngine {
         }
 
         if (isTranscode) {
-          // Use the raw HTTP URL as FFmpeg input (not a pipe).
-          // This allows FFmpeg to read MKV headers via HTTP range requests
-          // and seek properly using the container's index.
           const rawFileUrl = `http://127.0.0.1:${this.serverPort}${pathname}`;
+          const audioTrackParam = reqUrl.searchParams.get('audioTrack');
 
           res.writeHead(200, {
             'Content-Type': 'video/x-matroska',
@@ -385,10 +390,22 @@ export class TorrentEngine {
             command.seekInput(startTime);
           }
 
+          if (audioTrackParam) {
+            const audioStreamIndex = parseInt(audioTrackParam, 10);
+            command.outputOptions(['-map 0:v:0', `-map 0:${audioStreamIndex}`]);
+            const track = this.audioTracks.find(t => t.index === audioStreamIndex);
+            const codec = track?.codec?.toLowerCase() ?? '';
+            if (codec && UNSUPPORTED_AUDIO_CODECS.includes(codec)) {
+              command.audioCodec('aac').audioChannels(2);
+            } else {
+              command.audioCodec('copy');
+            }
+          } else {
+            command.audioCodec('aac').audioChannels(2);
+          }
+
           command
             .videoCodec('copy')
-            .audioCodec('aac')
-            .audioChannels(2)
             .format('matroska')
             .on('codecData', (data) => {
               if (data.duration) {
@@ -498,10 +515,13 @@ export class TorrentEngine {
     this.server.listen(0, async () => {
       const address = this.server.address();
       this.serverPort = address?.port ?? null;
+      this.currentFilePathname = pathname;
+      this.selectedAudioIndex = null;
       let streamUrl = `http://127.0.0.1:${this.serverPort}${pathname}`;
 
       console.log(`Streaming server started at ${streamUrl}`);
       const probeResult = await this.probeStream(streamUrl);
+      this.currentStreamUrl = streamUrl;
 
       if (probeResult.duration > 0) {
         this.sendVideoMetadata(probeResult.duration);
@@ -780,6 +800,62 @@ export class TorrentEngine {
     windows.forEach(window => {
       window.webContents.send(IPC_CHANNELS.SUBTITLES, { tracks, hasEmbeddedSubtitles: tracks.length > 0 });
     });
+  }
+
+  private extractAudioTracks(metadata: { streams: any[] }): void {
+    this.audioTracks = [];
+    const audioStreams = metadata.streams.filter((s: any) => s.codec_type === 'audio');
+
+    if (audioStreams.length === 0) {
+      this.sendAudioTracks();
+      return;
+    }
+
+    console.log(`Found ${audioStreams.length} audio track(s)`);
+
+    audioStreams.forEach((stream: any, index: number) => {
+      const rawLang = stream.tags?.language ?? stream.tags?.LANGUAGE ?? stream.language ?? 'und';
+      const lang = normalizeLanguage(typeof rawLang === 'string' ? rawLang : 'und');
+      const track: AudioTrack = {
+        index: stream.index,
+        language: lang,
+        title: stream.tags?.title ?? `Track ${index + 1}`,
+        codec: stream.codec_name ?? 'unknown',
+        channels: stream.channels ?? 2,
+      };
+      this.audioTracks.push(track);
+    });
+
+    this.sendAudioTracks();
+  }
+
+  private sendAudioTracks(): void {
+    const windows = BrowserWindow.getAllWindows();
+    const data = { tracks: this.audioTracks, currentTrackIndex: 0 };
+    windows.forEach(window => {
+      window.webContents.send(IPC_CHANNELS.AUDIO_TRACKS, data);
+    });
+  }
+
+  async selectAudioTrack(streamIndex: number): Promise<void> {
+    if (!this.currentStreamUrl || !this.currentFilePathname) {
+      throw new Error('No active stream');
+    }
+
+    const track = this.audioTracks.find(t => t.index === streamIndex);
+    if (!track) {
+      throw new Error(`Audio track not found: ${streamIndex}`);
+    }
+
+    this.selectedAudioIndex = streamIndex;
+    console.log(`Selecting audio track: ${track.title} (index ${streamIndex}, codec ${track.codec})`);
+
+    const baseUrl = `http://127.0.0.1:${this.serverPort}${this.currentFilePathname}`;
+    const url = new URL(baseUrl);
+    url.searchParams.set('transcode', 'true');
+    url.searchParams.set('audioTrack', String(streamIndex));
+
+    this.sendVideoUrl(url.toString());
   }
 
   /**

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import TorrentInput from './components/TorrentInput';
 import VideoPlayer from './components/VideoPlayer';
 import StatusBar from './components/StatusBar';
-import { TorrentStatus, TorrentMetadata, ErrorInfo, TorrentFile, SubtitleData } from '@/shared/types';
+import { TorrentStatus, TorrentMetadata, ErrorInfo, TorrentFile, SubtitleData, AudioData } from '@/shared/types';
 
 const VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.avi', '.mov', '.webm', '.m4v', '.flv', '.wmv'];
 
@@ -15,12 +15,14 @@ declare global {
       selectFile: (fileName: string) => Promise<void>;
       playbackControl: (action: 'play' | 'pause' | 'stop') => Promise<void>;
       playbackSeek: (time: number) => Promise<void>;
+      selectAudioTrack: (streamIndex: number) => Promise<void>;
       quit: () => Promise<void>;
       openExternal: (url: string) => Promise<boolean>;
       onTorrentStatus: (callback: (status: TorrentStatus) => void) => void;
       onVideoUrl: (callback: (url: string) => void) => void;
       onVideoMetadata: (callback: (metadata: { duration: number }) => void) => void;
       onSubtitles: (callback: (data: SubtitleData) => void) => void;
+      onAudioTracks: (callback: (data: AudioData) => void) => void;
       onError: (callback: (error: ErrorInfo) => void) => void;
       removeAllListeners: (channel: string) => void;
     };
@@ -35,6 +37,7 @@ const App: React.FC = () => {
   const [error, setError] = useState<ErrorInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [subtitleData, setSubtitleData] = useState<SubtitleData | null>(null);
+  const [audioData, setAudioData] = useState<AudioData | null>(null);
 
   useEffect(() => {
     // Set application title
@@ -57,6 +60,11 @@ const App: React.FC = () => {
       console.log('Received subtitles:', data);
       setSubtitleData(data);
     });
+
+    window.electronAPI.onAudioTracks((data) => {
+      console.log('Received audio tracks:', data);
+      setAudioData(data);
+    });
     
     window.electronAPI.onTorrentStatus((status) => {
       setTorrentStatus(status);
@@ -73,6 +81,7 @@ const App: React.FC = () => {
       window.electronAPI.removeAllListeners('video:url');
       window.electronAPI.removeAllListeners('video:metadata');
       window.electronAPI.removeAllListeners('subtitles:available');
+      window.electronAPI.removeAllListeners('audio:available');
       window.electronAPI.removeAllListeners('torrent:status');
       window.electronAPI.removeAllListeners('error');
     };
@@ -103,6 +112,7 @@ const App: React.FC = () => {
       setMetadata(null);
       setIsLoading(false);
       setSubtitleData(null);
+      setAudioData(null);
     } catch (err: any) {
       console.error('Error stopping torrent:', err);
     }
@@ -166,6 +176,14 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSelectAudioTrack = async (streamIndex: number) => {
+    try {
+      await window.electronAPI.selectAudioTrack(streamIndex);
+    } catch (err) {
+      console.error('Error selecting audio track:', err);
+    }
+  };
+
   const handleSelectFile = async (fileName: string) => {
     setIsLoading(true);
     setServerDuration(null);
@@ -195,6 +213,8 @@ const App: React.FC = () => {
         videoFiles={videoFiles}
         onSelectFile={handleSelectFile}
         subtitleData={subtitleData}
+        audioData={audioData}
+        onSelectAudioTrack={handleSelectAudioTrack}
       />
       
       <StatusBar  
