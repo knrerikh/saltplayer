@@ -23,6 +23,10 @@ Thumbs.db
 .vscode/
 .idea/
 .cursor/
+
+# AI agent instructions (local only)
+CLAUDE.md
+AGENTS.md
 *.swp
 *.swo
 *~
