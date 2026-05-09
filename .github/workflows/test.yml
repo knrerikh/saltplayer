@@ -74,7 +74,5 @@ jobs:
         run: npm run build
       
       - name: Package application
-        run: npm run package
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run package -- --publish never
 
