@@ -107,6 +107,10 @@
         "rpm"
       ],
       "category": "Video"
+    },
+    "publish": {
+      "provider": "github",
+      "releaseType": "release"
     }
   }
 }
