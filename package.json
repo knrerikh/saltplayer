@@ -1,6 +1,6 @@
 {
   "name": "saltplayer",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "description": "Minimalist torrent player with progressive streaming",
   "main": "dist/main/main.js",
   "author": "Konstantin Rerikh <knrerikh@gmail.com>",
@@ -83,20 +83,17 @@
     "directories": {
       "output": "release"
     },
+    "asarUnpack": [
+      "**/node_modules/ffmpeg-static/**",
+      "**/node_modules/ffprobe-static/**"
+    ],
     "files": [
       "dist/**/*",
       "assets/**/*",
       "package.json"
     ],
     "mac": {
-      "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "universal"
-          ]
-        }
-      ],
+      "target": "dmg",
       "category": "public.app-category.video"
     },
     "win": {

@@ -48,7 +48,8 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-          - os: macos-latest
+          - os: macos-latest   # ARM64 runner → arm64 DMG
+          - os: macos-13       # Intel runner  → x64 DMG
           - os: windows-latest
 
     steps:
