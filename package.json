@@ -83,9 +83,6 @@
     "directories": {
       "output": "release"
     },
-    "asarUnpack": [
-      "**/node_modules/node-datachannel/**"
-    ],
     "files": [
       "dist/**/*",
       "assets/**/*",

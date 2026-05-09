@@ -55,19 +55,45 @@ export class TorrentEngine {
   private async initializeClient(): Promise<void> {
     // Load WebTorrent dynamically (it's an ESM module with top-level await)
     if (!WebTorrentClass) {
+      // Stub node-datachannel native binary before loading webtorrent.
+      // webrtc-polyfill (loaded by simple-peer → webtorrent) eagerly requires
+      // node_datachannel.node via createRequire, which fails in the packaged app
+      // because cmake-js native modules aren't rebuilt by @electron/rebuild.
+      // Desktop torrent clients only need TCP/UDP peers, so disabling WebRTC is safe.
+      const Module = require('module') as { _load: Function };
+      const origLoad = Module._load;
+      const noop = (): void => {};
+      class NoopClass {}
+      const ndcStub = new Proxy(
+        {
+          initLogger: noop, cleanup: noop, preload: noop, setSctpSettings: noop,
+          RtcpReceivingSession: NoopClass, Track: NoopClass, Video: NoopClass,
+          Audio: NoopClass, DataChannel: NoopClass, PeerConnection: NoopClass, WebSocket: NoopClass,
+        },
+        { get: (t, p) => (p in t ? (t as Record<string|symbol, unknown>)[p] : NoopClass) }
+      );
+      Module._load = function(request: string, ...rest: unknown[]) {
+        if (typeof request === 'string' && request.includes('node_datachannel.node')) {
+          return ndcStub;
+        }
+        return origLoad.call(this, request, ...rest);
+      };
+
       try {
         const WebTorrentModule = await import('webtorrent');
-        
+
         // If default is a Promise, await it (top-level await in ESM)
         let resolved = WebTorrentModule.default;
         if (resolved instanceof Promise) {
           resolved = await resolved;
         }
-        
+
         // Try different export patterns: check resolved object first
         WebTorrentClass = (resolved as any)?.default || (resolved as any)?.WebTorrent || (WebTorrentModule as any).WebTorrent || resolved || WebTorrentModule;
       } catch (error: any) {
         throw error;
+      } finally {
+        Module._load = origLoad;
       }
     }
     
