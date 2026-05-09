@@ -90,7 +90,10 @@
     ],
     "mac": {
       "target": [
-        "dmg"
+        {
+          "target": "dmg",
+          "arch": ["universal"]
+        }
       ],
       "category": "public.app-category.video"
     },
