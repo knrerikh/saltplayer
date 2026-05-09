@@ -119,12 +119,26 @@ app.on('before-quit', async (event) => {
   app.exit(0);
 });
 
-// Handle uncaught errors
+// Handle uncaught errors — write to log file so packaged-app crashes are diagnosable.
+// Log path on macOS: ~/Library/Logs/Salt Player/crash.log
+function writeCrashLog(label: string, error: unknown): void {
+  try {
+    const logDir = app.getPath('logs');
+    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+    const entry = `${new Date().toISOString()} [${label}] ${
+      error instanceof Error ? error.stack || error.message : String(error)
+    }\n\n`;
+    fs.appendFileSync(path.join(logDir, 'crash.log'), entry);
+  } catch { /* ignore logging errors */ }
+}
+
 process.on('uncaughtException', (error) => {
   console.error('Uncaught exception:', error);
+  writeCrashLog('uncaughtException', error);
   cleanupApp().then(() => app.exit(1));
 });
 
 process.on('unhandledRejection', (error) => {
   console.error('Unhandled rejection:', error);
+  writeCrashLog('unhandledRejection', error);
 });

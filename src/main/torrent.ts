@@ -63,22 +63,20 @@ export class TorrentEngine {
       const Module = require('module') as { _load: Function };
       const origLoad = Module._load;
       const noop = (): void => {};
-      // Every property on a stub instance returns noop, so method calls like
-      // peerConnection.onLocalDescription(cb) silently do nothing instead of throwing.
-      const makeNoopProxy = (): Record<string, unknown> =>
-        new Proxy({} as Record<string, unknown>, { get: () => noop });
-      // PeerConnection must be a regular function so `new` works; returning a plain
-      // object from a constructor causes JS to use that object as the instance.
+      // Regular function (not arrow) so it can be called with `new`. Returning a plain
+      // object from a constructor makes JS use that object as the instance, giving us
+      // a Proxy where any method call (onLocalDescription, createOffer, etc.) returns noop.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      function NoopPeerConnection(this: unknown, ...args: unknown[]): any { return makeNoopProxy(); }
+      function NoopClass(this: unknown, ...args: unknown[]): any {
+        return new Proxy({} as Record<string, unknown>, { get: () => noop });
+      }
       const ndcStub = new Proxy(
         {
           initLogger: noop, cleanup: noop, preload: noop, setSctpSettings: noop,
-          RtcpReceivingSession: makeNoopProxy, Track: makeNoopProxy, Video: makeNoopProxy,
-          Audio: makeNoopProxy, DataChannel: makeNoopProxy, PeerConnection: NoopPeerConnection,
-          WebSocket: makeNoopProxy,
+          RtcpReceivingSession: NoopClass, Track: NoopClass, Video: NoopClass,
+          Audio: NoopClass, DataChannel: NoopClass, PeerConnection: NoopClass, WebSocket: NoopClass,
         } as Record<string, unknown>,
-        { get: (t, p) => (typeof p === 'string' && p in t ? t[p] : makeNoopProxy) }
+        { get: (t, p) => (typeof p === 'string' && p in t ? t[p] : NoopClass) }
       );
       Module._load = function(request: string, ...rest: unknown[]) {
         if (typeof request === 'string' && request.includes('node_datachannel.node')) {
