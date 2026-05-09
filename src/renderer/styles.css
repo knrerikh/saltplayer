@@ -399,6 +399,71 @@ body {
   background-color: rgba(255, 255, 255, 0.15);
 }
 
+/* Audio track control */
+.audio-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 36px;
+  overflow: visible;
+}
+
+.audio-control-btn {
+  height: 36px;
+  width: 36px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+  padding: 0;
+  font-size: 14px;
+}
+
+.audio-control-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.audio-menu {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: 4px;
+  background-color: rgba(0, 0, 0, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  padding: 4px 0;
+  min-width: 160px;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.audio-menu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.audio-menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.audio-menu-item.active {
+  background-color: rgba(255, 255, 255, 0.1);
+  font-weight: 600;
+}
+
 .seek-bar {
   flex: 1;
   height: 6px;
