@@ -399,8 +399,8 @@ body {
   background-color: rgba(255, 255, 255, 0.15);
 }
 
-/* Audio track control */
-.audio-control {
+/* Volume + optional audio track selector: [ ══slider══ ][▼] */
+.volume-group {
   position: relative;
   display: flex;
   align-items: center;
@@ -408,23 +408,33 @@ body {
   overflow: visible;
 }
 
-.audio-control-btn {
+.volume-slider-pill {
+  display: flex;
+  align-items: center;
   height: 36px;
-  width: 36px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 18px 0 0 18px;
+  padding: 0 6px 0 10px;
+}
+
+.volume-track-arrow {
+  height: 36px;
+  width: 20px;
   background-color: rgba(255, 255, 255, 0.1);
   border: none;
-  border-radius: 50%;
+  border-radius: 0 18px 18px 0;
   color: white;
   cursor: pointer;
+  font-size: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: background-color 0.2s;
+  margin-left: -1px;
   padding: 0;
-  font-size: 14px;
 }
 
-.audio-control-btn:hover {
+.volume-track-arrow:hover {
   background-color: rgba(255, 255, 255, 0.2);
 }
 
@@ -481,7 +491,7 @@ body {
 }
 
 .volume-control {
-  width: 100px;
+  width: 80px;
 }
 
 .time-display {

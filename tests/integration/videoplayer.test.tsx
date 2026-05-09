@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import VideoPlayer from '@/renderer/components/VideoPlayer';
-import { SubtitleData } from '@/shared/types';
+import { SubtitleData, AudioData } from '@/shared/types';
 
 describe('VideoPlayer Component', () => {
   beforeEach(() => {
@@ -596,6 +596,294 @@ describe('VideoPlayer Component', () => {
       const ccButtonAfter = container.querySelector('.subtitle-control-cc') as HTMLButtonElement;
 
       expect(ccButtonAfter.style.opacity).toBe('0.5');
+    });
+  });
+
+  describe('Audio Track Selection', () => {
+    const mockAudioData: AudioData = {
+      tracks: [
+        { index: 1, language: 'eng', title: 'English', codec: 'aac', channels: 2 },
+        { index: 2, language: 'rus', title: 'Russian', codec: 'ac3', channels: 6 },
+        { index: 3, language: 'deu', title: 'German', codec: 'aac', channels: 2 },
+      ],
+      currentTrackIndex: 0,
+    };
+
+    const singleAudioData: AudioData = {
+      tracks: [
+        { index: 1, language: 'eng', title: 'English', codec: 'aac', channels: 2 },
+      ],
+      currentTrackIndex: 0,
+    };
+
+    it('should always show a volume slider', () => {
+      const { container } = render(
+        <VideoPlayer
+          videoUrl="http://localhost:8080/video.mkv"
+          title="Test"
+          onClose={vi.fn()}
+        />
+      );
+
+      const slider = container.querySelector('.volume-control') as HTMLInputElement;
+      expect(slider).toBeTruthy();
+      expect(slider.type).toBe('range');
+    });
+
+    it('should show ▼ button and grouped pill when multiple tracks available', () => {
+      const { container } = render(
+        <VideoPlayer
+          videoUrl="http://localhost:8080/video.mkv"
+          title="Test"
+          onClose={vi.fn()}
+          audioData={mockAudioData}
+          onSelectAudioTrack={vi.fn()}
+        />
+      );
+
+      expect(container.querySelector('.volume-track-arrow')).toBeTruthy();
+      expect(container.querySelector('.volume-slider-pill')).toBeTruthy();
+    });
+
+    it('should not show ▼ button when audioData is null', () => {
+      const { container } = render(
+        <VideoPlayer
+          videoUrl="http://localhost:8080/video.mkv"
+          title="Test"
+          onClose={vi.fn()}
+          audioData={null}
+          onSelectAudioTrack={vi.fn()}
+        />
+      );
+
+      expect(container.querySelector('.volume-track-arrow')).toBeFalsy();
+    });
+
+    it('should not show ▼ button when only one audio track', () => {
+      const { container } = render(
+        <VideoPlayer
+          videoUrl="http://localhost:8080/video.mkv"
+          title="Test"
+          onClose={vi.fn()}
+          audioData={singleAudioData}
+          onSelectAudioTrack={vi.fn()}
+        />
+      );
+
+      expect(container.querySelector('.volume-track-arrow')).toBeFalsy();
+    });
+
+    it('should not show ▼ button when onSelectAudioTrack is not provided', () => {
+      const { container } = render(
+        <VideoPlayer
+          videoUrl="http://localhost:8080/video.mkv"
+          title="Test"
+          onClose={vi.fn()}
+          audioData={mockAudioData}
+        />
+      );
+
+      expect(container.querySelector('.volume-track-arrow')).toBeFalsy();
+    });
+
+    it('should open track menu when ▼ is clicked', () => {
+      const { container } = render(
+        <VideoPlayer
+          videoUrl="http://localhost:8080/video.mkv"
+          title="Test"
+          onClose={vi.fn()}
+          audioData={mockAudioData}
+          onSelectAudioTrack={vi.fn()}
+        />
+      );
+
+      expect(container.querySelector('.audio-menu')).toBeFalsy();
+      fireEvent.click(container.querySelector('.volume-track-arrow') as HTMLButtonElement);
+      expect(container.querySelector('.audio-menu')).toBeTruthy();
+    });
+
+    it('should show all audio tracks in panel with display names', () => {
+      const { container } = render(
+        <VideoPlayer
+          videoUrl="http://localhost:8080/video.mkv"
+          title="Test"
+          onClose={vi.fn()}
+          audioData={mockAudioData}
+          onSelectAudioTrack={vi.fn()}
+        />
+      );
+
+      fireEvent.click(container.querySelector('.volume-track-arrow') as HTMLButtonElement);
+
+      const items = container.querySelectorAll('.audio-menu-item');
+      expect(items).toHaveLength(3);
+      expect(items[0].textContent).toBe('English (AAC Stereo)');
+      expect(items[1].textContent).toBe('Russian (AC3 5.1)');
+      expect(items[2].textContent).toBe('German (AAC Stereo)');
+    });
+
+    it('should call onSelectAudioTrack with correct stream index when track is selected', () => {
+      const onSelectAudioTrack = vi.fn();
+      const { container } = render(
+        <VideoPlayer
+          videoUrl="http://localhost:8080/video.mkv"
+          title="Test"
+          onClose={vi.fn()}
+          audioData={mockAudioData}
+          onSelectAudioTrack={onSelectAudioTrack}
+        />
+      );
+
+      fireEvent.click(container.querySelector('.volume-track-arrow') as HTMLButtonElement);
+      const items = container.querySelectorAll('.audio-menu-item');
+      fireEvent.click(items[1]); // Russian track, stream index 2
+
+      expect(onSelectAudioTrack).toHaveBeenCalledWith(2);
+    });
+
+    it('should close panel after selecting a track', () => {
+      const { container } = render(
+        <VideoPlayer
+          videoUrl="http://localhost:8080/video.mkv"
+          title="Test"
+          onClose={vi.fn()}
+          audioData={mockAudioData}
+          onSelectAudioTrack={vi.fn()}
+        />
+      );
+
+      fireEvent.click(container.querySelector('.volume-track-arrow') as HTMLButtonElement);
+      expect(container.querySelector('.audio-menu')).toBeTruthy();
+
+      fireEvent.click(container.querySelectorAll('.audio-menu-item')[0]);
+      expect(container.querySelector('.audio-menu')).toBeFalsy();
+    });
+
+    it('should mark selected track as active', () => {
+      const { container } = render(
+        <VideoPlayer
+          videoUrl="http://localhost:8080/video.mkv"
+          title="Test"
+          onClose={vi.fn()}
+          audioData={mockAudioData}
+          onSelectAudioTrack={vi.fn()}
+        />
+      );
+
+      fireEvent.click(container.querySelector('.volume-track-arrow') as HTMLButtonElement);
+      fireEvent.click(container.querySelectorAll('.audio-menu-item')[1]); // select Russian
+
+      fireEvent.click(container.querySelector('.volume-track-arrow') as HTMLButtonElement);
+      const items = container.querySelectorAll('.audio-menu-item');
+      expect(items[1].classList.contains('active')).toBe(true);
+      expect(items[0].classList.contains('active')).toBe(false);
+    });
+
+    it('should resume playback from current position when audio track changes', () => {
+      const { container, rerender } = render(
+        <VideoPlayer
+          videoUrl="http://localhost:8080/video.mkv?transcode=true"
+          title="Test"
+          onClose={vi.fn()}
+          audioData={mockAudioData}
+          onSelectAudioTrack={vi.fn()}
+        />
+      );
+
+      const video = container.querySelector('video') as HTMLVideoElement;
+
+      // Simulate video playing at 120 seconds
+      Object.defineProperty(video, 'currentTime', { value: 120, writable: true, configurable: true });
+      fireEvent(video, new Event('timeupdate'));
+
+      // Select audio track
+      fireEvent.click(container.querySelector('.volume-track-arrow') as HTMLButtonElement);
+      fireEvent.click(container.querySelectorAll('.audio-menu-item')[1]);
+
+      // Simulate new URL arriving from main process (after IPC call)
+      rerender(
+        <VideoPlayer
+          videoUrl="http://localhost:8080/video.mkv?transcode=true&audioTrack=2"
+          title="Test"
+          onClose={vi.fn()}
+          audioData={mockAudioData}
+          onSelectAudioTrack={vi.fn()}
+        />
+      );
+
+      expect(video.src).toContain('startTime=120');
+    });
+
+    it('should not add startTime when URL changes for non-audio reasons', () => {
+      const { container, rerender } = render(
+        <VideoPlayer
+          videoUrl="http://localhost:8080/episode1.mkv"
+          title="Episode 1"
+          onClose={vi.fn()}
+          audioData={mockAudioData}
+          onSelectAudioTrack={vi.fn()}
+        />
+      );
+
+      const video = container.querySelector('video') as HTMLVideoElement;
+      Object.defineProperty(video, 'currentTime', { value: 60, writable: true, configurable: true });
+      fireEvent(video, new Event('timeupdate'));
+
+      // URL changes due to episode switch (no audio track selection)
+      rerender(
+        <VideoPlayer
+          videoUrl="http://localhost:8080/episode2.mkv"
+          title="Episode 2"
+          onClose={vi.fn()}
+          audioData={mockAudioData}
+          onSelectAudioTrack={vi.fn()}
+        />
+      );
+
+      expect(video.src).not.toContain('startTime');
+    });
+
+    it('should not reset subtitles when audio track changes', () => {
+      const mockSubtitleData: SubtitleData = {
+        tracks: [
+          { index: 0, language: 'eng', title: 'English', url: 'http://localhost:8080/subtitle/0.vtt' },
+        ],
+        hasEmbeddedSubtitles: true,
+      };
+
+      const { container, rerender } = render(
+        <VideoPlayer
+          videoUrl="http://localhost:8080/video.mkv?transcode=true"
+          title="Test"
+          onClose={vi.fn()}
+          audioData={mockAudioData}
+          onSelectAudioTrack={vi.fn()}
+          subtitleData={mockSubtitleData}
+        />
+      );
+
+      // Enable subtitles
+      fireEvent.click(container.querySelector('.subtitle-control-cc') as HTMLButtonElement);
+      expect((container.querySelector('.subtitle-control-cc') as HTMLButtonElement).style.opacity).toBe('1');
+
+      // Select audio track
+      fireEvent.click(container.querySelector('.volume-track-arrow') as HTMLButtonElement);
+      fireEvent.click(container.querySelectorAll('.audio-menu-item')[1]);
+
+      // New URL arrives
+      rerender(
+        <VideoPlayer
+          videoUrl="http://localhost:8080/video.mkv?transcode=true&audioTrack=2"
+          title="Test"
+          onClose={vi.fn()}
+          audioData={mockAudioData}
+          onSelectAudioTrack={vi.fn()}
+          subtitleData={mockSubtitleData}
+        />
+      );
+
+      // Subtitles should still be enabled
+      expect((container.querySelector('.subtitle-control-cc') as HTMLButtonElement).style.opacity).toBe('1');
     });
   });
 });

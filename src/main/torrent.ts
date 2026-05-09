@@ -260,7 +260,7 @@ export class TorrentEngine {
 
       command.ffprobe((err, metadata) => {
         clearTimeout(timeoutId);
-        
+
         if (err) {
           console.error('FFprobe error:', err.message);
           if (!isResolved) {
@@ -268,27 +268,27 @@ export class TorrentEngine {
           }
           return;
         }
-        
+
         const duration = metadata.format?.duration ? Number(metadata.format.duration) : 0;
-        
-        if (isResolved && duration > 0) {
-            this.sendVideoMetadata(duration);
+
+        // Always extract audio tracks when ffprobe succeeds, even after timeout
+        this.extractAudioTracks(metadata);
+
+        if (isResolved) {
+            if (duration > 0) this.sendVideoMetadata(duration);
+            return;
         }
 
-        if (!isResolved) {
-            this.extractAudioTracks(metadata);
-
-            let needsTranscode = false;
-            const audioStream = metadata.streams.find(s => s.codec_type === 'audio');
-            if (audioStream) {
-              const codec = audioStream.codec_name?.toLowerCase();
-              if (codec && UNSUPPORTED_AUDIO_CODECS.includes(codec)) {
-                console.log(`Transcoding required for codec: ${codec}`);
-                needsTranscode = true;
-              }
-            }
-            resolve({ needsTranscode, duration });
+        let needsTranscode = false;
+        const audioStream = metadata.streams.find(s => s.codec_type === 'audio');
+        if (audioStream) {
+          const codec = audioStream.codec_name?.toLowerCase();
+          if (codec && UNSUPPORTED_AUDIO_CODECS.includes(codec)) {
+            console.log(`Transcoding required for codec: ${codec}`);
+            needsTranscode = true;
+          }
         }
+        resolve({ needsTranscode, duration });
       });
     });
   }
@@ -520,6 +520,7 @@ export class TorrentEngine {
       let streamUrl = `http://127.0.0.1:${this.serverPort}${pathname}`;
 
       console.log(`Streaming server started at ${streamUrl}`);
+      this.prioritizeStreamingPieces(file, 0);
       const probeResult = await this.probeStream(streamUrl);
       this.currentStreamUrl = streamUrl;
 
@@ -535,7 +536,6 @@ export class TorrentEngine {
       }
 
       this.sendVideoUrl(streamUrl);
-      this.prioritizeStreamingPieces(file, 0);
     });
   }
 

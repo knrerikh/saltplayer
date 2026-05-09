@@ -92,13 +92,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [selectedAudioTrackIndex, setSelectedAudioTrackIndex] = useState(0);
   const subtitleControlRef = useRef<HTMLDivElement>(null);
   const audioControlRef = useRef<HTMLDivElement>(null);
+  const pendingAudioSwitchTime = useRef<number | null>(null);
 
   const isTranscode = useMemo(() => {
     return videoUrl?.includes('transcode=true') || false;
   }, [videoUrl]);
 
-  // Reset time offset and subtitle index when video URL changes (new file)
+  // Reset time offset and subtitle index when video URL changes (but not for audio track switches)
   useEffect(() => {
+    if (pendingAudioSwitchTime.current !== null) return;
     setTimeOffset(0);
     setSubtitlesEnabled(false);
     setCurrentSubtitleIndex(0);
@@ -249,15 +251,24 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (videoUrl && videoRef.current) {
       const video = videoRef.current;
       setPlaybackError(null);
-      setIsBuffering(true); // Start buffering when URL changes
-      video.src = videoUrl;
+      setIsBuffering(true);
 
-      // Ensure playback isn't muted
+      const resumeTime = pendingAudioSwitchTime.current;
+      pendingAudioSwitchTime.current = null;
+
+      if (resumeTime !== null) {
+        const url = new URL(videoUrl);
+        url.searchParams.set('startTime', Math.floor(resumeTime).toString());
+        setTimeOffset(resumeTime);
+        video.src = url.toString();
+      } else {
+        video.src = videoUrl;
+      }
+
       video.muted = false;
       video.volume = 1;
-      
+
       video.play().catch(err => {
-        // Auto-play might fail
         console.warn('Auto-play failed:', err);
         setIsPlaying(false);
         setIsBuffering(false);
@@ -487,26 +498,28 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 {formatTime(currentTime)} / {formatTime(duration)}
               </div>
               
-              <input
-                type="range"
-                className="volume-control"
-                min="0"
-                max="1"
-                step="0.1"
-                value={volume}
-                onChange={handleVolumeChange}
-              />
-              
-              {audioData && audioData.tracks.length > 1 && onSelectAudioTrack && (
-                <div className="audio-control" ref={audioControlRef}>
+              {audioData && audioData.tracks.length > 1 && onSelectAudioTrack ? (
+                <div className="volume-group" ref={audioControlRef}>
+                  <div className="volume-slider-pill">
+                    <input
+                      type="range"
+                      className="volume-control"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={volume}
+                      onChange={handleVolumeChange}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
                   <button
                     type="button"
-                    className="audio-control-btn"
+                    className="volume-track-arrow"
                     onClick={(e) => { e.stopPropagation(); setAudioMenuOpen((open) => !open); }}
                     title="Audio track"
                     aria-expanded={audioMenuOpen}
                   >
-                    🔊
+                    ▼
                   </button>
                   {audioMenuOpen && (
                     <div className="audio-menu" role="menu">
@@ -518,6 +531,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                           className={`audio-menu-item${index === selectedAudioTrackIndex ? ' active' : ''}`}
                           onClick={() => {
                             setSelectedAudioTrackIndex(index);
+                            pendingAudioSwitchTime.current = currentTime;
                             onSelectAudioTrack(track.index);
                             setAudioMenuOpen(false);
                           }}
@@ -528,6 +542,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                     </div>
                   )}
                 </div>
+              ) : (
+                <input
+                  type="range"
+                  className="volume-control"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={volume}
+                  onChange={handleVolumeChange}
+                />
               )}
 
               {subtitleData?.hasEmbeddedSubtitles && (
