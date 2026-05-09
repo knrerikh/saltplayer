@@ -1,6 +1,6 @@
 {
   "name": "saltplayer",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "Minimalist torrent player with progressive streaming",
   "main": "dist/main/main.js",
   "author": "Konstantin Rerikh <knrerikh@gmail.com>",

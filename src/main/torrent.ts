@@ -63,14 +63,22 @@ export class TorrentEngine {
       const Module = require('module') as { _load: Function };
       const origLoad = Module._load;
       const noop = (): void => {};
-      class NoopClass {}
+      // Every property on a stub instance returns noop, so method calls like
+      // peerConnection.onLocalDescription(cb) silently do nothing instead of throwing.
+      const makeNoopProxy = (): Record<string, unknown> =>
+        new Proxy({} as Record<string, unknown>, { get: () => noop });
+      // PeerConnection must be a regular function so `new` works; returning a plain
+      // object from a constructor causes JS to use that object as the instance.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      function NoopPeerConnection(this: unknown, ...args: unknown[]): any { return makeNoopProxy(); }
       const ndcStub = new Proxy(
         {
           initLogger: noop, cleanup: noop, preload: noop, setSctpSettings: noop,
-          RtcpReceivingSession: NoopClass, Track: NoopClass, Video: NoopClass,
-          Audio: NoopClass, DataChannel: NoopClass, PeerConnection: NoopClass, WebSocket: NoopClass,
-        },
-        { get: (t, p) => (p in t ? (t as Record<string|symbol, unknown>)[p] : NoopClass) }
+          RtcpReceivingSession: makeNoopProxy, Track: makeNoopProxy, Video: makeNoopProxy,
+          Audio: makeNoopProxy, DataChannel: makeNoopProxy, PeerConnection: NoopPeerConnection,
+          WebSocket: makeNoopProxy,
+        } as Record<string, unknown>,
+        { get: (t, p) => (typeof p === 'string' && p in t ? t[p] : makeNoopProxy) }
       );
       Module._load = function(request: string, ...rest: unknown[]) {
         if (typeof request === 'string' && request.includes('node_datachannel.node')) {
