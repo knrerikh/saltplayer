@@ -2,18 +2,42 @@ import { TorrentFile, TorrentMetadata, TorrentStatus, IPC_CHANNELS, SubtitleTrac
 import { StorageManager } from './storage';
 import { BrowserWindow } from 'electron';
 import * as http from 'http';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import { spawn as spawnChild } from 'child_process';
 import { pipeline, PassThrough } from 'stream';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegPath from 'ffmpeg-static';
 import ffprobePath from 'ffprobe-static';
 
-// Configure ffmpeg and ffprobe paths
-if (ffmpegPath) {
-  ffmpeg.setFfmpegPath(ffmpegPath.replace('app.asar', 'app.asar.unpacked'));
-}
-if (ffprobePath && ffprobePath.path) {
-  ffmpeg.setFfprobePath(ffprobePath.path.replace('app.asar', 'app.asar.unpacked'));
-}
+// Resolve binary paths (files inside asar cannot be executed; asarUnpack moves them to app.asar.unpacked)
+const resolvedFfmpegPath = ffmpegPath
+  ? ffmpegPath.replace('app.asar', 'app.asar.unpacked')
+  : null;
+const resolvedFfprobePath = ffprobePath?.path
+  ? ffprobePath.path.replace('app.asar', 'app.asar.unpacked')
+  : null;
+
+if (resolvedFfmpegPath) ffmpeg.setFfmpegPath(resolvedFfmpegPath);
+if (resolvedFfprobePath) ffmpeg.setFfprobePath(resolvedFfprobePath);
+
+// Write startup diagnostics so architecture/path issues are visible in the crash log
+try {
+  const logDir = path.join(os.homedir(), 'Library', 'Logs', 'saltplayer');
+  if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+  const diag = [
+    `${new Date().toISOString()} [startup-diagnostics]`,
+    `  process.arch: ${process.arch}`,
+    `  ffmpegPath raw: ${ffmpegPath}`,
+    `  ffmpegPath resolved: ${resolvedFfmpegPath}`,
+    `  ffmpeg exists: ${resolvedFfmpegPath ? fs.existsSync(resolvedFfmpegPath) : false}`,
+    `  ffprobePath raw: ${ffprobePath?.path}`,
+    `  ffprobePath resolved: ${resolvedFfprobePath}`,
+    `  ffprobe exists: ${resolvedFfprobePath ? fs.existsSync(resolvedFfprobePath) : false}`,
+  ].join('\n') + '\n\n';
+  fs.appendFileSync(path.join(logDir, 'crash.log'), diag);
+} catch { /* ignore */ }
 
 // WebTorrent will be loaded dynamically since it's an ESM module
 let WebTorrentClass: any = null;
@@ -266,112 +290,162 @@ export class TorrentEngine {
   }
 
   /**
-   * Probe stream for codecs and duration
+   * Probe stream for codecs and duration.
+   * Spawns ffprobe directly to avoid fluent-ffmpeg's getAvailableFormats() capability check,
+   * which calls spawn() synchronously in a way that can propagate EBADARCH as an uncaughtException.
    */
   private async probeStream(streamUrl: string): Promise<{ needsTranscode: boolean; duration: number }> {
+    const ffprobeBin = resolvedFfprobePath;
+    if (!ffprobeBin) {
+      return { needsTranscode: false, duration: 0 };
+    }
+
     return new Promise((resolve) => {
-      const command = ffmpeg(streamUrl);
-      let isResolved = false;
-      
+      let settled = false;
+      const done = (result: { needsTranscode: boolean; duration: number }) => {
+        if (!settled) { settled = true; resolve(result); }
+      };
+
+      const fallback = () => {
+        const ext = streamUrl.split('?')[0].split('.').pop()?.toLowerCase();
+        done({ needsTranscode: ['mkv', 'avi', 'wmv', 'flv', 'mov'].includes(ext || ''), duration: 0 });
+      };
+
       const timeoutId = setTimeout(() => {
         console.warn('FFprobe timed out, proceeding with fallback check');
-        isResolved = true;
-        
-        const ext = streamUrl.split('?')[0].split('.').pop()?.toLowerCase();
-        const unsafeExtensions = ['mkv', 'avi', 'wmv', 'flv', 'mov'];
-        const fallbackTranscode = unsafeExtensions.includes(ext || '');
-        
-        resolve({ needsTranscode: fallbackTranscode, duration: 0 });
-        
-        setTimeout(() => {
-            try {
-                command.kill('SIGKILL');
-            } catch (e) {}
-        }, 60000);
+        fallback();
       }, 10000);
 
-      command.ffprobe((err, metadata) => {
+      let proc: ReturnType<typeof spawnChild>;
+      try {
+        proc = spawnChild(ffprobeBin, [
+          '-v', 'quiet',
+          '-print_format', 'json',
+          '-show_format',
+          '-show_streams',
+          streamUrl,
+        ]);
+      } catch (err: any) {
         clearTimeout(timeoutId);
+        console.error('FFprobe spawn failed:', err.message);
+        done({ needsTranscode: false, duration: 0 });
+        return;
+      }
 
-        if (err) {
-          console.error('FFprobe error:', err.message);
-          if (!isResolved) {
-            resolve({ needsTranscode: false, duration: 0 });
+      let stdout = '';
+      proc.stdout?.on('data', (chunk: Buffer) => { stdout += chunk.toString(); });
+
+      proc.on('error', (err: Error) => {
+        clearTimeout(timeoutId);
+        console.error('FFprobe error:', err.message);
+        fallback();
+      });
+
+      proc.on('close', () => {
+        clearTimeout(timeoutId);
+        if (settled) return;
+
+        try {
+          const data = JSON.parse(stdout);
+          const duration = data.format?.duration ? Number(data.format.duration) : 0;
+          this.extractAudioTracks(data);
+
+          let needsTranscode = false;
+          const audioStream = (data.streams || []).find((s: any) => s.codec_type === 'audio');
+          if (audioStream) {
+            const codec = (audioStream.codec_name || '').toLowerCase();
+            if (UNSUPPORTED_AUDIO_CODECS.includes(codec)) {
+              console.log(`Transcoding required for codec: ${codec}`);
+              needsTranscode = true;
+            }
           }
-          return;
+          done({ needsTranscode, duration });
+        } catch (e) {
+          console.error('FFprobe parse error:', e);
+          done({ needsTranscode: false, duration: 0 });
         }
-
-        const duration = metadata.format?.duration ? Number(metadata.format.duration) : 0;
-
-        // Always extract audio tracks when ffprobe succeeds, even after timeout
-        this.extractAudioTracks(metadata);
-
-        if (isResolved) {
-            if (duration > 0) this.sendVideoMetadata(duration);
-            return;
-        }
-
-        let needsTranscode = false;
-        const audioStream = metadata.streams.find(s => s.codec_type === 'audio');
-        if (audioStream) {
-          const codec = audioStream.codec_name?.toLowerCase();
-          if (codec && UNSUPPORTED_AUDIO_CODECS.includes(codec)) {
-            console.log(`Transcoding required for codec: ${codec}`);
-            needsTranscode = true;
-          }
-        }
-        resolve({ needsTranscode, duration });
       });
     });
   }
 
   private async extractSubtitles(streamUrl: string): Promise<void> {
+    this.subtitleTracks = [];
+
+    const ffprobeBin = resolvedFfprobePath;
+    if (!ffprobeBin) {
+      this.sendSubtitles([]);
+      return;
+    }
+
     return new Promise((resolve) => {
-      this.subtitleTracks = [];
-      
-      const command = ffmpeg(streamUrl);
-      
+      let settled = false;
+      const done = () => { if (!settled) { settled = true; resolve(); } };
+
       const timeoutId = setTimeout(() => {
         console.warn('Subtitle extraction timed out');
-        command.kill('SIGKILL');
-        resolve();
+        this.sendSubtitles([]);
+        done();
       }, 15000);
 
-      command.ffprobe((err, metadata) => {
+      let proc: ReturnType<typeof spawnChild>;
+      try {
+        proc = spawnChild(ffprobeBin, [
+          '-v', 'quiet',
+          '-print_format', 'json',
+          '-show_streams',
+          streamUrl,
+        ]);
+      } catch (err: any) {
         clearTimeout(timeoutId);
-        
-        if (err) {
-          console.error('FFprobe subtitle error:', err.message);
-          resolve();
-          return;
-        }
-        
-        const subtitleStreams = metadata.streams.filter(s => s.codec_type === 'subtitle');
-        
-        if (subtitleStreams.length === 0) {
-          console.log('No embedded subtitles found');
+        console.error('FFprobe subtitle spawn failed:', err.message);
+        this.sendSubtitles([]);
+        done();
+        return;
+      }
+
+      let stdout = '';
+      proc.stdout?.on('data', (chunk: Buffer) => { stdout += chunk.toString(); });
+
+      proc.on('error', (err: Error) => {
+        clearTimeout(timeoutId);
+        console.error('FFprobe subtitle error:', err.message);
+        this.sendSubtitles([]);
+        done();
+      });
+
+      proc.on('close', () => {
+        clearTimeout(timeoutId);
+        if (settled) return;
+
+        try {
+          const data = JSON.parse(stdout);
+          const subtitleStreams = (data.streams || []).filter((s: any) => s.codec_type === 'subtitle');
+
+          if (subtitleStreams.length === 0) {
+            console.log('No embedded subtitles found');
+            this.sendSubtitles([]);
+            done();
+            return;
+          }
+
+          console.log(`Found ${subtitleStreams.length} subtitle track(s)`);
+          subtitleStreams.forEach((stream: any, index: number) => {
+            const rawLang = stream.tags?.language ?? stream.tags?.LANGUAGE ?? stream.language ?? 'und';
+            const lang = normalizeLanguage(typeof rawLang === 'string' ? rawLang : 'und');
+            const track: SubtitleTrack = {
+              index: stream.index,
+              language: lang,
+              title: stream.tags?.title ?? `Track ${index + 1}`,
+              url: `http://127.0.0.1:${this.serverPort}/subtitle/${stream.index}.vtt`,
+            };
+            this.subtitleTracks.push(track);
+          });
+          this.sendSubtitles(this.subtitleTracks);
+        } catch (e) {
+          console.error('FFprobe subtitle parse error:', e);
           this.sendSubtitles([]);
-          resolve();
-          return;
         }
-
-        console.log(`Found ${subtitleStreams.length} subtitle track(s)`);
-        
-        subtitleStreams.forEach((stream, index) => {
-          const streamAny = stream as { tags?: { language?: string; title?: string; LANGUAGE?: string }; language?: string };
-          const rawLang = streamAny.tags?.language ?? streamAny.tags?.LANGUAGE ?? streamAny.language ?? 'und';
-          const lang = normalizeLanguage(typeof rawLang === 'string' ? rawLang : 'und');
-          const track: SubtitleTrack = {
-            index: stream.index,
-            language: lang,
-            title: streamAny.tags?.title ?? `Track ${index + 1}`,
-            url: `http://127.0.0.1:${this.serverPort}/subtitle/${stream.index}.vtt`
-          };
-          this.subtitleTracks.push(track);
-        });
-
-        this.sendSubtitles(this.subtitleTracks);
-        resolve();
+        done();
       });
     });
   }
