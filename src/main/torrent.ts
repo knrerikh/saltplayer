@@ -320,6 +320,8 @@ export class TorrentEngine {
       try {
         proc = spawnChild(ffprobeBin, [
           '-v', 'quiet',
+          '-probesize', '5000000',       // stop reading after 5 MB — enough for any container header
+          '-analyzeduration', '5000000', // 5 s of analysis max
           '-print_format', 'json',
           '-show_format',
           '-show_streams',
@@ -343,26 +345,33 @@ export class TorrentEngine {
 
       proc.on('close', () => {
         clearTimeout(timeoutId);
-        if (settled) return;
 
+        // Always try to extract audio tracks — even if the timeout already fired.
+        // The original fluent-ffmpeg path had the same behaviour: the callback
+        // ran after isResolved=true and still called extractAudioTracks so that
+        // the renderer received audio track data even on slow torrent starts.
         try {
           const data = JSON.parse(stdout);
           const duration = data.format?.duration ? Number(data.format.duration) : 0;
-          this.extractAudioTracks(data);
+          this.extractAudioTracks(data);  // sends audio tracks regardless of timeout
 
-          let needsTranscode = false;
-          const audioStream = (data.streams || []).find((s: any) => s.codec_type === 'audio');
-          if (audioStream) {
-            const codec = (audioStream.codec_name || '').toLowerCase();
-            if (UNSUPPORTED_AUDIO_CODECS.includes(codec)) {
-              console.log(`Transcoding required for codec: ${codec}`);
-              needsTranscode = true;
+          if (!settled) {
+            let needsTranscode = false;
+            const audioStream = (data.streams || []).find((s: any) => s.codec_type === 'audio');
+            if (audioStream) {
+              const codec = (audioStream.codec_name || '').toLowerCase();
+              if (UNSUPPORTED_AUDIO_CODECS.includes(codec)) {
+                console.log(`Transcoding required for codec: ${codec}`);
+                needsTranscode = true;
+              }
             }
+            done({ needsTranscode, duration });
           }
-          done({ needsTranscode, duration });
         } catch (e) {
-          console.error('FFprobe parse error:', e);
-          done({ needsTranscode: false, duration: 0 });
+          if (!settled) {
+            console.error('FFprobe parse error:', e);
+            done({ needsTranscode: false, duration: 0 });
+          }
         }
       });
     });
