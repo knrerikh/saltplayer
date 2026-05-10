@@ -135,6 +135,16 @@ function writeCrashLog(label: string, error: unknown): void {
 process.on('uncaughtException', (error) => {
   console.error('Uncaught exception:', error);
   writeCrashLog('uncaughtException', error);
+
+  // ffmpeg/ffprobe failures (wrong arch, missing binary, etc.) propagate as uncaughtException
+  // because fluent-ffmpeg calls spawn() synchronously inside getAvailableFormats. Recoverable —
+  // user just loses transcode/subtitles, no need to kill the app.
+  const msg = error instanceof Error ? error.message : String(error);
+  if (msg.includes('Unknown system error -86') || msg.includes('EBADARCH') || msg.includes('spawn')) {
+    console.warn('Recoverable spawn error — keeping app alive');
+    return;
+  }
+
   cleanupApp().then(() => app.exit(1));
 });
 

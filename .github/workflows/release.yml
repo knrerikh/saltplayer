@@ -45,6 +45,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
@@ -66,6 +67,20 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # ffmpeg-static downloads a single binary for the host arch during postinstall.
+      # When cross-compiling x64 DMG on a macos-latest (ARM64) runner, the bundled binary
+      # would be ARM64 and crash with EBADARCH on Intel Macs. Re-download for the target arch.
+      - name: Force x64 ffmpeg binary (macOS x64 cross-compile)
+        if: matrix.os == 'macos-latest' && matrix.arch == 'x64'
+        working-directory: node_modules/ffmpeg-static
+        env:
+          npm_config_platform: darwin
+          npm_config_arch: x64
+        run: |
+          rm -f ffmpeg
+          node install.js
+          file ffmpeg
 
       - name: Rebuild native modules for Electron
         run: npx @electron/rebuild --force ${{ matrix.arch && format('--arch {0}', matrix.arch) || '' }}
