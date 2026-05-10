@@ -48,8 +48,10 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-          - os: macos-latest   # ARM64 runner → arm64 DMG
-          - os: macos-13       # Intel runner  → x64 DMG
+          - os: macos-latest
+            arch: arm64
+          - os: macos-latest
+            arch: x64
           - os: windows-latest
 
     steps:
@@ -66,13 +68,13 @@ jobs:
         run: npm ci
 
       - name: Rebuild native modules for Electron
-        run: npx @electron/rebuild --force
+        run: npx @electron/rebuild --force ${{ matrix.arch && format('--arch {0}', matrix.arch) || '' }}
 
       - name: Build application
         run: npm run build
 
       - name: Package and publish
-        run: npm run package -- --publish always
+        run: npm run package -- --publish always ${{ matrix.arch && format('--{0}', matrix.arch) || '' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
