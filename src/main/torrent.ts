@@ -148,6 +148,10 @@ export class TorrentEngine {
     if (!this.client) {
       await this.initializeClient();
     }
+
+    // The temp dir may have been removed by a previous cleanup() — recreate it
+    // rather than failing the load with "Storage manager not initialized".
+    await this.storageManager.ensureInitialized();
     
     return new Promise((resolve, reject) => {
       if (!this.client) {

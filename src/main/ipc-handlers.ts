@@ -7,7 +7,21 @@ export function setupIPCHandlers(
   torrentEngine: TorrentEngine,
   storageManager: StorageManager
 ): void {
-  
+  // Re-registering would throw ("second handler for ..."), so drop any handlers
+  // left over from a previous initializeApp() before wiring the new instances up.
+  for (const channel of [
+    IPC_CHANNELS.TORRENT_LOAD,
+    IPC_CHANNELS.TORRENT_STOP,
+    IPC_CHANNELS.TORRENT_SELECT_FILE,
+    IPC_CHANNELS.PLAYBACK_CONTROL,
+    IPC_CHANNELS.PLAYBACK_SEEK,
+    IPC_CHANNELS.APP_QUIT,
+    IPC_CHANNELS.AUDIO_SELECT,
+    IPC_CHANNELS.APP_OPEN_EXTERNAL,
+  ]) {
+    ipcMain.removeHandler(channel);
+  }
+
   // Load torrent or magnet link
   ipcMain.handle(IPC_CHANNELS.TORRENT_LOAD, async (_, source: string) => {
     try {

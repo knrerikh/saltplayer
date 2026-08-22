@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import VideoPlayer from '@/renderer/components/VideoPlayer';
 import { SubtitleData, AudioData } from '@/shared/types';
@@ -886,5 +886,87 @@ describe('VideoPlayer Component', () => {
       expect((container.querySelector('.subtitle-control-cc') as HTMLButtonElement).style.opacity).toBe('1');
     });
   });
-});
+  describe('Idle Auto-Hide', () => {
+    const renderPlaying = () => {
+      const rendered = render(
+        <VideoPlayer
+          videoUrl="http://localhost:8080/video.mp4"
+          title="Test Video"
+          onClose={vi.fn()}
+        />
+      );
+      const video = rendered.container.querySelector('video') as HTMLVideoElement;
+      act(() => {
+        fireEvent.play(video);
+      });
+      return rendered;
+    };
 
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('should hide controls after the pointer sits still during playback', () => {
+      const { container } = renderPlaying();
+      const player = container.querySelector('.video-container') as HTMLElement;
+
+      expect(player.className).not.toContain('controls-hidden');
+
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+
+      expect(player.className).toContain('controls-hidden');
+    });
+
+    it('should reveal controls again on mouse movement', () => {
+      const { container } = renderPlaying();
+      const player = container.querySelector('.video-container') as HTMLElement;
+
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+      expect(player.className).toContain('controls-hidden');
+
+      act(() => {
+        fireEvent.mouseMove(window);
+      });
+
+      expect(player.className).not.toContain('controls-hidden');
+    });
+
+    it('should keep controls visible while paused', () => {
+      const { container } = renderPlaying();
+      const player = container.querySelector('.video-container') as HTMLElement;
+      const video = container.querySelector('video') as HTMLVideoElement;
+
+      act(() => {
+        fireEvent.pause(video);
+      });
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+
+      expect(player.className).not.toContain('controls-hidden');
+    });
+
+    it('should keep controls visible while the pointer rests on them', () => {
+      const { container } = renderPlaying();
+      const player = container.querySelector('.video-container') as HTMLElement;
+      const controls = container.querySelector('.video-controls') as HTMLElement;
+
+      act(() => {
+        fireEvent.mouseEnter(controls);
+      });
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+
+      expect(player.className).not.toContain('controls-hidden');
+    });
+  });
+});
