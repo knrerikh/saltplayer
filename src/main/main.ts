@@ -61,7 +61,22 @@ function createWindow(): void {
   });
 }
 
-async function initializeApp(): Promise<void> {
+let initializePromise: Promise<void> | null = null;
+
+function initializeApp(): Promise<void> {
+  // macOS emits 'activate' on first launch too, so this can be called while a
+  // previous run is still awaiting storage init — share the in-flight promise
+  // instead of building a second StorageManager/window pair.
+  if (!initializePromise) {
+    initializePromise = doInitializeApp().catch((error) => {
+      initializePromise = null;
+      throw error;
+    });
+  }
+  return initializePromise;
+}
+
+async function doInitializeApp(): Promise<void> {
   // Initialize storage manager
   storageManager = new StorageManager();
   await storageManager.initialize();
@@ -91,26 +106,55 @@ async function cleanupApp(): Promise<void> {
     storageManager = null;
   }
 
+  initializePromise = null;
+
   console.log('Cleanup complete');
 }
 
 // App lifecycle events
 
 app.whenReady().then(() => {
+  // Registered only after ready so a first-launch 'activate' cannot race
+  // initializeApp() into running twice.
+  app.on('activate', () => {
+    if (mainWindow !== null) {
+      return;
+    }
+    initializeApp()
+      .then(() => {
+        if (mainWindow === null) {
+          createWindow();
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to reopen window:', error);
+        writeCrashLog('activate', error);
+      });
+  });
+
   return initializeApp();
+}).catch((error) => {
+  console.error('Failed to initialize application:', error);
+  writeCrashLog('initializeApp', error);
 });
 
 app.on('window-all-closed', async () => {
-  await cleanupApp();
-  if (process.platform !== 'darwin') {
-    app.quit();
+  if (process.platform === 'darwin') {
+    // The process stays alive on macOS, so keep storage/torrent engine intact
+    // (tearing them down left the IPC handlers holding a cleaned-up
+    // StorageManager — "Storage manager not initialized" on the next load).
+    // The torrent itself must still stop: otherwise its HTTP server, status
+    // interval and download keep running with no UI attached.
+    try {
+      await torrentEngine?.stop();
+    } catch (error) {
+      console.error('Error stopping torrent on window close:', error);
+    }
+    return;
   }
-});
 
-app.on('activate', () => {
-  if (mainWindow === null) {
-    createWindow();
-  }
+  await cleanupApp();
+  app.quit();
 });
 
 app.on('before-quit', async (event) => {
@@ -136,12 +180,12 @@ process.on('uncaughtException', (error) => {
   console.error('Uncaught exception:', error);
   writeCrashLog('uncaughtException', error);
 
-  // ffmpeg/ffprobe failures (wrong arch, missing binary, etc.) propagate as uncaughtException
-  // because fluent-ffmpeg calls spawn() synchronously inside getAvailableFormats. Recoverable —
-  // user just loses transcode/subtitles, no need to kill the app.
+  // ffmpeg/ffprobe EBADARCH (-86) propagates as uncaughtException because fluent-ffmpeg
+  // calls spawn() synchronously inside getAvailableFormats. Recoverable — user loses
+  // transcode/subtitles but the app stays alive.
   const msg = error instanceof Error ? error.message : String(error);
-  if (msg.includes('Unknown system error -86') || msg.includes('EBADARCH') || msg.includes('spawn')) {
-    console.warn('Recoverable spawn error — keeping app alive');
+  if (msg.includes('Unknown system error -86') || msg.includes('EBADARCH')) {
+    console.warn('Recoverable ffmpeg arch error — keeping app alive');
     return;
   }
 

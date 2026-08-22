@@ -197,6 +197,11 @@ const App: React.FC = () => {
 
   return (
     <div className="app">
+      {/* Draggable region for the frameless (hiddenInset) title bar so the window can be
+          moved. Only while no video is on screen — over the player it would swallow clicks
+          on the top of the video; there the controls bar acts as the drag handle instead. */}
+      {!videoUrl && <div className="titlebar-drag-region" />}
+
       {!videoUrl && (
         <TorrentInput onLoad={handleLoadTorrent} isLoading={isLoading} />
       )}

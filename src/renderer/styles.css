@@ -39,6 +39,20 @@ body {
   flex-direction: column;
 }
 
+/* Draggable title bar region for the frameless (titleBarStyle: 'hiddenInset') window.
+   Without an explicit -webkit-app-region: drag area the window cannot be moved. Rendered
+   only on the input screen (see App.tsx) — over the player it would swallow clicks on the
+   top of the video, so there the controls bar carries the drag region instead. */
+.titlebar-drag-region {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 36px;
+  z-index: 9999;
+  -webkit-app-region: drag;
+}
+
 /* Input Section */
 .input-section {
   padding: 20px;
@@ -240,6 +254,8 @@ body {
   position: absolute;
   top: 20px;
   right: 20px;
+  z-index: 10000;
+  -webkit-app-region: no-drag;
   padding: 12px 20px;
   background-color: var(--error);
   color: white;
@@ -274,7 +290,8 @@ body {
   height: 100vh;
 }
 
-/* Controls (hidden by default, shown on hover) */
+/* Controls: visible while the pointer moves, faded out after it sits still
+   (the .controls-hidden class is driven by the idle timer in VideoPlayer). */
 .video-controls {
   position: absolute;
   bottom: 0;
@@ -282,15 +299,35 @@ body {
   right: 0;
   padding: 20px;
   background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
-  opacity: 0;
-  transition: opacity 0.3s;
+  opacity: 1;
+  transition: opacity 0.35s ease;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.video-container:hover .video-controls {
-  opacity: 1;
+.video-container.controls-hidden .video-controls {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* The controls bar doubles as the window drag handle while a video is on screen; its
+   interactive row opts back out. When hidden it is pointer-events: none, so it stops
+   being a drag handle too — and in fullscreen there is no window to move. */
+.video-controls {
+  -webkit-app-region: drag;
+}
+
+.controls-row,
+.episode-selector,
+.video-container.fullscreen .video-controls {
+  -webkit-app-region: no-drag;
+}
+
+/* Hide the pointer itself along with the controls */
+.video-container.controls-hidden,
+.video-container.controls-hidden * {
+  cursor: none;
 }
 
 .video-title {
@@ -518,12 +555,13 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0;
-  transition: opacity 0.3s, background-color 0.2s;
+  opacity: 1;
+  transition: opacity 0.35s ease, background-color 0.2s;
 }
 
-.video-container:hover .close-button {
-  opacity: 1;
+.video-container.controls-hidden .close-button {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .close-button:hover {

@@ -18,12 +18,20 @@ export class StorageManager {
     // Clean up old sessions first
     await this.cleanupOldSessions();
 
+    await this.createTempDir();
+  }
+
+  /**
+   * Create a fresh session directory
+   */
+  private async createTempDir(): Promise<void> {
     const randomId = randomBytes(8).toString('hex');
-    this.tempDir = path.join(this.baseTempDir, `saltplayer-${randomId}`);
-    
+    const dir = path.join(this.baseTempDir, `saltplayer-${randomId}`);
+
     try {
-      await fs.mkdir(this.tempDir, { recursive: true });
-      console.log(`Temporary directory created: ${this.tempDir}`);
+      await fs.mkdir(dir, { recursive: true });
+      this.tempDir = dir;
+      console.log(`Temporary directory created: ${dir}`);
     } catch (error) {
       console.error('Error creating temporary directory:', error);
       throw error;
@@ -54,6 +62,18 @@ export class StorageManager {
     } catch (error) {
       console.warn('Error checking for old sessions:', error);
     }
+  }
+
+  /**
+   * Make sure a temp directory exists, re-creating it if cleanup() already ran
+   */
+  async ensureInitialized(): Promise<void> {
+    if (this.tempDir) {
+      return;
+    }
+    // Only recreate our own directory — the startup sweep in initialize() would
+    // delete the session dirs of any other running instance.
+    await this.createTempDir();
   }
 
   /**

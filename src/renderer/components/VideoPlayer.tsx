@@ -10,6 +10,9 @@ const LANGUAGE_NAMES: Record<string, string> = {
   und: 'Unknown',
 };
 
+// How long the pointer must sit still before the controls and the cursor fade out
+const IDLE_HIDE_DELAY_MS = 2500;
+
 const TECHNICAL_TITLES = new Set(['sdh', 'forced', 'default', 'full', 'cc']);
 const TECHNICAL_TITLE_PATTERN = /^[a-z]{2,3}-[a-z0-9]+$/i;
 
@@ -90,9 +93,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [subtitleMenuOpen, setSubtitleMenuOpen] = useState(false);
   const [audioMenuOpen, setAudioMenuOpen] = useState(false);
   const [selectedAudioTrackIndex, setSelectedAudioTrackIndex] = useState(0);
+  const [controlsVisible, setControlsVisible] = useState(true);
   const subtitleControlRef = useRef<HTMLDivElement>(null);
   const audioControlRef = useRef<HTMLDivElement>(null);
   const pendingAudioSwitchTime = useRef<number | null>(null);
+  const idleTimerRef = useRef<number | null>(null);
+  const pointerOverControlsRef = useRef(false);
 
   const isTranscode = useMemo(() => {
     return videoUrl?.includes('transcode=true') || false;
@@ -296,6 +302,68 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, []);
 
+  // Auto-hide the controls (and the cursor) while the pointer sits still during
+  // playback. Kept visible while paused, while a menu is open, and while the
+  // pointer rests on the controls themselves.
+  const scheduleHideControls = useCallback(() => {
+    if (idleTimerRef.current !== null) {
+      window.clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
+    if (!isPlaying || subtitleMenuOpen || audioMenuOpen || pointerOverControlsRef.current) {
+      return;
+    }
+    idleTimerRef.current = window.setTimeout(() => {
+      idleTimerRef.current = null;
+      setControlsVisible(false);
+    }, IDLE_HIDE_DELAY_MS);
+  }, [isPlaying, subtitleMenuOpen, audioMenuOpen]);
+
+  const revealControls = useCallback(() => {
+    setControlsVisible(true);
+    scheduleHideControls();
+  }, [scheduleHideControls]);
+
+  useEffect(() => {
+    if (!isPlaying || subtitleMenuOpen || audioMenuOpen) {
+      setControlsVisible(true);
+    }
+    scheduleHideControls();
+    return () => {
+      if (idleTimerRef.current !== null) {
+        window.clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = null;
+      }
+    };
+  }, [scheduleHideControls, isPlaying, subtitleMenuOpen, audioMenuOpen]);
+
+  // Any input brings the controls back. Listening on window rather than on the
+  // container so this also works in fullscreen, where the video covers the screen.
+  useEffect(() => {
+    if (!videoUrl) return;
+    const handleActivity = () => revealControls();
+    window.addEventListener('mousemove', handleActivity);
+    window.addEventListener('mousedown', handleActivity);
+    window.addEventListener('keydown', handleActivity);
+    window.addEventListener('wheel', handleActivity, { passive: true });
+    return () => {
+      window.removeEventListener('mousemove', handleActivity);
+      window.removeEventListener('mousedown', handleActivity);
+      window.removeEventListener('keydown', handleActivity);
+      window.removeEventListener('wheel', handleActivity);
+    };
+  }, [videoUrl, revealControls]);
+
+  // The browser can leave fullscreen without going through toggleFullscreen (Esc,
+  // the green button, Cmd+Ctrl+F) — keep our own flag in sync with the real state.
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(document.fullscreenElement !== null);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
@@ -375,7 +443,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const showSpinner = parentLoading || (videoUrl && isBuffering);
 
   return (
-    <div className={`video-container ${isFullscreen ? 'fullscreen' : ''}`}>
+    <div
+      className={`video-container${isFullscreen ? ' fullscreen' : ''}${
+        videoUrl && !controlsVisible ? ' controls-hidden' : ''
+      }`}
+      onMouseLeave={() => {
+        pointerOverControlsRef.current = false;
+        if (isPlaying && !subtitleMenuOpen && !audioMenuOpen) {
+          setControlsVisible(false);
+        }
+      }}
+    >
       {videoUrl ? (
         <>
           <video
@@ -436,7 +514,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             </div>
           )}
           
-          <div className="video-controls">
+          <div
+            className="video-controls"
+            onMouseEnter={() => {
+              pointerOverControlsRef.current = true;
+              revealControls();
+            }}
+            onMouseLeave={() => {
+              pointerOverControlsRef.current = false;
+              scheduleHideControls();
+            }}
+          >
             {title && (
               <div className="video-title">
                 {videoFiles && videoFiles.length > 1 && onSelectFile ? (
