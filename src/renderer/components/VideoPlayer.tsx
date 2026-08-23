@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { SubtitleData, SubtitleTrack, AudioData, AudioTrack } from '@/shared/types';
+import TitlebarDragRegion from './TitlebarDragRegion';
 
 const LANGUAGE_NAMES: Record<string, string> = {
   eng: 'English', rus: 'Russian', spa: 'Spanish', fra: 'French', deu: 'German',
@@ -473,6 +474,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             )}
           </video>
           
+          {/* Title bar strip over the video: drags the window, and a press that does not
+              move still toggles playback. Fullscreen has no window to move. */}
+          {!isFullscreen && <TitlebarDragRegion onClick={togglePlay} />}
+
           {onClose && (
             <button className="close-button" onClick={onClose} title="Close">
               ✕

@@ -55,6 +55,9 @@ export const IPC_CHANNELS = {
   SUBTITLES: 'subtitles:available',
   AUDIO_TRACKS: 'audio:available',
   AUDIO_SELECT: 'audio:selectTrack',
+  WINDOW_DRAG_START: 'window:dragStart',
+  WINDOW_DRAG_MOVE: 'window:dragMove',
+  WINDOW_DRAG_END: 'window:dragEnd',
 } as const;
 
 export type PlaybackControlAction = 'play' | 'pause' | 'stop';

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import TorrentInput from './components/TorrentInput';
 import VideoPlayer from './components/VideoPlayer';
 import StatusBar from './components/StatusBar';
+import TitlebarDragRegion from './components/TitlebarDragRegion';
 import { TorrentStatus, TorrentMetadata, ErrorInfo, TorrentFile, SubtitleData, AudioData } from '@/shared/types';
 
 const VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.avi', '.mov', '.webm', '.m4v', '.flv', '.wmv'];
@@ -18,6 +19,9 @@ declare global {
       selectAudioTrack: (streamIndex: number) => Promise<void>;
       quit: () => Promise<void>;
       openExternal: (url: string) => Promise<boolean>;
+      startWindowDrag: () => Promise<boolean>;
+      moveWindowBy: (dx: number, dy: number) => void;
+      endWindowDrag: () => Promise<void>;
       onTorrentStatus: (callback: (status: TorrentStatus) => void) => void;
       onVideoUrl: (callback: (url: string) => void) => void;
       onVideoMetadata: (callback: (metadata: { duration: number }) => void) => void;
@@ -197,10 +201,9 @@ const App: React.FC = () => {
 
   return (
     <div className="app">
-      {/* Draggable region for the frameless (hiddenInset) title bar so the window can be
-          moved. Only while no video is on screen — over the player it would swallow clicks
-          on the top of the video; there the controls bar acts as the drag handle instead. */}
-      {!videoUrl && <div className="titlebar-drag-region" />}
+      {/* Title bar drag handle for the frameless (hiddenInset) window. While a video is
+          on screen the player renders its own so a plain click there still toggles play. */}
+      {!videoUrl && <TitlebarDragRegion />}
 
       {!videoUrl && (
         <TorrentInput onLoad={handleLoadTorrent} isLoading={isLoading} />

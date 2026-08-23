@@ -39,10 +39,10 @@ body {
   flex-direction: column;
 }
 
-/* Draggable title bar region for the frameless (titleBarStyle: 'hiddenInset') window.
-   Without an explicit -webkit-app-region: drag area the window cannot be moved. Rendered
-   only on the input screen (see App.tsx) — over the player it would swallow clicks on the
-   top of the video, so there the controls bar carries the drag region instead. */
+/* Title bar drag handle for the frameless (titleBarStyle: 'hiddenInset') window, which
+   has no native bar to grab. Deliberately NOT -webkit-app-region: drag — that hands the
+   whole strip to the OS and swallows clicks on the video underneath. TitlebarDragRegion
+   moves the window from JS instead, so a press that does not move stays a click. */
 .titlebar-drag-region {
   position: fixed;
   top: 0;
@@ -50,7 +50,6 @@ body {
   right: 0;
   height: 36px;
   z-index: 9999;
-  -webkit-app-region: drag;
 }
 
 /* Input Section */
@@ -255,7 +254,6 @@ body {
   top: 20px;
   right: 20px;
   z-index: 10000;
-  -webkit-app-region: no-drag;
   padding: 12px 20px;
   background-color: var(--error);
   color: white;
@@ -309,19 +307,6 @@ body {
 .video-container.controls-hidden .video-controls {
   opacity: 0;
   pointer-events: none;
-}
-
-/* The controls bar doubles as the window drag handle while a video is on screen; its
-   interactive row opts back out. When hidden it is pointer-events: none, so it stops
-   being a drag handle too — and in fullscreen there is no window to move. */
-.video-controls {
-  -webkit-app-region: drag;
-}
-
-.controls-row,
-.episode-selector,
-.video-container.fullscreen .video-controls {
-  -webkit-app-region: no-drag;
 }
 
 /* Hide the pointer itself along with the controls */
