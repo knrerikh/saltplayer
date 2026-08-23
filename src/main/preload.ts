@@ -16,6 +16,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectAudioTrack: (streamIndex: number) =>
     ipcRenderer.invoke(IPC_CHANNELS.AUDIO_SELECT, streamIndex),
   
+  // Window dragging (the frameless window has no native title bar to grab)
+  startWindowDrag: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW_DRAG_START),
+  moveWindowBy: (dx: number, dy: number) =>
+    ipcRenderer.send(IPC_CHANNELS.WINDOW_DRAG_MOVE, dx, dy),
+  endWindowDrag: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW_DRAG_END),
+
   // App control
   quit: () => ipcRenderer.invoke(IPC_CHANNELS.APP_QUIT),
   openExternal: (url: string) => ipcRenderer.invoke(IPC_CHANNELS.APP_OPEN_EXTERNAL, url),
@@ -58,6 +64,9 @@ declare global {
       selectAudioTrack: (streamIndex: number) => Promise<void>;
       quit: () => Promise<void>;
       openExternal: (url: string) => Promise<boolean>;
+      startWindowDrag: () => Promise<boolean>;
+      moveWindowBy: (dx: number, dy: number) => void;
+      endWindowDrag: () => Promise<void>;
       onTorrentStatus: (callback: (status: TorrentStatus) => void) => void;
       onVideoUrl: (callback: (url: string) => void) => void;
       onVideoMetadata: (callback: (metadata: { duration: number }) => void) => void;

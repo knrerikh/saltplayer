@@ -1,4 +1,4 @@
-import { ipcMain, shell } from 'electron';
+import { ipcMain, shell, BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '@/shared/types';
 import { TorrentEngine } from './torrent';
 import { StorageManager } from './storage';
@@ -18,9 +18,12 @@ export function setupIPCHandlers(
     IPC_CHANNELS.APP_QUIT,
     IPC_CHANNELS.AUDIO_SELECT,
     IPC_CHANNELS.APP_OPEN_EXTERNAL,
+    IPC_CHANNELS.WINDOW_DRAG_START,
+    IPC_CHANNELS.WINDOW_DRAG_END,
   ]) {
     ipcMain.removeHandler(channel);
   }
+  ipcMain.removeAllListeners(IPC_CHANNELS.WINDOW_DRAG_MOVE);
 
   // Load torrent or magnet link
   ipcMain.handle(IPC_CHANNELS.TORRENT_LOAD, async (_, source: string) => {
@@ -98,5 +101,30 @@ export function setupIPCHandlers(
   ipcMain.handle(IPC_CHANNELS.APP_OPEN_EXTERNAL, async (_, url: string) => {
     await shell.openExternal(url);
     return true;
+  });
+
+  // Window dragging. The window is frameless (titleBarStyle: 'hiddenInset'), so the
+  // renderer drives the move: it reports pointer deltas and the main process applies
+  // them to the window position. A CSS -webkit-app-region strip would do this natively,
+  // but it also swallows every click in that strip, which killed click-to-pause on the
+  // top of the video.
+  let dragging = false;
+
+  ipcMain.handle(IPC_CHANNELS.WINDOW_DRAG_START, (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    dragging = !!win && !win.isFullScreen();
+    return dragging;
+  });
+
+  ipcMain.on(IPC_CHANNELS.WINDOW_DRAG_MOVE, (event, dx: number, dy: number) => {
+    if (!dragging || !Number.isFinite(dx) || !Number.isFinite(dy)) return;
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win || win.isDestroyed() || win.isFullScreen()) return;
+    const [x, y] = win.getPosition();
+    win.setPosition(Math.round(x + dx), Math.round(y + dy));
+  });
+
+  ipcMain.handle(IPC_CHANNELS.WINDOW_DRAG_END, () => {
+    dragging = false;
   });
 }
