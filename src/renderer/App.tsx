@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import TorrentInput from './components/TorrentInput';
 import VideoPlayer from './components/VideoPlayer';
 import StatusBar from './components/StatusBar';
@@ -6,6 +6,9 @@ import TitlebarDragRegion from './components/TitlebarDragRegion';
 import { TorrentStatus, TorrentMetadata, ErrorInfo, TorrentFile, SubtitleData, AudioData } from '@/shared/types';
 
 const VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.avi', '.mov', '.webm', '.m4v', '.flv', '.wmv'];
+
+/** How long the error banner stays up before auto-dismissing, unless hovered. */
+const ERROR_AUTO_DISMISS_MS = 5000;
 
 // Extend Window interface for electronAPI
 declare global {
@@ -42,6 +45,27 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [subtitleData, setSubtitleData] = useState<SubtitleData | null>(null);
   const [audioData, setAudioData] = useState<AudioData | null>(null);
+  const errorDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearErrorDismissTimer = () => {
+    if (errorDismissTimerRef.current !== null) {
+      clearTimeout(errorDismissTimerRef.current);
+      errorDismissTimerRef.current = null;
+    }
+  };
+
+  const scheduleErrorDismiss = () => {
+    clearErrorDismissTimer();
+    errorDismissTimerRef.current = setTimeout(() => {
+      errorDismissTimerRef.current = null;
+      setError(null);
+    }, ERROR_AUTO_DISMISS_MS);
+  };
+
+  const dismissErrorNow = () => {
+    clearErrorDismissTimer();
+    setError(null);
+  };
 
   useEffect(() => {
     // Set application title
@@ -78,7 +102,7 @@ const App: React.FC = () => {
     window.electronAPI.onError((err) => {
       setError(err);
       setIsLoading(false);
-      setTimeout(() => setError(null), 5000);
+      scheduleErrorDismiss();
     });
 
     return () => {
@@ -88,6 +112,7 @@ const App: React.FC = () => {
       window.electronAPI.removeAllListeners('audio:available');
       window.electronAPI.removeAllListeners('torrent:status');
       window.electronAPI.removeAllListeners('error');
+      clearErrorDismissTimer();
     };
   }, []);
 
@@ -233,8 +258,20 @@ const App: React.FC = () => {
       />
       
       {error && (
-        <div className="error-message">
+        <div
+          className="error-message"
+          onMouseEnter={clearErrorDismissTimer}
+          onMouseLeave={scheduleErrorDismiss}
+        >
           <strong>{error.code}:</strong> {error.message}
+          <button
+            className="error-close"
+            onClick={dismissErrorNow}
+            title="Close"
+            aria-label="Close"
+          >
+            ✕
+          </button>
         </div>
       )}
     </div>

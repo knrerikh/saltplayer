@@ -46,6 +46,22 @@ const VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.avi', '.mov', '.webm', '.m4v', '.flv
 
 const UNSUPPORTED_AUDIO_CODECS = ['ac3', 'ac-3', 'eac3', 'ec-3', 'dts', 'truehd', 'mlp', 'vorbis'];
 
+/** How long `load()` waits for WebTorrent's `ontorrent` callback before giving up. */
+export const TORRENT_LOAD_TIMEOUT_MS = 60_000;
+
+/**
+ * Static fallback trackers appended to every `client.add()` call. WebTorrent
+ * concatenates these with any trackers embedded in the magnet/.torrent itself,
+ * so this only helps when the source's own trackers are unreachable.
+ */
+export const FALLBACK_TRACKERS = [
+  'udp://open.demonii.com:1337/announce',
+  'udp://tracker.torrent.eu.org:451/announce',
+  'http://tracker.opentrackr.org:1337/announce',
+  'udp://exodus.desync.com:6969/announce',
+  'udp://open.stealth.si:80/announce',
+];
+
 /** Extract ISO 639-2 language code from values like "rus-sub", "eng-forced" */
 function normalizeLanguage(raw: string): string {
   const s = (raw || 'und').trim().toLowerCase();
@@ -131,12 +147,64 @@ export class TorrentEngine {
       downloadLimit: -1,
       uploadLimit: -1,
       maxConns: 100,
+      // uTP connect attempts on some networks hang for ~10s per peer with three
+      // retries before falling back to TCP (~41-45s to first wire). Disabling uTP
+      // makes peers connect over TCP immediately (~2.5s to first wire).
+      utp: false,
     });
 
     this.client.on('error', (error: any) => {
       console.error('WebTorrent client error:', error);
       const message = error instanceof Error ? error.message : String(error);
       this.sendError('TORRENT_ERROR', message);
+    });
+  }
+
+  /**
+   * Calls `client.remove()` for a torrent (or infoHash) and resolves once it
+   * settles, however it settles.
+   *
+   * webtorrent's real `remove()` is `async`: when the torrent has already
+   * detached itself from the client (its own error, or webtorrent's
+   * duplicate-torrent branch calling `client._remove(this)`), it `throw`s
+   * inside — which rejects the RETURNED promise — and never invokes the
+   * supplied callback at all. A plain callback-only wait therefore hangs
+   * forever in that case. This never throws, never resolves more than once,
+   * and never leaves a returned promise unhandled; a mock that returns a
+   * non-thenable (e.g. `undefined`) is handled too — only the callback path
+   * applies then.
+   */
+  private removeTorrentSafely(torrentOrInfoHash: any): Promise<void> {
+    return new Promise<void>((resolve) => {
+      if (!this.client) {
+        resolve();
+        return;
+      }
+
+      let settled = false;
+      const finish = (err?: unknown) => {
+        if (settled) return;
+        settled = true;
+        if (err) console.error('Error removing torrent:', err);
+        resolve();
+      };
+
+      let result: any;
+      try {
+        result = this.client.remove(torrentOrInfoHash, undefined, (err: Error | string | null) => {
+          finish(err ?? undefined);
+        });
+      } catch (err) {
+        finish(err);
+        return;
+      }
+
+      if (result && typeof result.then === 'function') {
+        result.then(
+          () => finish(),
+          (err: unknown) => finish(err)
+        );
+      }
     });
   }
 
@@ -152,42 +220,82 @@ export class TorrentEngine {
     // The temp dir may have been removed by a previous cleanup() — recreate it
     // rather than failing the load with "Storage manager not initialized".
     await this.storageManager.ensureInitialized();
-    
+
+    // Stop any previous torrent and WAIT for the removal to actually finish
+    // before adding a new one. `client.add()` for a magnet whose infohash is
+    // still registered on the client falls into webtorrent's duplicate-torrent
+    // branch, which fires `ontorrent` with the stale, not-yet-ready torrent
+    // instead of a fresh one.
+    await this.stop();
+
     return new Promise((resolve, reject) => {
       if (!this.client) {
         reject(new Error('Torrent client not initialized'));
         return;
       }
 
-      // Stop current torrent if any
-      if (this.currentTorrent) {
-        this.stop();
-      }
+      // Ensures load()'s promise settles exactly once, whichever of
+      // timeout/success/error happens first. A callback arriving after this
+      // is true (e.g. webtorrent's duplicate-torrent branch invoking the OLD
+      // ontorrent callback after a timeout already rejected this attempt)
+      // must not resolve/reject again or touch this.currentTorrent.
+      let settled = false;
+      // Torrent instance synchronously returned by client.add(), kept locally
+      // so the timeout handler can remove it even though `torrent.ready`/the
+      // ontorrent callback may never fire.
+      let addedTorrent: any = null;
+
+      const settleResolve = (metadata: TorrentMetadata) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        resolve(metadata);
+      };
+
+      const settleReject = (error: Error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        reject(error);
+      };
 
       const options = {
         path: this.storageManager.getTempDir(),
+        announce: FALLBACK_TRACKERS,
       };
 
       // Set a timeout to detect if callback is never called
       const timeoutId = setTimeout(() => {
-        reject(new Error('Timeout: torrent loading took too long or invalid source'));
-      }, 30000); // 30 seconds timeout
+        // Snapshot the timed-out torrent so a later, unrelated load() doesn't
+        // ever get its (different) torrent removed by this handler.
+        const staleTorrent = addedTorrent;
+        if (staleTorrent) {
+          // Fire-and-forget: removal must never delay or change the timeout
+          // rejection below, only be attempted without throwing or leaving an
+          // unhandled promise rejection (see removeTorrentSafely).
+          void this.removeTorrentSafely(staleTorrent);
+        }
+        settleReject(new Error('Timeout: torrent loading took too long or invalid source'));
+      }, TORRENT_LOAD_TIMEOUT_MS);
 
-      this.client.add(source, options, (torrent: any) => {
-        clearTimeout(timeoutId);
+      addedTorrent = this.client.add(source, options, (torrent: any) => {
+        // Late callback from a previous, already-settled load() attempt
+        // (webtorrent's duplicate-torrent branch): ignore entirely.
+        if (settled) return;
+
         this.currentTorrent = torrent;
-        
+
         // Helper function to process ready torrent
         const processReadyTorrent = () => {
           console.log('Torrent ready:', torrent.name);
-          
+
           // Select video file
           const videoFile = this.selectVideoFile(torrent.files);
-          
+
           if (!videoFile) {
             const error = new Error('No video file found in torrent');
             this.sendError('NO_VIDEO_FILE', error.message);
-            reject(error);
+            settleReject(error);
             return;
           }
 
@@ -209,9 +317,9 @@ export class TorrentEngine {
             infoHash: torrent.infoHash,
           };
 
-          resolve(metadata);
+          settleResolve(metadata);
         };
-        
+
         // Check if torrent is already ready (synchronous)
         if (torrent.ready) {
           processReadyTorrent();
@@ -222,7 +330,7 @@ export class TorrentEngine {
           console.error('Torrent error:', error);
           const message = error instanceof Error ? error.message : String(error);
           this.sendError('TORRENT_ERROR', message);
-          reject(error);
+          settleReject(error);
         });
 
         torrent.on('warning', (warning: any) => {
@@ -794,33 +902,29 @@ export class TorrentEngine {
    * Stop current torrent
    */
   async stop(): Promise<void> {
-    return new Promise((resolve) => {
-      if (this.statusInterval) {
-        clearInterval(this.statusInterval);
-        this.statusInterval = null;
-      }
+    if (this.statusInterval) {
+      clearInterval(this.statusInterval);
+      this.statusInterval = null;
+    }
 
-      if (this.server) {
-        this.server.close();
-        this.server = null;
-        this.serverPort = null;
-      }
+    if (this.server) {
+      this.server.close();
+      this.server = null;
+      this.serverPort = null;
+    }
 
-      if (this.currentTorrent && this.client) {
-        const infoHash = this.currentTorrent.infoHash;
-        this.client.remove(infoHash, undefined, (err: Error | string) => {
-          if (err) console.error('Error removing torrent:', err);
-          this.currentTorrent = null;
-          this.selectedFile = null;
-          console.log('Torrent stopped');
-          resolve();
-        });
-      } else {
-        this.currentTorrent = null;
-        this.selectedFile = null;
-        resolve();
-      }
-    });
+    if (this.currentTorrent && this.client) {
+      const infoHash = this.currentTorrent.infoHash;
+      // Waits for removal to settle however it settles (callback, resolved
+      // promise, or rejected promise) — see removeTorrentSafely. A torrent
+      // that already detached itself from the client (its own error, or
+      // webtorrent's duplicate-torrent branch) must not hang stop() forever.
+      await this.removeTorrentSafely(infoHash);
+      console.log('Torrent stopped');
+    }
+
+    this.currentTorrent = null;
+    this.selectedFile = null;
   }
 
   /**

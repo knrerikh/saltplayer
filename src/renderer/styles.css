@@ -262,6 +262,23 @@ body {
   animation: slideIn 0.3s;
 }
 
+.error-close {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  margin-left: 10px;
+  padding: 0;
+  font-size: 14px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.error-message:hover .error-close,
+.error-close:focus {
+  opacity: 1;
+}
+
 @keyframes slideIn {
   from {
     transform: translateX(400px);
