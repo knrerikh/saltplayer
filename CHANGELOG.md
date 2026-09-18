@@ -26,6 +26,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Created detailed documentation in `docs/TORRENT_OPTIMIZATION.md`
 - Full automated test suite passing
 
+## [1.5.2] - 2026-09-18
+
+### Fixed
+- **Magnet links failing to load**: WebTorrent dialled every peer over uTP first and only fell back to TCP after ~41 s of retries, while the load timeout was 30 s, so magnets timed out even on healthy swarms on networks that drop uTP. The client is now created with `utp: false` and connects over TCP immediately.
+- **Retry after a timeout hung forever**: a timed-out torrent stayed registered on the client, so loading the same magnet again hit WebTorrent's duplicate-torrent branch and ran with no timeout at all. The timed-out torrent is now removed, the load promise settles exactly once, and the previous torrent is fully stopped before a new one is added.
+- **`stop()` could never resolve**: `client.remove()` rejects without calling its callback when the torrent has already detached itself; removal now settles on whichever of callback, resolve or reject comes first, and never leaves an unhandled rejection.
+- **Error banner timers**: consecutive errors no longer share a stray auto-dismiss timer that hid the newer error early.
+
+### Changed
+- Load timeout raised from 30 s to 60 s (`TORRENT_LOAD_TIMEOUT_MS`).
+- A fallback list of public trackers (`FALLBACK_TRACKERS`) is announced alongside the source's own trackers, so magnets with dead or blocked trackers can still find peers.
+
+### Added
+- Close button (✕) on the error banner, shown on hover. Hovering the banner pauses auto-dismiss; leaving it restarts the 5 s countdown.
+
 ## [1.0.0] - 2025-01-03
 
 ### Added
