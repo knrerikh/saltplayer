@@ -21,11 +21,8 @@ Every change, however small, follows the same path:
 
 1. **Branch from an up-to-date `master`**, one branch per feature or fix: `feat/<topic>`, `fix/<topic>`, `docs/<topic>`, `chore/<topic>`.
 2. **Write the test first.** Start with a failing test that describes the behaviour, then make it pass, then refactor. Bug fixes start with a test that reproduces the bug.
-3. **Bump the version** in `package.json` and `package-lock.json` (`npm version <x.y.z> --no-git-tag-version`):
-   - patch (`x.y.Z`): small fixes, docs, tooling;
-   - minor (`x.Y.0`): new features and fixes of major bugs;
-   - major (`X.0.0`): large refactors and global changes.
-4. **Update the docs** that the change affects: README, `docs/`, this file, and a new section in [CHANGELOG.md](CHANGELOG.md) in [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
+3. **Record the change** under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md) ([Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format). Do not change the version; that happens at release time.
+4. **Update the docs** that the change affects: README, `docs/` and this file.
 5. **Open a pull request** against `master` and wait for CI to pass on macOS, Windows and Linux.
 
 Commit subjects follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`). The body explains *why* the change is needed.
@@ -39,4 +36,10 @@ Commit subjects follow [Conventional Commits](https://www.conventionalcommits.or
 
 ## Releases
 
-Merging the version bump into `master` does not publish anything. A maintainer pushes a `v<x.y.z>` tag, and the release workflow builds and uploads the installers. See [Deployment](docs/DEPLOYMENT.md).
+Changes accumulate under `[Unreleased]` and are released together, when something user-visible has piled up or right away for urgent fixes (security, crashes). The release PR picks the version from the largest change since the last release:
+
+- patch (`x.y.Z`): only small fixes, docs and tooling;
+- minor (`x.Y.0`): at least one new feature or fix of a major bug;
+- major (`X.0.0`): large refactors and global changes.
+
+See [Deployment](docs/DEPLOYMENT.md#release-process) for the steps.

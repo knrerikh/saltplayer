@@ -29,11 +29,15 @@ electron-builder is configured in the `build` field of `package.json`:
 
 ## Release process
 
-Every merged change already carries its version bump and CHANGELOG entry (see [CONTRIBUTING](../CONTRIBUTING.md#workflow)). Publishing is a separate, deliberate step:
+Merged changes collect under `## [Unreleased]` in the CHANGELOG. To release them:
+
+1. Choose the version from the largest change since the last release (see [CONTRIBUTING](../CONTRIBUTING.md#releases)).
+2. Open a release pull request, `chore: release v<x.y.z>`. It runs `npm version <x.y.z> --no-git-tag-version`, renames `[Unreleased]` to `[<x.y.z>] - <date>`, starts a new empty `[Unreleased]`, and updates the links at the bottom of the CHANGELOG.
+3. After it is merged, tag the merge commit:
 
 ```bash
 git switch master && git pull
-git tag v<x.y.z>          # must match package.json
+git tag -a v<x.y.z> -m "Salt Player <x.y.z>"   # must match package.json
 git push origin v<x.y.z>
 ```
 
@@ -44,7 +48,7 @@ The tag triggers `.github/workflows/release.yml`:
 
 The macOS x64 build is cross-compiled on an ARM64 runner. `ffmpeg-static` downloads a binary for the host architecture, so the workflow downloads it again for x64 before packaging. Without that step the Intel build would ship an ARM64 ffmpeg and fail with `EBADARCH`.
 
-After the workflow finishes, check the release page: every platform's installer is present, and the release notes match the CHANGELOG section.
+After the workflow finishes, check the release page: every platform's installer should be present. electron-builder creates the release without notes, so paste the version's CHANGELOG section into it.
 
 The workflow can also be started by hand (`workflow_dispatch`), for example to rebuild a release after a CI fix.
 
