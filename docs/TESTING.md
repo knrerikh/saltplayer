@@ -8,7 +8,7 @@ Tests use [Vitest](https://vitest.dev/) with `happy-dom` and [Testing Library](h
 npm test                     # watch mode
 npm run test:unit            # unit tests once
 npm run test:integration     # integration tests once
-npm run test:coverage        # all tests with a v8 coverage report (text + coverage/index.html)
+npm run test:coverage        # all tests with v8 coverage of src/ (text, coverage/index.html); fails below the thresholds
 npx vitest run tests/unit/torrent.test.ts   # one file
 npx vitest run -t "seek"                    # tests whose name matches
 ```
@@ -25,6 +25,7 @@ npx vitest run -t "seek"                    # tests whose name matches
 | `tests/unit/storage.test.ts` | Temp directory creation and cleanup, size and free-space checks |
 | `tests/unit/utils.test.ts` | Speed, size and time formatting; magnet link validation |
 | `tests/unit/icon.test.ts` | Icon geometry, the ICO encoder, and drift between `build/icon.svg` and the design code |
+| `tests/unit/coverage-summary.test.ts` | The coverage table published in the CI run summary |
 | `tests/integration/ipc.test.ts` | Renderer-side calls through the `electronAPI` bridge |
 | `tests/integration/components.test.tsx` | `TorrentInput` and `StatusBar` behaviour, including the speed colour |
 | `tests/integration/videoplayer.test.tsx` | `VideoPlayer`: click and <kbd>Space</kbd> to play, seeking, episode selection, subtitles, audio track menu, auto-hiding controls |
@@ -49,7 +50,7 @@ npx vitest run -t "seek"                    # tests whose name matches
 
 `.github/workflows/test.yml` runs on every push to `master` and every pull request:
 
-- **test:** unit and integration tests on Ubuntu, macOS and Windows with Node 18 and 20. Coverage is generated on Ubuntu with Node 20.
+- **test:** unit and integration tests on Ubuntu, macOS and Windows with Node 18 and 20. On Ubuntu with Node 20 it also runs `npm run test:coverage`, which fails if coverage of `src/` drops below the thresholds in `vitest.config.ts` (lines and statements 60%, functions 55%, branches 75%), and writes the coverage table to the run's summary page (`scripts/coverage-summary.mjs`). Raise the thresholds when coverage grows.
 - **build:** after the tests pass, the app is built and packaged (without publishing) on all three platforms.
 
 The release workflow runs the same tests before publishing; see [Deployment](DEPLOYMENT.md).

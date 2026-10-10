@@ -8,8 +8,15 @@ export default defineConfig({
     setupFiles: ['./tests/setup.ts'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html'],
-      exclude: ['build/', 'dist/', 'tests/', 'webpack.*.js', '*.config.js', '*.config.ts']
+      reporter: ['text', 'html', 'json-summary'],
+      include: ['src/**'],
+      // A few points under the current level: CI fails when coverage drops noticeably.
+      thresholds: {
+        lines: 60,
+        statements: 60,
+        functions: 55,
+        branches: 75,
+      },
     }
   },
   resolve: {
