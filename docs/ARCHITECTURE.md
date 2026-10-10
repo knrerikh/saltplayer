@@ -92,4 +92,4 @@ The HTML Fullscreen API is deliberately not used. Chromium handles <kbd>Esc</kbd
 
 - `contextIsolation` is enabled and `nodeIntegration` is disabled; the renderer only sees the functions in `preload.ts`.
 - The streaming server listens on loopback only (`127.0.0.1`), so other machines on the network cannot reach it, and it serves only the selected file and its subtitle tracks.
-- `app:openExternal` passes URLs to `shell.openExternal` without filtering the scheme.
+- `app:openExternal` hands only `http:` and `https:` URLs to `shell.openExternal` (`isSafeExternalUrl`, `src/main/external-url.ts`); `file:`, `smb:`, custom protocol handlers and anything unparsable are refused.

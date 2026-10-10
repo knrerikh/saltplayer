@@ -2,6 +2,7 @@ import { ipcMain, shell, BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '@/shared/types';
 import { TorrentEngine } from './torrent';
 import { StorageManager } from './storage';
+import { isSafeExternalUrl } from './external-url';
 
 export function setupIPCHandlers(
   torrentEngine: TorrentEngine,
@@ -99,7 +100,8 @@ export function setupIPCHandlers(
     }
   });
 
-  ipcMain.handle(IPC_CHANNELS.APP_OPEN_EXTERNAL, async (_, url: string) => {
+  ipcMain.handle(IPC_CHANNELS.APP_OPEN_EXTERNAL, async (_, url: unknown) => {
+    if (!isSafeExternalUrl(url)) return false;
     await shell.openExternal(url);
     return true;
   });

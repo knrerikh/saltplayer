@@ -30,7 +30,8 @@ npx vitest run -t "seek"                    # tests whose name matches
 | `tests/integration/titlebar-drag.test.tsx` | Drag versus click on the title strip |
 | `tests/unit/window-fullscreen.test.ts` | Forwarding window fullscreen changes to the renderer |
 | `tests/integration/statusbar-fullscreen.test.tsx` | Status bar hidden in window fullscreen; the video container can shrink so the status bar is never pushed off-screen |
-| `tests/unit/ipc-window.test.ts` | The `window:setFullscreen` handler |
+| `tests/unit/ipc-handlers.test.ts` | IPC handlers: `window:setFullscreen`, and `app:openExternal` refusing non-web URLs |
+| `tests/unit/external-url.test.ts` | The URL scheme allow-list for opening links outside the app |
 | `tests/integration/escape-fullscreen.test.tsx` | The ⛶ button toggles window fullscreen; <kbd>Esc</kbd> leaves it, but closes an open subtitle or audio menu first |
 | `tests/integration/error-dismiss.test.tsx` | Error banner close button, hover pause and auto-dismiss timers |
 
