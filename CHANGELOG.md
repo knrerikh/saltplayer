@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.2] - 2026-10-10
+
 ### Security
 - **Streaming server reachable from the local network** ([#18](https://github.com/knrerikh/saltplayer/issues/18)): it listened on all interfaces, so anyone on the same network who found the port could stream the current video and its subtitles. It now binds to `127.0.0.1` only.
 - **Any URL could be opened outside the app** ([#19](https://github.com/knrerikh/saltplayer/issues/19)): `app:openExternal` passed whatever the renderer sent to the OS, including `file:`, `smb:` and custom protocol URLs. Only `http:` and `https:` are allowed now.
@@ -176,7 +178,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full API documentation in code comments
 - Architecture documentation
 
-[Unreleased]: https://github.com/knrerikh/saltplayer/compare/v1.6.1...HEAD
+[Unreleased]: https://github.com/knrerikh/saltplayer/compare/v1.6.2...HEAD
+[1.6.2]: https://github.com/knrerikh/saltplayer/compare/v1.6.1...v1.6.2
 [1.6.1]: https://github.com/knrerikh/saltplayer/releases/tag/v1.6.1
 [1.6.0]: https://github.com/knrerikh/saltplayer/pull/14
 [1.5.2]: https://github.com/knrerikh/saltplayer/releases/tag/v1.5.2
