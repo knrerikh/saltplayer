@@ -1,0 +1,2 @@
+# Generated icon source is compared byte-for-byte in tests; keep LF on every OS.
+*.svg text eol=lf
