@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - The rule that picks the file to play first and the list of video extensions now live in one shared module (`src/shared/video-files.ts`) used by both the engine and the episode list ([#20](https://github.com/knrerikh/saltplayer/issues/20)). A second, unused rule ("largest file") and its tests were removed; the tests now cover the rule the app actually uses.
+- CI no longer uploads to Codecov, which never received a coverage file. Instead it enforces coverage thresholds for `src/` and shows a coverage table in the run summary ([#21](https://github.com/knrerikh/saltplayer/issues/21)).
 
 ### Fixed
 - **Status bar cut off at the bottom of the window** ([#17](https://github.com/knrerikh/saltplayer/issues/17)): the video container could not shrink below the video's own height, so a 1080p file pushed the status bar partly out of the window.
