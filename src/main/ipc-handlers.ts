@@ -20,7 +20,7 @@ export function setupIPCHandlers(
     IPC_CHANNELS.APP_OPEN_EXTERNAL,
     IPC_CHANNELS.WINDOW_DRAG_START,
     IPC_CHANNELS.WINDOW_DRAG_END,
-    IPC_CHANNELS.WINDOW_EXIT_FULLSCREEN,
+    IPC_CHANNELS.WINDOW_SET_FULLSCREEN,
   ]) {
     ipcMain.removeHandler(channel);
   }
@@ -129,9 +129,11 @@ export function setupIPCHandlers(
     dragging = false;
   });
 
-  // macOS does not bind Esc to leaving native window fullscreen; the renderer asks for it.
-  ipcMain.handle(IPC_CHANNELS.WINDOW_EXIT_FULLSCREEN, (event) => {
+  // All fullscreen is window fullscreen: the HTML Fullscreen API would let Chromium
+  // handle Esc itself, before the page can close an open menu first.
+  ipcMain.handle(IPC_CHANNELS.WINDOW_SET_FULLSCREEN, (event, isFullscreen: unknown) => {
+    if (typeof isFullscreen !== 'boolean') return;
     const win = BrowserWindow.fromWebContents(event.sender);
-    if (win && !win.isDestroyed()) win.setFullScreen(false);
+    if (win && !win.isDestroyed()) win.setFullScreen(isFullscreen);
   });
 }

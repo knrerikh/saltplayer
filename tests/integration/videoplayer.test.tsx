@@ -7,16 +7,6 @@ import { SubtitleData, AudioData } from '@/shared/types';
 
 describe('VideoPlayer Component', () => {
   beforeEach(() => {
-    // Mock requestFullscreen/exitFullscreen
-    HTMLElement.prototype.requestFullscreen = vi.fn();
-    document.exitFullscreen = vi.fn();
-    
-    // Mock document.fullscreenElement
-    Object.defineProperty(document, 'fullscreenElement', {
-      writable: true,
-      value: null
-    });
-
     // Mock HTMLMediaElement methods
     HTMLVideoElement.prototype.play = vi.fn().mockResolvedValue(undefined);
     HTMLVideoElement.prototype.pause = vi.fn();

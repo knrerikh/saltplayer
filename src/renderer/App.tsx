@@ -25,7 +25,7 @@ declare global {
       startWindowDrag: () => Promise<boolean>;
       moveWindowBy: (dx: number, dy: number) => void;
       endWindowDrag: () => Promise<void>;
-      exitWindowFullscreen: () => Promise<void>;
+      setWindowFullscreen: (isFullscreen: boolean) => Promise<void>;
       onTorrentStatus: (callback: (status: TorrentStatus) => void) => void;
       onVideoUrl: (callback: (url: string) => void) => void;
       onVideoMetadata: (callback: (metadata: { duration: number }) => void) => void;
@@ -127,7 +127,7 @@ const App: React.FC = () => {
     if (!isWindowFullscreen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !e.defaultPrevented) {
-        window.electronAPI.exitWindowFullscreen();
+        window.electronAPI.setWindowFullscreen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -266,6 +266,8 @@ const App: React.FC = () => {
         subtitleData={subtitleData}
         audioData={audioData}
         onSelectAudioTrack={handleSelectAudioTrack}
+        isFullscreen={isWindowFullscreen}
+        onToggleFullscreen={() => window.electronAPI.setWindowFullscreen(!isWindowFullscreen)}
       />
       
       {!isWindowFullscreen && (

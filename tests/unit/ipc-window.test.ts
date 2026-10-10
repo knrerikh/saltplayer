@@ -16,7 +16,7 @@ vi.mock('electron', () => ({
   BrowserWindow: { fromWebContents: () => senderWindow },
 }));
 
-describe('window:exitFullscreen handler', () => {
+describe('window:setFullscreen handler', () => {
   beforeEach(async () => {
     handlers.clear();
     senderWindow.setFullScreen.mockClear();
@@ -24,9 +24,15 @@ describe('window:exitFullscreen handler', () => {
     setupIPCHandlers({} as any, {} as any);
   });
 
-  it('takes the sending window out of fullscreen', async () => {
-    await handlers.get(IPC_CHANNELS.WINDOW_EXIT_FULLSCREEN)?.({ sender: {} });
+  it.each([true, false])('sets the sending window fullscreen to %s', async (isFullscreen) => {
+    await handlers.get(IPC_CHANNELS.WINDOW_SET_FULLSCREEN)?.({ sender: {} }, isFullscreen);
 
-    expect(senderWindow.setFullScreen).toHaveBeenCalledWith(false);
+    expect(senderWindow.setFullScreen).toHaveBeenCalledWith(isFullscreen);
+  });
+
+  it('ignores anything but a boolean', async () => {
+    await handlers.get(IPC_CHANNELS.WINDOW_SET_FULLSCREEN)?.({ sender: {} }, 'yes');
+
+    expect(senderWindow.setFullScreen).not.toHaveBeenCalled();
   });
 });

@@ -36,7 +36,7 @@ All channel names live in `IPC_CHANNELS` (`src/shared/types.ts`).
 
 | Direction | Channels |
 | --- | --- |
-| Renderer → main (`invoke`) | `torrent:load`, `torrent:stop`, `torrent:selectFile`, `playback:control`, `playback:seek`, `audio:selectTrack`, `app:quit`, `app:openExternal`, `window:dragStart`, `window:dragEnd`, `window:exitFullscreen` |
+| Renderer → main (`invoke`) | `torrent:load`, `torrent:stop`, `torrent:selectFile`, `playback:control`, `playback:seek`, `audio:selectTrack`, `app:quit`, `app:openExternal`, `window:dragStart`, `window:dragEnd`, `window:setFullscreen` |
 | Renderer → main (`send`) | `window:dragMove` (pointer deltas, high frequency) |
 | Main → renderer (`send`) | `torrent:status` (every second), `video:url`, `video:metadata`, `subtitles:available`, `audio:available`, `error`, `window:fullscreen` |
 
@@ -71,7 +71,9 @@ The window is frameless. `TitlebarDragRegion` turns pointer movement over the to
 
 ### Fullscreen
 
-There are two kinds of fullscreen. The player's button puts the video container into element fullscreen through the Fullscreen API. Window fullscreen (the macOS green button, <kbd>⌃⌘F</kbd>) bypasses that API, so `forwardFullscreenState()` (`src/main/window-fullscreen.ts`) forwards the window's `enter-full-screen` and `leave-full-screen` events as `window:fullscreen`. The renderer hides the status bar while it is set. Because macOS does not bind <kbd>Esc</kbd> to leaving window fullscreen, `App` handles it and calls `window:exitFullscreen`. Open subtitle and audio menus handle <kbd>Esc</kbd> first and mark the event as handled, so one press closes the menu and the next leaves fullscreen.
+All fullscreen is window fullscreen. The player's ⛶ button calls `window:setFullscreen`, and the macOS green button or <kbd>⌃⌘F</kbd> change the same state natively. `forwardFullscreenState()` (`src/main/window-fullscreen.ts`) forwards the window's `enter-full-screen` and `leave-full-screen` events as `window:fullscreen`; `App` keeps that state, hides the status bar and passes it to the player.
+
+The HTML Fullscreen API is deliberately not used. Chromium handles <kbd>Esc</kbd> for it before the page sees the key, so an open menu could not take precedence. macOS does not bind <kbd>Esc</kbd> to window fullscreen either, so `App` handles it and calls `window:setFullscreen(false)`. Open subtitle and audio menus handle <kbd>Esc</kbd> first on `document` and mark the event as handled; one press closes the menu, the next leaves fullscreen.
 
 ## Storage and lifecycle
 
