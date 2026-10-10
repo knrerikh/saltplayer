@@ -29,8 +29,8 @@ npx vitest run -t "seek"                    # tests whose name matches
 | `tests/integration/titlebar-drag.test.tsx` | Drag versus click on the title strip |
 | `tests/unit/window-fullscreen.test.ts` | Forwarding window fullscreen changes to the renderer |
 | `tests/integration/statusbar-fullscreen.test.tsx` | Status bar hidden in window fullscreen; the video container can shrink so the status bar is never pushed off-screen |
-| `tests/unit/ipc-window.test.ts` | The `window:exitFullscreen` handler |
-| `tests/integration/escape-fullscreen.test.tsx` | <kbd>Esc</kbd> leaves window fullscreen, but closes an open menu first |
+| `tests/unit/ipc-window.test.ts` | The `window:setFullscreen` handler |
+| `tests/integration/escape-fullscreen.test.tsx` | The ⛶ button toggles window fullscreen; <kbd>Esc</kbd> leaves it, but closes an open subtitle or audio menu first |
 | `tests/integration/error-dismiss.test.tsx` | Error banner close button, hover pause and auto-dismiss timers |
 
 `tests/helpers/electron-api.ts` provides `mockElectronAPI()`, a complete `electronAPI` mock for rendering `<App />` with helpers that deliver main-process events. `tests/setup.ts` installs a default mocked `window.electronAPI` and a `File` subclass with a `path` property for drag-and-drop tests. Main-process tests mock `electron` and, where needed, `webtorrent` with `vi.mock`; no test touches the network.

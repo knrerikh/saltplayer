@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 import { act } from '@testing-library/react';
-import type { SubtitleData } from '@/shared/types';
+import type { AudioData, SubtitleData } from '@/shared/types';
 
 /**
  * Installs a complete `window.electronAPI` mock for rendering `<App />` and returns
@@ -10,6 +10,7 @@ export function mockElectronAPI() {
   const listeners: {
     videoUrl?: (url: string) => void;
     subtitles?: (data: SubtitleData) => void;
+    audioTracks?: (data: AudioData) => void;
     windowFullscreen?: (isFullscreen: boolean) => void;
   } = {};
 
@@ -25,7 +26,7 @@ export function mockElectronAPI() {
     startWindowDrag: vi.fn(),
     moveWindowBy: vi.fn(),
     endWindowDrag: vi.fn(),
-    exitWindowFullscreen: vi.fn(),
+    setWindowFullscreen: vi.fn(),
     onTorrentStatus: vi.fn(),
     onVideoUrl: vi.fn((callback: (url: string) => void) => {
       listeners.videoUrl = callback;
@@ -34,7 +35,9 @@ export function mockElectronAPI() {
     onSubtitles: vi.fn((callback: (data: SubtitleData) => void) => {
       listeners.subtitles = callback;
     }),
-    onAudioTracks: vi.fn(),
+    onAudioTracks: vi.fn((callback: (data: AudioData) => void) => {
+      listeners.audioTracks = callback;
+    }),
     onError: vi.fn(),
     onWindowFullscreen: vi.fn((callback: (isFullscreen: boolean) => void) => {
       listeners.windowFullscreen = callback;
@@ -53,6 +56,9 @@ export function mockElectronAPI() {
     },
     sendSubtitles(data: SubtitleData) {
       act(() => listeners.subtitles?.(data));
+    },
+    sendAudioTracks(data: AudioData) {
+      act(() => listeners.audioTracks?.(data));
     },
   };
 }

@@ -293,21 +293,6 @@ body {
   }
 }
 
-/* Fullscreen Mode */
-.video-container.fullscreen {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: 9999;
-}
-
-.video-container.fullscreen .video-player {
-  width: 100vw;
-  height: 100vh;
-}
-
 /* Controls: visible while the pointer moves, faded out after it sits still
    (the .controls-hidden class is driven by the idle timer in VideoPlayer). */
 .video-controls {

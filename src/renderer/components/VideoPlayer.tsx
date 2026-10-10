@@ -63,6 +63,9 @@ interface VideoPlayerProps {
   subtitleData?: SubtitleData | null;
   audioData?: AudioData | null;
   onSelectAudioTrack?: (streamIndex: number) => void;
+  /** Whether the window is fullscreen; the player does not manage fullscreen itself. */
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({ 
@@ -78,13 +81,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   subtitleData,
   audioData,
   onSelectAudioTrack,
+  isFullscreen = false,
+  onToggleFullscreen,
   }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [volume, setVolume] = useState(1);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
   const [isBuffering, setIsBuffering] = useState(false);
   const [timeOffset, setTimeOffset] = useState(0);
@@ -122,7 +126,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }, [subtitleData?.tracks, currentSubtitleIndex]);
 
   // Close subtitle menu on outside click or Escape. Escape is marked as handled so the
-  // same press does not also leave window fullscreen (see App).
+  // same press does not also leave fullscreen (see App).
   useEffect(() => {
     if (!subtitleMenuOpen) return;
     const handleClick = (e: MouseEvent) => {
@@ -362,16 +366,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
   }, [videoUrl, revealControls]);
 
-  // The browser can leave fullscreen without going through toggleFullscreen (Esc,
-  // the green button, Cmd+Ctrl+F) — keep our own flag in sync with the real state.
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(document.fullscreenElement !== null);
-    };
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
@@ -423,23 +417,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   };
 
-  const toggleFullscreen = () => {
-    const container = videoRef.current?.parentElement;
-    if (!container) return;
-
-    if (!isFullscreen) {
-      if (container.requestFullscreen) {
-        container.requestFullscreen();
-      }
-      setIsFullscreen(true);
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      }
-      setIsFullscreen(false);
-    }
-  };
-
   const formatTime = (seconds: number): string => {
     if (!isFinite(seconds)) return '0:00';
     const mins = Math.floor(seconds / 60);
@@ -452,7 +429,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   return (
     <div
-      className={`video-container${isFullscreen ? ' fullscreen' : ''}${
+      className={`video-container${
         videoUrl && !controlsVisible ? ' controls-hidden' : ''
       }`}
       onMouseLeave={() => {
@@ -704,7 +681,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 </div>
               )}
               
-              <button className="control-button" onClick={toggleFullscreen}>
+              <button
+                className="control-button"
+                onClick={onToggleFullscreen}
+                title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+              >
                 {isFullscreen ? '⊗' : '⛶'}
               </button>
             </div>
