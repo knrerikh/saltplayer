@@ -29,28 +29,27 @@ electron-builder is configured in the `build` field of `package.json`:
 
 ## Release process
 
-Merged changes collect under `## [Unreleased]` in the CHANGELOG. To release them:
+Merged changes collect under `## [Unreleased]` in the CHANGELOG. Releasing them takes two steps, and nothing is published until the second one:
 
-1. Choose the version from the largest change since the last release (see [CONTRIBUTING](../CONTRIBUTING.md#releases)).
-2. Open a release pull request, `chore: release v<x.y.z>`. It runs `npm version <x.y.z> --no-git-tag-version`, renames `[Unreleased]` to `[<x.y.z>] - <date>`, starts a new empty `[Unreleased]`, and updates the links at the bottom of the CHANGELOG.
-3. After it is merged, tag the merge commit:
+1. **Prepare.** In GitHub, go to **Actions → Prepare release → Run workflow** and choose the bump (see [CONTRIBUTING](../CONTRIBUTING.md#releases)). `.github/workflows/prepare-release.yml`:
+   - moves `[Unreleased]` into `## [<x.y.z>] - <date>`, starts a new empty `[Unreleased]` and updates the links at the bottom (`scripts/release/prepare.mjs`);
+   - bumps `package.json` and `package-lock.json`;
+   - opens the pull request `chore: release v<x.y.z>` from `release/v<x.y.z>`, with the release notes as its description.
 
-```bash
-git switch master && git pull
-git tag -a v<x.y.z> -m "Salt Player <x.y.z>"   # must match package.json
-git push origin v<x.y.z>
-```
+   It fails without changing anything if `[Unreleased]` is empty. Review the PR and edit the CHANGELOG wording in it if needed. Pull requests opened by GitHub Actions do not trigger other workflows, so the Tests workflow does not run on it; the release workflow runs the tests before building.
+2. **Publish.** Merge the release PR. `.github/workflows/release.yml` sees that `package.json` has a version without a tag and:
+   1. **prepare:** tags the merge commit `v<x.y.z>` and creates a **draft** GitHub release with the version's CHANGELOG section as notes (`scripts/release/notes.mjs`);
+   2. **test:** unit and integration tests on Ubuntu, macOS and Windows (Node 20);
+   3. **publish:** four jobs (Linux, Windows, macOS arm64, macOS x64) install dependencies, rebuild native modules for Electron (`@electron/rebuild`), build, and run `electron-builder --publish always`, which uploads the installers to the draft;
+   4. **finalize:** publishes the draft and marks it as latest, only if every platform succeeded.
 
-The tag triggers `.github/workflows/release.yml`:
+   Every other push to `master` finds the version already tagged and skips all jobs.
 
-1. **test:** unit and integration tests on Ubuntu, macOS and Windows (Node 20).
-2. **publish:** four jobs (Linux, Windows, macOS arm64, macOS x64) install dependencies, rebuild native modules for Electron (`@electron/rebuild`), build, and run `electron-builder --publish always`. The installers are uploaded to the GitHub release for the tag.
+One-time setup: **Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests** must be enabled, or step 1 cannot open the PR.
 
 The macOS x64 build is cross-compiled on an ARM64 runner. `ffmpeg-static` downloads a binary for the host architecture, so the workflow downloads it again for x64 before packaging. Without that step the Intel build would ship an ARM64 ffmpeg and fail with `EBADARCH`.
 
-After the workflow finishes, check the release page: every platform's installer should be present. electron-builder creates the release without notes, so paste the version's CHANGELOG section into it.
-
-The workflow can also be started by hand (`workflow_dispatch`), for example to rebuild a release after a CI fix.
+If a platform fails, the release stays a draft. Fix the cause and run **Actions → Release → Run workflow** on `master`: it rebuilds the current version, uploads the installers to the existing draft and publishes it.
 
 ## Code signing
 

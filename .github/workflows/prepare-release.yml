@@ -1,0 +1,66 @@
+name: Prepare release
+
+# Started by hand: Actions → Prepare release → Run workflow. Turns CHANGELOG's
+# [Unreleased] into a version section, bumps package.json and opens the release PR.
+# Merging that PR publishes the release (see release.yml).
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'patch: only small fixes · minor: a feature or a major bug fix · major: large refactor'
+        type: choice
+        options: [patch, minor, major]
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Cut the release in CHANGELOG.md
+        id: cut
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          version=$(node scripts/release/prepare.mjs "$BUMP")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Bump package.json and package-lock.json
+        env:
+          VERSION: ${{ steps.cut.outputs.version }}
+        run: npm version "$VERSION" --no-git-tag-version
+
+      - name: Open the release pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.cut.outputs.version }}
+        run: |
+          branch="release/v$VERSION"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$branch"
+          git commit -am "chore: release v$VERSION"
+          git push origin "$branch"
+
+          {
+            echo "Merging this pull request publishes **Salt Player $VERSION**: it tags \`v$VERSION\`, builds the installers and releases them with the notes below."
+            echo
+            node scripts/release/notes.mjs "$VERSION"
+          } > body.md
+          gh pr create --base master --head "$branch" --title "chore: release v$VERSION" --body-file body.md

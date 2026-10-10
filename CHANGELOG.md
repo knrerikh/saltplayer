@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The rule that picks the file to play first and the list of video extensions now live in one shared module (`src/shared/video-files.ts`) used by both the engine and the episode list ([#20](https://github.com/knrerikh/saltplayer/issues/20)). A second, unused rule ("largest file") and its tests were removed; the tests now cover the rule the app actually uses.
 - CI no longer uploads to Codecov, which never received a coverage file. Instead it enforces coverage thresholds for `src/` and shows a coverage table in the run summary ([#21](https://github.com/knrerikh/saltplayer/issues/21)).
 - Tests: React Testing Library 16 with a single `@testing-library/dom`; a duplicate copy made `userEvent` bypass `act()` and flooded test output with about 100 warnings. Such a warning now fails the test ([#28](https://github.com/knrerikh/saltplayer/issues/28)).
+- Releases are automated ([#25](https://github.com/knrerikh/saltplayer/issues/25)): **Prepare release** in GitHub Actions turns `[Unreleased]` into a version section, bumps the version and opens the release PR; merging it tags the version, builds the installers into a draft release with notes from the CHANGELOG, and publishes it once every platform has succeeded.
 
 ### Fixed
 - **Status bar cut off at the bottom of the window** ([#17](https://github.com/knrerikh/saltplayer/issues/17)): the video container could not shrink below the video's own height, so a 1080p file pushed the status bar partly out of the window.
