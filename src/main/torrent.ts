@@ -1,5 +1,6 @@
 import { TorrentFile, TorrentMetadata, TorrentStatus, IPC_CHANNELS, SubtitleTrack, AudioTrack } from '@/shared/types';
 import { StorageManager } from './storage';
+import { pickMainVideoFile } from '@/shared/video-files';
 import { BrowserWindow } from 'electron';
 import * as http from 'http';
 import * as fs from 'fs';
@@ -41,8 +42,6 @@ try {
 
 // WebTorrent will be loaded dynamically since it's an ESM module
 let WebTorrentClass: any = null;
-
-const VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.avi', '.mov', '.webm', '.m4v', '.flv', '.wmv'];
 
 const UNSUPPORTED_AUDIO_CODECS = ['ac3', 'ac-3', 'eac3', 'ec-3', 'dts', 'truehd', 'mlp', 'vorbis'];
 
@@ -296,7 +295,7 @@ export class TorrentEngine {
           console.log('Torrent ready:', torrent.name);
 
           // Select video file
-          const videoFile = this.selectVideoFile(torrent.files);
+          const videoFile = pickMainVideoFile<{ name: string; length: number }>(torrent.files, (file) => file.length);
 
           if (!videoFile) {
             const error = new Error('No video file found in torrent');
@@ -374,37 +373,6 @@ export class TorrentEngine {
 
     // Restart streaming server with new file
     this.startStreamingServer(this.currentTorrent, file);
-  }
-
-  /**
-   * Select the most likely video file from torrent
-   */
-  private selectVideoFile(files: any[]): any | null {
-    // Filter video files
-    const videoFiles = files.filter(file => {
-      const ext = file.name.toLowerCase().match(/\.[^.]+$/)?.[0];
-      return ext && VIDEO_EXTENSIONS.includes(ext);
-    });
-
-    if (videoFiles.length === 0) {
-      return null;
-    }
-
-    // Sort by size (largest first) to determine threshold
-    videoFiles.sort((a, b) => b.length - a.length);
-    const maxSize = videoFiles[0].length;
-
-    // Filter out samples/extras (keep files > 10% of max size OR > 50MB)
-    const mainFiles = videoFiles.filter(f => f.length > maxSize * 0.1 || f.length > 50 * 1024 * 1024);
-
-    if (mainFiles.length === 0) {
-      return videoFiles[0];
-    }
-
-    // Sort alphabetically to pick the first episode (e.g. S01E01)
-    mainFiles.sort((a, b) => a.name.localeCompare(b.name));
-
-    return mainFiles[0];
   }
 
   /**
@@ -1102,22 +1070,5 @@ export class TorrentEngine {
    */
   static isValidMagnet(magnetUri: string): boolean {
     return magnetUri.startsWith('magnet:?') && magnetUri.includes('xt=urn:btih:');
-  }
-
-  /**
-   * Select video file from file list (static utility)
-   */
-  static selectVideoFile(files: TorrentFile[]): TorrentFile | null {
-    const videoFiles = files.filter(file => {
-      const ext = file.name.toLowerCase().match(/\.[^.]+$/)?.[0];
-      return ext && VIDEO_EXTENSIONS.includes(ext);
-    });
-
-    if (videoFiles.length === 0) {
-      return null;
-    }
-
-    videoFiles.sort((a, b) => b.size - a.size);
-    return videoFiles[0];
   }
 }

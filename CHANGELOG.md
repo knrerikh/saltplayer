@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Streaming server reachable from the local network** ([#18](https://github.com/knrerikh/saltplayer/issues/18)): it listened on all interfaces, so anyone on the same network who found the port could stream the current video and its subtitles. It now binds to `127.0.0.1` only.
 - **Any URL could be opened outside the app** ([#19](https://github.com/knrerikh/saltplayer/issues/19)): `app:openExternal` passed whatever the renderer sent to the OS, including `file:`, `smb:` and custom protocol URLs. Only `http:` and `https:` are allowed now.
 
+### Changed
+- The rule that picks the file to play first and the list of video extensions now live in one shared module (`src/shared/video-files.ts`) used by both the engine and the episode list ([#20](https://github.com/knrerikh/saltplayer/issues/20)). A second, unused rule ("largest file") and its tests were removed; the tests now cover the rule the app actually uses.
+
 ### Fixed
 - **Status bar cut off at the bottom of the window** ([#17](https://github.com/knrerikh/saltplayer/issues/17)): the video container could not shrink below the video's own height, so a 1080p file pushed the status bar partly out of the window.
 - **Status bar visible in fullscreen** ([#17](https://github.com/knrerikh/saltplayer/issues/17)): window fullscreen (the macOS green button, <kbd>⌃⌘F</kbd>) is now forwarded to the UI, and the status bar is hidden until the window leaves fullscreen.

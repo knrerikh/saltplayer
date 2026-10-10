@@ -3,9 +3,8 @@ import TorrentInput from './components/TorrentInput';
 import VideoPlayer from './components/VideoPlayer';
 import StatusBar from './components/StatusBar';
 import TitlebarDragRegion from './components/TitlebarDragRegion';
+import { isVideoFile, compareFileNames } from '@/shared/video-files';
 import { TorrentStatus, TorrentMetadata, ErrorInfo, TorrentFile, SubtitleData, AudioData } from '@/shared/types';
-
-const VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.avi', '.mov', '.webm', '.m4v', '.flv', '.wmv'];
 
 /** How long the error banner stays up before auto-dismissing, unless hovered. */
 const ERROR_AUTO_DISMISS_MS = 5000;
@@ -169,13 +168,7 @@ const App: React.FC = () => {
   const { videoFiles, currentIndex } = useMemo(() => {
     if (!metadata || !metadata.files) return { videoFiles: [], currentIndex: -1 };
 
-    // Filter and sort video files (same logic as backend roughly)
-    const files = metadata.files
-      .filter(f => {
-        const ext = f.name.toLowerCase().match(/\.[^.]+$/)?.[0];
-        return ext && VIDEO_EXTENSIONS.includes(ext);
-      })
-      .sort((a, b) => a.name.localeCompare(b.name));
+    const files = metadata.files.filter((f) => isVideoFile(f.name)).sort(compareFileNames);
 
     // Find current file name from URL
     let currentName = '';

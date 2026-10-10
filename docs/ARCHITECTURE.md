@@ -27,6 +27,7 @@ Salt Player is an Electron app with a strict split between the main process (Nod
 | `src/main/ipc-handlers.ts` | Registers `ipcMain` handlers; a thin layer that delegates to `TorrentEngine` and the window |
 | `src/main/preload.ts` | Exposes `window.electronAPI` through `contextBridge`, the only crossing point between processes |
 | `src/shared/types.ts` | `IPC_CHANNELS` and the types shared by both processes |
+| `src/shared/video-files.ts` | Video extensions, playlist ordering and the choice of the file to play first |
 | `src/renderer/App.tsx` | Root component: subscribes to main-process events, owns torrent, playlist, track and error state |
 | `src/renderer/components/` | `TorrentInput`, `VideoPlayer`, `StatusBar`, `TitlebarDragRegion` |
 
@@ -43,7 +44,7 @@ All channel names live in `IPC_CHANNELS` (`src/shared/types.ts`).
 ## Loading and playback
 
 1. **Load.** `torrent:load` hands a magnet URI or `.torrent` path to `TorrentEngine.load()`. The torrent is added with the source's trackers plus `FALLBACK_TRACKERS`. If metadata does not arrive within `TORRENT_LOAD_TIMEOUT_MS` (60 s), the torrent is removed and an error is sent. A previous torrent is fully stopped before a new one is added.
-2. **Pick a file.** Video files are filtered by extension; samples and extras (smaller than 10% of the largest file and under 50 MB) are dropped. The first remaining file in alphabetical order is chosen, which is the first episode of a series.
+2. **Pick a file.** Video files are filtered by extension; samples and extras (smaller than 10% of the largest file and under 50 MB) are dropped. The first remaining file in alphabetical order is chosen, which is the first episode of a series. This rule (`pickMainVideoFile`) and the list of video extensions live in `src/shared/video-files.ts`, which the renderer also uses to build the episode list.
 3. **Prioritise pieces.** See [Piece selection](TORRENT_OPTIMIZATION.md).
 4. **Serve.** A local HTTP server bound to `127.0.0.1` (`STREAM_HOST`) on a random port streams the file with range support.
 5. **Probe.** `ffprobe` (spawned directly, 10 s timeout, 5 MB probe size) reads the duration, codecs, audio tracks and subtitle tracks.
