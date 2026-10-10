@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Status bar cut off at the bottom of the window** ([#17](https://github.com/knrerikh/saltplayer/issues/17)): the video container could not shrink below the video's own height, so a 1080p file pushed the status bar partly out of the window.
 - **Status bar visible in fullscreen** ([#17](https://github.com/knrerikh/saltplayer/issues/17)): window fullscreen (the macOS green button, <kbd>⌃⌘F</kbd>) is now forwarded to the UI, and the status bar is hidden until the window leaves fullscreen.
+- **<kbd>Esc</kbd> did not leave window fullscreen** ([#26](https://github.com/knrerikh/saltplayer/issues/26)): macOS does not bind it, so the app now handles it. An open subtitle or audio menu is closed first.
 
 ## [1.6.1] - 2026-10-10
 

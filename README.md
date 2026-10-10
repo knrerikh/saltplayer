@@ -57,7 +57,7 @@ Requires macOS 10.15+, Windows 10+ or a 64-bit Linux distribution from the last 
 | Volume | Slider in the control bar |
 | Audio track / subtitles | Track menus in the control bar; <kbd>Esc</kbd> closes a menu |
 | Previous / next episode | Buttons next to play |
-| Fullscreen | Fullscreen button; <kbd>Esc</kbd> leaves fullscreen |
+| Fullscreen | Fullscreen button or the macOS green button; <kbd>Esc</kbd> leaves fullscreen |
 
 See the [User Guide](docs/USER_GUIDE.md) for details.
 

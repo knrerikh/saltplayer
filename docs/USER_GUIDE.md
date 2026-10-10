@@ -16,7 +16,7 @@ Recognised video files: MP4, MKV, WebM, MOV, M4V, AVI, FLV, WMV. Video is played
 | Play / pause | <kbd>Space</kbd> (ignored while typing in a field), click the video, or the play button |
 | Seek | Click the progress bar |
 | Volume | Volume slider |
-| Fullscreen | Fullscreen button; <kbd>Esc</kbd> leaves fullscreen |
+| Fullscreen | Fullscreen button, or the green window button on macOS; <kbd>Esc</kbd> leaves either |
 | Close the video | ✕ in the top corner |
 
 While a video plays, the controls and cursor hide after 2.5 seconds without mouse movement. Move the mouse to bring them back. They stay visible while the video is paused, while a menu is open, or while the pointer rests on the controls.

@@ -25,6 +25,7 @@ declare global {
       startWindowDrag: () => Promise<boolean>;
       moveWindowBy: (dx: number, dy: number) => void;
       endWindowDrag: () => Promise<void>;
+      exitWindowFullscreen: () => Promise<void>;
       onTorrentStatus: (callback: (status: TorrentStatus) => void) => void;
       onVideoUrl: (callback: (url: string) => void) => void;
       onVideoMetadata: (callback: (metadata: { duration: number }) => void) => void;
@@ -120,6 +121,18 @@ const App: React.FC = () => {
       clearErrorDismissTimer();
     };
   }, []);
+
+  // Menus handle Escape on document and mark it handled; this runs after them on window.
+  useEffect(() => {
+    if (!isWindowFullscreen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !e.defaultPrevented) {
+        window.electronAPI.exitWindowFullscreen();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isWindowFullscreen]);
 
   const handleLoadTorrent = async (source: string) => {
     try {

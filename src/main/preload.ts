@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   moveWindowBy: (dx: number, dy: number) =>
     ipcRenderer.send(IPC_CHANNELS.WINDOW_DRAG_MOVE, dx, dy),
   endWindowDrag: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW_DRAG_END),
+  exitWindowFullscreen: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW_EXIT_FULLSCREEN),
 
   // App control
   quit: () => ipcRenderer.invoke(IPC_CHANNELS.APP_QUIT),
@@ -70,6 +71,7 @@ declare global {
       startWindowDrag: () => Promise<boolean>;
       moveWindowBy: (dx: number, dy: number) => void;
       endWindowDrag: () => Promise<void>;
+      exitWindowFullscreen: () => Promise<void>;
       onTorrentStatus: (callback: (status: TorrentStatus) => void) => void;
       onVideoUrl: (callback: (url: string) => void) => void;
       onVideoMetadata: (callback: (metadata: { duration: number }) => void) => void;
