@@ -73,7 +73,7 @@ See the [User Guide](docs/USER_GUIDE.md) for details.
 
 ## Development
 
-Requires **Node.js 22.18+** and npm.
+Use **Node.js 22.18 or newer**: `npm run icons` runs TypeScript directly and `@electron/rebuild` declares Node 22. CI also runs the tests on Node 18 and 20.
 
 ```bash
 git clone https://github.com/knrerikh/saltplayer.git

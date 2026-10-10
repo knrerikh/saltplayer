@@ -29,10 +29,10 @@ If applicable, add screenshots to help explain your problem.
 
 ## Environment
 
-- **OS**: [e.g., Windows 11, macOS 14, Ubuntu 22.04]
-- **Saltplayer Version**: [e.g., 0.1.0]
-- **Torrent Source**: [magnet link, .torrent file]
-- **Video Format**: [e.g., MP4, MKV]
+- **OS and CPU**: [e.g., macOS 15 on Apple Silicon, Windows 11 x64, Ubuntu 24.04]
+- **Salt Player version**: [e.g., 1.6.1]
+- **Torrent source**: [magnet link, .torrent file]
+- **Video file**: [container and audio codec if known, e.g., MKV with E-AC3 5.1]
 
 ## Torrent Information
 
@@ -46,9 +46,13 @@ Add any other context about the problem here.
 
 ## Logs
 
-If available, paste relevant logs from Developer Tools (View > Toggle Developer Tools):
+If the app crashed, attach `crash.log` from the app's log directory:
+
+- macOS: `~/Library/Logs/Salt Player/crash.log`
+- Windows: `%APPDATA%\Salt Player\logs\crash.log`
+- Linux: `~/.config/Salt Player/logs/crash.log`
 
 ```
-Paste console logs here
+Paste log lines here
 ```
 

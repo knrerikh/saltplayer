@@ -1,143 +1,89 @@
-# Saltplayer Architecture
+# Architecture
 
-## Overview
-
-Saltplayer is built on Electron with a clear separation between main and renderer processes.
+Salt Player is an Electron app with a strict split between the main process (Node.js: torrents, ffmpeg, files) and the renderer (React UI, no Node access). They talk only through a typed IPC bridge.
 
 ```
-┌─────────────────────────────────────────┐
-│         Renderer Process (UI)           │
-│                                         │
-│  ┌───────────┐  ┌──────────────────┐   │
-│  │  React    │  │  Video Player    │   │
-│  │Components │  │  (HTML5 Video)   │   │
-│  └─────┬─────┘  └────────┬─────────┘   │
-│        │                 │              │
-│        └────────┬────────┘              │
-│                 │ IPC                   │
-└─────────────────┼─────────────────────  ┘
-                  │
-┌─────────────────┼─────────────────────  ┐
-│                 │ contextBridge         │
-│         Main Process (Electron)         │
-│                                         │
-│  ┌──────────────┐  ┌─────────────────┐ │
-│  │   Torrent    │  │  Storage        │ │
-│  │   Engine     │  │  Manager        │ │
-│  │ (WebTorrent) │  │ (Temp Files)    │ │
-│  └──────┬───────┘  └────────┬────────┘ │
-│         │                   │           │
-│         └────────┬──────────┘           │
-│                  │                      │
-│         ┌────────▼────────┐             │
-│         │  HTTP Server    │             │
-│         │  (Streaming)    │             │
-│         └─────────────────┘             │
-└─────────────────────────────────────────┘
+┌──────────────────────── Renderer (React) ────────────────────────┐
+│  App.tsx ── TorrentInput · VideoPlayer · StatusBar · TitlebarDrag │
+│      │  window.electronAPI (invoke)        ▲ events (send)        │
+└──────┼─────────────────────────────────────┼─────────────────────┘
+       │            preload.ts (contextBridge)│
+┌──────▼───────────────── Main (Node.js) ─────┼─────────────────────┐
+│  ipc-handlers.ts ──► TorrentEngine (torrent.ts) ──► webContents   │
+│                         │        │                                │
+│                   WebTorrent   local HTTP server ◄── <video src>  │
+│                         │        │   └─ ffmpeg / ffprobe          │
+│                  StorageManager (per-session temp dir)            │
+└───────────────────────────────────────────────────────────────────┘
 ```
 
-## Main Process Components
+## Source layout
 
-### TorrentEngine (`src/main/torrent.ts`)
-- Manages WebTorrent client lifecycle
-- Handles magnet links and .torrent files
-- Selects appropriate video file automatically
-- Creates HTTP streaming server
-- Manages download priorities for streaming
-- Sends status updates to renderer
+| Path | Responsibility |
+| --- | --- |
+| `src/main/main.ts` | App lifecycle, `BrowserWindow` (frameless, `titleBarStyle: 'hiddenInset'`), crash log, wiring |
+| `src/main/torrent.ts` | `TorrentEngine`: WebTorrent client, file selection, piece prioritisation, streaming server, probing, transcoding, subtitles, audio tracks, status updates |
+| `src/main/storage.ts` | `StorageManager`: per-session temp directory, stale-session cleanup, disk space checks |
+| `src/main/ipc-handlers.ts` | Registers `ipcMain` handlers; a thin layer that delegates to `TorrentEngine` and the window |
+| `src/main/preload.ts` | Exposes `window.electronAPI` through `contextBridge`, the only crossing point between processes |
+| `src/shared/types.ts` | `IPC_CHANNELS` and the types shared by both processes |
+| `src/renderer/App.tsx` | Root component: subscribes to main-process events, owns torrent, playlist, track and error state |
+| `src/renderer/components/` | `TorrentInput`, `VideoPlayer`, `StatusBar`, `TitlebarDragRegion` |
 
-### StorageManager (`src/main/storage.ts`)
-- Creates temporary directory for downloads
-- Monitors disk space usage
-- Cleans up files on application exit
-- Ensures proper resource management
+## IPC
 
-### IPC Handlers (`src/main/ipc-handlers.ts`)
-- Bridges renderer and main process communication
-- Validates incoming requests
-- Handles errors gracefully
-- Uses Electron's contextBridge for security
+All channel names live in `IPC_CHANNELS` (`src/shared/types.ts`).
 
-## Renderer Process Components
+| Direction | Channels |
+| --- | --- |
+| Renderer → main (`invoke`) | `torrent:load`, `torrent:stop`, `torrent:selectFile`, `playback:control`, `playback:seek`, `audio:selectTrack`, `app:quit`, `app:openExternal`, `window:dragStart`, `window:dragEnd` |
+| Renderer → main (`send`) | `window:dragMove` (pointer deltas, high frequency) |
+| Main → renderer (`send`) | `torrent:status` (every second), `video:url`, `video:metadata`, `subtitles:available`, `audio:available`, `error` |
 
-### App (`src/renderer/App.tsx`)
-- Root component managing application state
-- Coordinates child components
-- Handles IPC events from main process
+## Loading and playback
 
-### TorrentInput (`src/renderer/components/TorrentInput.tsx`)
-- User input for magnet links
-- Drag & drop for .torrent files
-- File picker integration
+1. **Load.** `torrent:load` hands a magnet URI or `.torrent` path to `TorrentEngine.load()`. The torrent is added with the source's trackers plus `FALLBACK_TRACKERS`. If metadata does not arrive within `TORRENT_LOAD_TIMEOUT_MS` (60 s), the torrent is removed and an error is sent. A previous torrent is fully stopped before a new one is added.
+2. **Pick a file.** Video files are filtered by extension; samples and extras (smaller than 10% of the largest file and under 50 MB) are dropped. The first remaining file in alphabetical order is chosen, which is the first episode of a series.
+3. **Prioritise pieces.** See [Piece selection](TORRENT_OPTIMIZATION.md).
+4. **Serve.** A local HTTP server on a random port streams the file with range support; the renderer reaches it at `127.0.0.1`.
+5. **Probe.** `ffprobe` (spawned directly, 10 s timeout, 5 MB probe size) reads the duration, codecs, audio tracks and subtitle tracks.
+6. **Hand over.** The renderer receives the stream URL. If the audio codec is one Chromium cannot play (AC3, E-AC3, DTS, TrueHD/MLP, Vorbis), the URL carries `?transcode=true`.
 
-### VideoPlayer (`src/renderer/components/VideoPlayer.tsx`)
-- HTML5 video element
-- Custom controls overlay
-- Seek functionality with main process coordination
-- Fullscreen support
+### Streaming server routes
 
-### StatusBar (`src/renderer/components/StatusBar.tsx`)
-- Download/upload speed display
-- Progress tracking
-- Peer count
-- File information
+| Request | Response |
+| --- | --- |
+| `/<file>` | The file itself, with HTTP range support |
+| `/<file>?transcode=true[&startTime=<s>][&audioTrack=<index>]` | Matroska stream from ffmpeg: video copied, audio transcoded to stereo AAC (or copied when the selected track is already playable). The input is the server's own raw URL, so ffmpeg can read the container index and `seekInput` accurately. |
+| `/subtitle/<index>.vtt` | The embedded subtitle stream `<index>`, converted to WebVTT by ffmpeg on request |
 
-## Data Flow
+### Seeking
 
-### Loading a Torrent
+In direct mode the `<video>` element seeks with range requests. In transcode mode the renderer reloads the URL with `startTime`, restarting ffmpeg at that offset. In both modes `playback:seek` moves the piece window to the byte offset that corresponds to the new time.
 
-1. User enters magnet link or drops .torrent file
-2. Renderer sends `torrent:load` IPC message
-3. Main process:
-   - Creates WebTorrent instance
-   - Downloads metadata
-   - Selects video file
-   - Starts HTTP server
-   - Sends video URL back to renderer
-4. Renderer receives URL and loads video
-5. Main process sends status updates every second
+### Audio tracks and subtitles
 
-### Video Playback
+When there is more than one audio track, the renderer offers a menu. Choosing a track calls `audio:selectTrack`, and main replies with a new transcode URL that maps only that stream (`-map 0:v:0 -map 0:<index>`); playback resumes from the current position. Subtitle tracks are listed with human-readable language names and attached as `<track>` elements pointing at `/subtitle/<index>.vtt`.
 
-1. Video element connects to `http://localhost:PORT/video.mp4`
-2. HTTP Range requests are sent for video chunks
-3. WebTorrent prioritizes requested pieces
-4. Video buffers and plays progressively
+### Window dragging
 
-### Cleanup
+The window is frameless. `TitlebarDragRegion` turns pointer movement over the top strip into `window:dragMove` deltas that main applies to the window position. A press that moves less than 3 px is treated as a click and passed through to the player. There are no `-webkit-app-region` rules, because an app region swallows every click in its area.
 
-1. User closes application
-2. Main process:
-   - Stops all torrents
-   - Closes HTTP server
-   - Deletes temporary directory
-   - Exits cleanly
+## Storage and lifecycle
+
+- `StorageManager.initialize()` deletes `saltplayer-*` folders left in the system temp directory by earlier sessions, then creates a fresh `saltplayer-<id>` folder for this one.
+- On quit (`before-quit`, or closing the last window on Windows and Linux), the engine stops the torrent and closes the HTTP server and ffmpeg processes, and the session folder is deleted.
+- On macOS, closing the window only stops the torrent; the app keeps running with its storage intact, so it is ready when the window is reopened.
+
+## Resilience
+
+- **TCP only.** WebTorrent is created with `utp: false`. Its uTP-first dialing took ~41 s to fall back to TCP, longer than the load timeout, on networks that drop uTP.
+- **No WebRTC.** `node-datachannel` is not rebuilt for Electron, so `Module._load` is intercepted while WebTorrent loads and the native module is replaced by a no-op stub. A desktop client only needs TCP peers.
+- **ffmpeg failures do not crash the app.** `ffprobe` is spawned directly instead of through `fluent-ffmpeg`, whose capability check could throw synchronously on an architecture mismatch (`EBADARCH`). Recoverable `uncaughtException`s are logged and the app keeps running without transcoding.
+- **Crash log.** Fatal errors and startup diagnostics (architecture, resolved ffmpeg paths) are appended to `crash.log` in the app's log directory (`~/Library/Logs/Salt Player/` on macOS).
 
 ## Security
 
-- **Context Isolation**: Renderer has no direct Node.js access
-- **Preload Script**: Safe API exposed via contextBridge
-- **Input Validation**: All IPC messages are validated
-- **No Remote Module**: Uses secure IPC communication
-
-## Performance Considerations
-
-- **Piece Prioritization**: First pieces downloaded first for quick start
-- **Temporary Storage**: Uses system temp directory
-- **Memory Management**: WebTorrent handles buffering internally
-- **Cleanup**: Aggressive cleanup on exit prevents orphaned files
-
-## Testing Strategy
-
-- **Unit Tests**: Business logic in isolation (TorrentEngine, StorageManager)
-- **Integration Tests**: IPC communication and component interactions
-- **Manual Tests**: End-to-end user workflows
-
-## Future Enhancements
-
-- Streaming optimization with seek prediction
-- Multiple file selection
-- Subtitle support
-- Custom download paths
-- Bandwidth controls
-
+- `contextIsolation` is enabled and `nodeIntegration` is disabled; the renderer only sees the functions in `preload.ts`.
+- The streaming server serves only the selected file and its subtitle tracks. It currently listens on all interfaces, not just loopback.
+- `app:openExternal` passes URLs to `shell.openExternal` without filtering the scheme.
