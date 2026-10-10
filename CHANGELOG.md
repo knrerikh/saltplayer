@@ -5,33 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Added
-- **Optimized Torrent Download**: Implemented selective file downloading for multi-file torrents
-- **Sequential Piece Download**: Pieces are now downloaded sequentially to prevent playback interruptions
-- **Critical Piece Prioritization**: First 10 pieces download with high priority for faster playback start
-- **Bandwidth Efficiency**: Only the currently playing episode downloads, preventing waste
-
-### Changed
-- Modified `prioritizeStreamingPieces()` to deselect all files except the currently playing one
-- Improved piece selection algorithm for better streaming performance
-
-### Fixed
-- **Transcode Seek Reliability**: Switched FFmpeg input from byte-offset torrent streams to the internal HTTP source URL, so container metadata/index stay available during seeks
-- **Seek Playback Recovery**: Restored stable video playback after seek in transcode mode by using `seekInput()` on URL-based input with `video copy + audio AAC` output
-
-### Technical
-- Added comprehensive test coverage for torrent optimization and seek reprioritization
-- Created detailed documentation in `docs/TORRENT_OPTIMIZATION.md`
-- Full automated test suite passing
-
 ## [1.6.1] - 2026-10-10
 
 ### Changed
-- **README rewritten** to match the app as it is today: current release badge and download file names (including the Apple Silicon DMG), audio transcoding, audio tracks, subtitles, episode navigation and auto-hiding controls, a controls table and troubleshooting for load timeouts and Gatekeeper.
-- **User Guide** brought up to date: removed the non-existent <kbd>F</kbd> fullscreen shortcut, corrected the auto-hide delay (2.5 s during playback), documented audio tracks, subtitles and the speed colours.
-- **CONTRIBUTING** now describes the actual workflow: branch per change from `master`, tests first, version bump and docs update in every pull request, Node.js 22.18+.
+- **Documentation rewritten** to match the app as it is today:
+  - **README:** release badge, real download file names (including the Apple Silicon DMG), audio transcoding, audio tracks, subtitles, episode navigation, auto-hiding controls, a controls table, and troubleshooting for load timeouts and Gatekeeper.
+  - **User Guide:** removed the non-existent <kbd>F</kbd> fullscreen shortcut, corrected the auto-hide delay, documented audio tracks, subtitles and speed colours.
+  - **Architecture:** current modules, IPC channels, streaming-server routes, the transcode, seek and audio-track flows, window dragging, lifecycle and resilience measures.
+  - **Piece selection** (`docs/TORRENT_OPTIMIZATION.md`): the algorithm as implemented, including seek reprioritisation.
+  - **Testing:** actual test layout, CI matrix and a manual pre-release checklist.
+  - **Deployment:** the tag-driven release workflow, packaging details, signing status and codec licensing.
+  - **CONTRIBUTING:** branch per change, tests first, version bump and docs update in every PR, Node.js 22.18+.
+  - **Bug report template:** asks for CPU architecture and audio codec, and points to `crash.log`.
+- CHANGELOG backfilled with every release from 1.1.0 to 1.5.1; fixed the 1.0.0 date and removed the never-released 0.1.0 entry.
+
+### Removed
+- Outdated root documents from the initial commit: `INSTALLATION.md`, `QUICKSTART.md`, `PROJECT_SUMMARY.md`, `SOLUTION.md`, `FFMPEG_CODECS_SOLUTION.md`, `TESTING_GUIDE.md`. Their still-relevant content moved into README, `docs/TESTING.md` and `docs/DEPLOYMENT.md`.
 
 ## [1.6.0] - 2026-10-10
 
@@ -60,7 +49,84 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Close button (✕) on the error banner, shown on hover. Hovering the banner pauses auto-dismiss; leaving it restarts the 5 s countdown.
 
-## [1.0.0] - 2025-01-03
+## [1.5.1] - 2026-08-23
+
+### Fixed
+- **Window could not be dragged**: the CSS drag region did not move the frameless window and swallowed every click on the top of the video. The title strip now reports pointer movement to the main process, which moves the window; a press that moves less than 3 px stays a click and toggles playback.
+
+## [1.5.0] - 2026-08-22
+
+### Added
+- **Auto-hiding controls**: during playback, the controls and cursor fade out after 2.5 s without mouse movement and return on any mouse, key or wheel activity. They stay visible while paused, while a menu is open, or while the pointer is on the controls.
+
+### Fixed
+- Controls and the close button stayed visible permanently in fullscreen.
+- Leaving fullscreen with <kbd>Esc</kbd> or the window button desynchronised the player's fullscreen state.
+- The title drag strip swallowed clicks on the top 36 px of the video.
+- **macOS:** closing the window tore down storage while the app kept running, so the next load failed with "Storage manager not initialized". The torrent now stops on window close and storage stays initialised.
+
+## [1.4.7] - 2026-05-10
+
+### Fixed
+- Audio tracks were not detected when ffprobe finished after its 10 s timeout (regression in 1.4.5). ffprobe now also runs with a 5 MB probe size and 5 s analyse duration, so it finishes sooner.
+
+## [1.4.6] - 2026-05-10
+
+### Fixed
+- **Intel Macs:** the x64 DMG shipped an ARM64 ffmpeg binary and crashed with `EBADARCH`. The release workflow now downloads the x64 binary before packaging.
+- Recoverable ffmpeg spawn errors no longer quit the app; playback continues without transcoding.
+
+## [1.4.5] - 2026-05-10
+
+### Fixed
+- ffprobe is spawned directly instead of through `fluent-ffmpeg`, whose capability check could crash the app with `EBADARCH`. Startup diagnostics (architecture, resolved ffmpeg paths) are written to `crash.log`.
+
+## [1.4.4] - 2026-05-10
+
+### Changed
+- **macOS:** separate arm64 and x64 DMGs replace the universal build, which corrupted the bundled ffmpeg binaries. ffmpeg and ffprobe are unpacked from the asar archive so they can be executed.
+
+## [1.4.3] - 2026-05-09
+
+### Fixed
+- The WebRTC stub was defined with arrow functions, which cannot be used as constructors, so creating a peer connection threw.
+
+## [1.4.2] - 2026-05-09
+
+### Fixed
+- The WebRTC stub threw when `webrtc-polyfill` called methods on it, crashing playback when a WebRTC peer appeared.
+
+## [1.4.1] - 2026-05-09
+
+### Fixed
+- The packaged app crashed loading `node-datachannel`, which is not rebuilt for Electron. WebRTC is now replaced by a no-op stub; desktop playback only needs TCP peers.
+
+## [1.4.0] - 2026-05-09
+
+### Added
+- **Audio track selection** for multi-language files. Tracks are listed as "Language (codec, channels)", for example "Russian (AC3 5.1)". Switching resumes from the current position; incompatible codecs are transcoded to AAC.
+- Tag-triggered release workflow that builds and publishes installers for all platforms, with native modules rebuilt for Electron.
+
+## [1.3.0] - 2026-02-23
+
+### Added
+- **Subtitles**: embedded subtitle tracks are detected with ffprobe, extracted as WebVTT on demand and shown through a CC menu, with human-readable language names. Off by default.
+
+## [1.1.0] - 2026-02-19
+
+### Added
+- **Selective download**: only the episode being played is downloaded.
+- **Piece prioritisation**: the first 10 pieces of the file are fetched with high priority, the rest in playback order. Seeking moves the window.
+- **Speed indicator**: the download speed is coloured green, yellow or red depending on whether it keeps up with the video's bitrate.
+
+### Changed
+- Progress in the status bar reflects the current file, not the whole torrent.
+
+### Fixed
+- Seeking in transcode mode: ffmpeg now reads the file through the local HTTP server, so the container index stays available and video remains decodable after a seek.
+- Crash on startup with Electron 28 (`EXC_BREAKPOINT`); downgraded to Electron 27.
+
+## [1.0.0] - 2026-01-03
 
 ### Added
 - **Instant Torrent Streaming**: Start watching videos immediately without waiting for full download
@@ -92,13 +158,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full API documentation in code comments
 - Architecture documentation
 
-## [0.1.0] - 2024-12-XX
-
-### Added
-- Initial development version
-- Basic torrent loading and streaming functionality
-- Simple video player implementation
-- Prototype UI
-
-[1.0.0]: https://github.com/knrerikh/saltplayer/releases/tag/v1.0.0
-[0.1.0]: https://github.com/knrerikh/saltplayer/releases/tag/v0.1.0
+[1.6.1]: https://github.com/knrerikh/saltplayer/compare/v1.6.0...v1.6.1
+[1.6.0]: https://github.com/knrerikh/saltplayer/compare/v1.5.2...v1.6.0
+[1.5.2]: https://github.com/knrerikh/saltplayer/releases/tag/v1.5.2
+[1.5.1]: https://github.com/knrerikh/saltplayer/releases/tag/v1.5.1
+[1.5.0]: https://github.com/knrerikh/saltplayer/releases/tag/v1.5.0
+[1.4.7]: https://github.com/knrerikh/saltplayer/releases/tag/v1.4.7
+[1.4.6]: https://github.com/knrerikh/saltplayer/releases/tag/v1.4.6
+[1.4.5]: https://github.com/knrerikh/saltplayer/compare/v1.4.4...v1.4.5
+[1.4.4]: https://github.com/knrerikh/saltplayer/releases/tag/v1.4.4
+[1.4.3]: https://github.com/knrerikh/saltplayer/compare/v1.4.2...v1.4.3
+[1.4.2]: https://github.com/knrerikh/saltplayer/compare/v1.4.1...v1.4.2
+[1.4.1]: https://github.com/knrerikh/saltplayer/compare/v1.4.0...v1.4.1
+[1.4.0]: https://github.com/knrerikh/saltplayer/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/knrerikh/saltplayer/releases/tag/v1.3.0
+[1.1.0]: https://github.com/knrerikh/saltplayer/releases/tag/1.1.0
+[1.0.0]: https://github.com/knrerikh/saltplayer/tree/v1.0.0

@@ -1,321 +1,62 @@
-# Testing Guide
+# Testing
 
-## Overview
+Tests use [Vitest](https://vitest.dev/) with `happy-dom` and [Testing Library](https://testing-library.com/). New behaviour starts with a failing test (see [CONTRIBUTING](../CONTRIBUTING.md#workflow)).
 
-Saltplayer uses **Vitest** as the testing framework with a focus on critical business logic and integration points.
-
-## Test Structure
-
-```
-tests/
-├── unit/                  # Unit tests
-│   ├── torrent.test.ts    # TorrentEngine tests
-│   ├── storage.test.ts    # StorageManager tests
-│   └── utils.test.ts      # Utility function tests
-├── integration/           # Integration tests
-│   ├── ipc.test.ts        # IPC communication tests
-│   └── components.test.tsx# Component integration tests
-└── setup.ts               # Test environment setup
-```
-
-## Running Tests
+## Commands
 
 ```bash
-# Run all tests
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-
-# Run only unit tests
-npm run test:unit
-
-# Run only integration tests
-npm run test:integration
-
-# Generate coverage report
-npm run test:coverage
+npm test                     # watch mode
+npm run test:unit            # unit tests once
+npm run test:integration     # integration tests once
+npm run test:coverage        # all tests with a v8 coverage report (text + coverage/index.html)
+npx vitest run tests/unit/torrent.test.ts   # one file
+npx vitest run -t "seek"                    # tests whose name matches
 ```
 
-## Unit Tests
+## Layout
 
-### TorrentEngine Tests
+| File | Covers |
+| --- | --- |
+| `tests/unit/torrent.test.ts` | Magnet validation and video file selection (`TorrentEngine` static helpers) |
+| `tests/unit/torrent-magnet-load.test.ts` | The load contract with a mocked WebTorrent: TCP-only client, fallback trackers, timeout and removal, settling exactly once, stopping before re-adding |
+| `tests/unit/torrent-optimization.test.ts` | Piece selection: file deselection, piece windows, critical and sequential ranges, episode switching, seek reprioritisation |
+| `tests/unit/storage.test.ts` | Temp directory creation and cleanup, size and free-space checks |
+| `tests/unit/utils.test.ts` | Speed, size and time formatting; magnet link validation |
+| `tests/unit/icon.test.ts` | Icon geometry, the ICO encoder, and drift between `build/icon.svg` and the design code |
+| `tests/integration/ipc.test.ts` | Renderer-side calls through the `electronAPI` bridge |
+| `tests/integration/components.test.tsx` | `TorrentInput` and `StatusBar` behaviour, including the speed colour |
+| `tests/integration/videoplayer.test.tsx` | `VideoPlayer`: click and <kbd>Space</kbd> to play, seeking, episode selection, subtitles, audio track menu, auto-hiding controls |
+| `tests/integration/titlebar-drag.test.tsx` | Drag versus click on the title strip |
+| `tests/integration/error-dismiss.test.tsx` | Error banner close button, hover pause and auto-dismiss timers |
 
-Tests for torrent-related functionality:
+`tests/setup.ts` installs a mocked `window.electronAPI` and a `File` subclass with a `path` property for drag-and-drop tests. Main-process tests mock `electron` and, where needed, `webtorrent` with `vi.mock`; no test touches the network.
 
-- ✅ Magnet link validation
-- ✅ Video file selection logic
-- ✅ File size comparison
-- ✅ Extension filtering
-- ✅ Edge cases (empty lists, no video files)
+## Conventions
 
-**Example:**
+- Test behaviour through public methods and rendered output, not private state.
+- One behaviour per test, named as a sentence: `it('keeps controls visible while paused')`.
+- Use fake timers (`vi.useFakeTimers()`) for timeouts and intervals instead of real waiting.
+- A bug fix includes the test that would have caught it.
 
-```typescript
-it('should select largest video file from list', () => {
-  const files = [
-    { name: 'movie.mp4', size: 700 * 1024 * 1024 },
-    { name: 'trailer.mp4', size: 50 * 1024 * 1024 },
-  ];
-  
-  const selected = TorrentEngine.selectVideoFile(files);
-  expect(selected.name).toBe('movie.mp4');
-});
-```
+## Continuous integration
 
-### StorageManager Tests
+`.github/workflows/test.yml` runs on every push to `master` and every pull request:
 
-Tests for temporary file management:
+- **test:** unit and integration tests on Ubuntu, macOS and Windows with Node 18 and 20. Coverage is generated on Ubuntu with Node 20.
+- **build:** after the tests pass, the app is built and packaged (without publishing) on all three platforms.
 
-- ✅ Directory creation
-- ✅ Directory cleanup
-- ✅ Size calculation
-- ✅ Space checking
-- ✅ Error handling
+The release workflow runs the same tests before publishing; see [Deployment](DEPLOYMENT.md).
 
-**Example:**
+## Manual smoke test before a release
 
-```typescript
-it('should create temporary directory', async () => {
-  await storageManager.initialize();
-  const tempDir = storageManager.getTempDir();
-  
-  expect(tempDir).toContain('saltplayer-');
-  const stats = await fs.stat(tempDir);
-  expect(stats.isDirectory()).toBe(true);
-});
-```
+Automated tests mock WebTorrent and ffmpeg. Before tagging a release, check the packaged app with a legal multi-episode torrent, for example public-domain or Creative Commons content.
 
-### Utility Tests
+1. **Load a magnet.** Playback starts within seconds; the status bar shows peers and speed.
+2. **Selective download.** In a multi-file torrent only the current episode downloads; switching episode moves the download to the new one.
+3. **Seek.** Seeking to ~30–40% resumes quickly in both an MP4 and an MKV.
+4. **Transcoded audio.** An MKV with AC3/E-AC3/DTS audio plays with sound; switching audio track resumes from the same position.
+5. **Subtitles.** An embedded subtitle track can be enabled and switched.
+6. **Controls.** Controls and cursor hide after 2.5 s of playback without movement; the window can be dragged by the title strip; a click on the strip toggles playback.
+7. **Cleanup.** After quitting, no `saltplayer-*` folder remains in the system temp directory.
 
-Tests for helper functions:
-
-- ✅ Speed formatting (bytes/sec to human-readable)
-- ✅ Size formatting (bytes to KB/MB/GB)
-- ✅ Time formatting (seconds to mm:ss)
-- ✅ Input validation
-
-## Integration Tests
-
-### IPC Communication Tests
-
-Tests for main ↔ renderer communication:
-
-- ✅ Loading torrents via IPC
-- ✅ Playback control messages
-- ✅ Status update events
-- ✅ Error propagation
-- ✅ Listener registration
-
-**Example:**
-
-```typescript
-it('should call loadTorrent with magnet link', async () => {
-  const magnetLink = 'magnet:?xt=urn:btih:abc123';
-  mockElectronAPI.loadTorrent.mockResolvedValue({
-    name: 'Test Movie',
-    files: [],
-    totalSize: 1024,
-    infoHash: 'abc123',
-  });
-
-  const result = await window.electronAPI.loadTorrent(magnetLink);
-  
-  expect(mockElectronAPI.loadTorrent).toHaveBeenCalledWith(magnetLink);
-  expect(result.name).toBe('Test Movie');
-});
-```
-
-### Component Tests
-
-Tests for React components with context:
-
-- ✅ TorrentInput user interactions
-- ✅ StatusBar data display
-- ✅ VideoPlayer controls
-- ✅ Full user flows
-
-**Example:**
-
-```typescript
-it('should call onLoad when Load button is clicked', async () => {
-  const user = userEvent.setup();
-  const onLoad = vi.fn();
-  render(<TorrentInput onLoad={onLoad} isLoading={false} />);
-
-  const input = screen.getByPlaceholderText(/Enter magnet link/i);
-  await user.type(input, 'magnet:?xt=urn:btih:test123');
-  await user.click(screen.getByText('Load'));
-
-  expect(onLoad).toHaveBeenCalledWith('magnet:?xt=urn:btih:test123');
-});
-```
-
-## Test Coverage Goals
-
-### Critical Modules (>60% coverage)
-
-- ✅ TorrentEngine
-- ✅ StorageManager
-- ✅ IPC handlers
-
-### Important Modules (>40% coverage)
-
-- ✅ React components
-- ✅ Utility functions
-
-### Less Critical
-
-- UI styles
-- Configuration files
-
-## Mocking Strategy
-
-### Electron API
-
-```typescript
-(global.window as any).electronAPI = {
-  loadTorrent: vi.fn(),
-  stopTorrent: vi.fn(),
-  // ... other methods
-};
-```
-
-### File System
-
-```typescript
-vi.mock('fs/promises', () => ({
-  mkdir: vi.fn(),
-  rm: vi.fn(),
-  stat: vi.fn(),
-}));
-```
-
-### WebTorrent
-
-For full integration tests, WebTorrent is mocked at the API level to avoid network calls.
-
-## Writing New Tests
-
-### Unit Test Template
-
-```typescript
-import { describe, it, expect } from 'vitest';
-import { YourModule } from '@/main/your-module';
-
-describe('YourModule', () => {
-  describe('yourMethod', () => {
-    it('should do something', () => {
-      const result = YourModule.yourMethod(input);
-      expect(result).toBe(expected);
-    });
-    
-    it('should handle edge case', () => {
-      const result = YourModule.yourMethod(edgeInput);
-      expect(result).toBe(edgeExpected);
-    });
-  });
-});
-```
-
-### Component Test Template
-
-```typescript
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { YourComponent } from '@/renderer/components/YourComponent';
-
-describe('YourComponent', () => {
-  it('should render correctly', () => {
-    render(<YourComponent />);
-    expect(screen.getByText('Expected Text')).toBeInTheDocument();
-  });
-  
-  it('should handle user interaction', async () => {
-    const user = userEvent.setup();
-    const onAction = vi.fn();
-    render(<YourComponent onAction={onAction} />);
-    
-    await user.click(screen.getByText('Button'));
-    expect(onAction).toHaveBeenCalled();
-  });
-});
-```
-
-## CI/CD Integration
-
-Tests run automatically on:
-
-- Every commit to feature branches
-- Pull requests to main
-- Before releases
-
-**GitHub Actions workflow:**
-
-```yaml
-name: Tests
-on: [push, pull_request]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-      - run: npm install
-      - run: npm test
-      - run: npm run test:coverage
-```
-
-## Debugging Tests
-
-### Run specific test file
-
-```bash
-npx vitest tests/unit/torrent.test.ts
-```
-
-### Run tests matching pattern
-
-```bash
-npx vitest -t "should select largest"
-```
-
-### Debug in VS Code
-
-Add to `.vscode/launch.json`:
-
-```json
-{
-  "type": "node",
-  "request": "launch",
-  "name": "Vitest",
-  "runtimeExecutable": "npm",
-  "runtimeArgs": ["run", "test"],
-  "console": "integratedTerminal"
-}
-```
-
-## Best Practices
-
-1. **Test behavior, not implementation**
-2. **One assertion concept per test**
-3. **Use descriptive test names**
-4. **Keep tests fast (<100ms per test)**
-5. **Avoid testing external libraries**
-6. **Mock external dependencies**
-7. **Clean up after tests (beforeEach/afterEach)**
-
-## Known Limitations
-
-- **No E2E tests**: Full Electron app not tested end-to-end in CI
-- **Network mocking**: WebTorrent network calls are mocked
-- **Platform-specific**: Tests run on Linux in CI only
-
-## Future Improvements
-
-- [ ] E2E tests with Playwright
-- [ ] Visual regression tests
-- [ ] Performance benchmarks
-- [ ] Snapshot tests for UI
-
+In development (`npm run dev`), the main process logs the chosen piece window, for example `File pieces: 0 to 1999 (total: 2000)` and `Critical pieces: 10, Sequential: 1990`.
