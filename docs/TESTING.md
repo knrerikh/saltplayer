@@ -44,6 +44,7 @@ npx vitest run -t "seek"                    # tests whose name matches
 - Test behaviour through public methods and rendered output, not private state.
 - One behaviour per test, named as a sentence: `it('keeps controls visible while paused')`.
 - Use fake timers (`vi.useFakeTimers()`) for timeouts and intervals instead of real waiting.
+- Drive the UI through Testing Library (`userEvent`, `fireEvent`), not raw `dispatchEvent`, so React updates happen inside `act()`. `tests/setup.ts` turns React's "not wrapped in act(...)" warning into a test failure.
 - A bug fix includes the test that would have caught it.
 
 ## Continuous integration
