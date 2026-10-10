@@ -161,12 +161,9 @@ describe('VideoPlayer Component', () => {
         />
       );
 
-      const event = new KeyboardEvent('keydown', { code: 'Space' });
-      const preventDefaultSpy = vi.spyOn(event, 'preventDefault');
-      
-      window.dispatchEvent(event);
-      
-      expect(preventDefaultSpy).toHaveBeenCalled();
+      const notPrevented = fireEvent.keyDown(window, { code: 'Space' });
+
+      expect(notPrevented).toBe(false);
     });
   });
 

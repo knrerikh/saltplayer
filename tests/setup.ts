@@ -33,3 +33,13 @@ class MockFile extends File {
 
 (global as any).File = MockFile;
 
+
+// A state update outside act() means a test asserts before React has settled, so it
+// may pass or fail by timing. Turn React's warning into a failure instead of noise.
+const consoleError = console.error.bind(console);
+console.error = (...args: unknown[]) => {
+  if (typeof args[0] === 'string' && args[0].includes('not wrapped in act(')) {
+    throw new Error(`React state update outside act(): ${args[0].split('\n')[0]}`);
+  }
+  consoleError(...args);
+};
