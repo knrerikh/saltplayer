@@ -96,7 +96,7 @@ npm run icons         # regenerate app icons from scripts/icon/design.mts
 
 How streaming, transcoding and piece prioritisation work is described in [Architecture](docs/ARCHITECTURE.md) and [Torrent optimisation](docs/TORRENT_OPTIMIZATION.md). Testing and release processes are in [Testing](docs/TESTING.md) and [Deployment](docs/DEPLOYMENT.md).
 
-Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). Every change goes through its own branch and pull request, comes with tests, bumps the version and updates the docs it affects. History is in the [Changelog](CHANGELOG.md).
+Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). Every change goes through its own branch and pull request, comes with tests, and updates the CHANGELOG and the docs it affects. History is in the [Changelog](CHANGELOG.md).
 
 ## Legal
 
