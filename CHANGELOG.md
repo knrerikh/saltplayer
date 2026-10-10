@@ -26,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Created detailed documentation in `docs/TORRENT_OPTIMIZATION.md`
 - Full automated test suite passing
 
+## [1.6.1] - 2026-10-10
+
+### Changed
+- **README rewritten** to match the app as it is today: current release badge and download file names (including the Apple Silicon DMG), audio transcoding, audio tracks, subtitles, episode navigation and auto-hiding controls, a controls table and troubleshooting for load timeouts and Gatekeeper.
+- **User Guide** brought up to date: removed the non-existent <kbd>F</kbd> fullscreen shortcut, corrected the auto-hide delay (2.5 s during playback), documented audio tracks, subtitles and the speed colours.
+- **CONTRIBUTING** now describes the actual workflow: branch per change from `master`, tests first, version bump and docs update in every pull request, Node.js 22.18+.
+
 ## [1.6.0] - 2026-10-10
 
 ### Changed

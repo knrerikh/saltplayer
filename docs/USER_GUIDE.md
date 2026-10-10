@@ -1,110 +1,57 @@
-# Saltplayer User Guide
+# Salt Player User Guide
 
-## Quick Start
+## Opening a torrent
 
-1. **Launch Saltplayer**
-2. **Enter a magnet link** or **drag & drop a .torrent file**
-3. **Click "Load"** or press Enter
-4. **Wait for buffering** (usually a few seconds)
-5. **Video starts playing automatically**
+- **Magnet link:** paste it into the input field and press <kbd>Enter</kbd> or click **Load**.
+- **Torrent file:** drop a `.torrent` file onto the window, or click **Open File**.
 
-## Features
+Salt Player fetches the torrent's metadata, picks the main video file and starts playing as soon as enough data is buffered. If no peers can be reached within 60 seconds, loading stops with a timeout error; try a magnet with more seeders. Public fallback trackers are added to every torrent automatically.
 
-### Loading Content
+Recognised video files: MP4, MKV, WebM, MOV, M4V, AVI, FLV, WMV. Video is played as-is, so files whose video codec Chromium cannot decode (common in AVI, FLV and WMV) will not play.
 
-**Magnet Links:**
-- Paste magnet link into input field
-- Press Enter or click "Load" button
-- Wait for metadata to download
+## Playback
 
-**Torrent Files:**
-- Click "Open File" button to browse
-- Or drag & drop .torrent file onto drop zone
-- File is loaded automatically
+| Action | How |
+| --- | --- |
+| Play / pause | <kbd>Space</kbd> (ignored while typing in a field), click the video, or the play button |
+| Seek | Click the progress bar |
+| Volume | Volume slider |
+| Fullscreen | Fullscreen button; <kbd>Esc</kbd> leaves fullscreen |
+| Close the video | ✕ in the top corner |
 
-### Video Playback
+While a video plays, the controls and cursor hide after 2.5 seconds without mouse movement. Move the mouse to bring them back. They stay visible while the video is paused, while a menu is open, or while the pointer rests on the controls.
 
-**Controls:**
-- **Play/Pause**: Click button or press Space
-- **Seek**: Click on seek bar
-- **Volume**: Adjust slider (0-100%)
-- **Fullscreen**: Click fullscreen button or press F
+### Audio tracks
 
-**Controls auto-hide** after 3 seconds of inactivity in fullscreen mode.
+If the file has several audio tracks, pick one from the audio menu in the control bar. Audio in AC3, E-AC3, DTS, TrueHD or Vorbis is transcoded to AAC on the fly. Switching tracks or seeking in a transcoded file restarts the stream from the current position, which takes a moment.
 
-### Status Information
+### Subtitles
 
-Status bar shows:
-- **Name**: Torrent/file name
-- **Progress**: Download completion percentage
-- **Download Speed**: Current download rate
-- **Upload Speed**: Current upload rate (seeding)
-- **Peers**: Number of connected peers
-- **Downloaded**: Total downloaded data
+Subtitle tracks embedded in the file are listed in the subtitle menu. The selected track is extracted when you choose it. <kbd>Esc</kbd> or a click outside closes either menu.
 
-### Stopping Playback
+### Series
 
-- Close the application window
-- All temporary files are automatically deleted
-- No traces left on your system
+For a torrent with several video files, choose the episode from the list in the title bar, or use the previous / next buttons beside play. Only the episode you are watching is downloaded.
 
-## Tips
+## Status bar
 
-### For Best Performance
+The status bar shows the torrent name, progress, download and upload speed, connected peers and downloaded size. The download speed is green when it keeps up with the video's bitrate, yellow when it is slightly below, and red when buffering is likely.
 
-- **Good magnet links**: Ensure links have many seeders
-- **Network**: Use wired connection for best speed
-- **Disk Space**: Ensure at least 2GB free space
+## Privacy and storage
 
-### Supported Video Formats
+- No accounts, no history, no telemetry.
+- Torrent pieces are stored in a temporary folder for the current session and deleted when you quit. Folders left behind by a crash are removed on the next launch.
+- One torrent plays at a time; nothing is kept permanently.
 
-- **MP4** (best compatibility)
-- **MKV** (may require codecs)
-- **AVI**
-- **MOV**
-- **WEBM**
-- **M4V**
-- **FLV**
-- **WMV**
+## Troubleshooting
 
-### Troubleshooting
+| Symptom | What to check |
+| --- | --- |
+| *Torrent load timed out* | No reachable peers within 60 s. Try another magnet with more seeders. |
+| Constant buffering | Few seeders or a slow connection; watch the speed colour in the status bar. |
+| *No video file found in torrent* | The torrent contains no recognised video file. |
+| macOS says the app can't be opened | The build is not notarised. Right-click the app and choose **Open**, or run `xattr -dr com.apple.quarantine "/Applications/Salt Player.app"`. |
 
-**Video won't start:**
-- Check if torrent has seeders (Peers > 0)
-- Verify magnet link is correct
-- Ensure video format is supported
+## Legal notice
 
-**Buffering constantly:**
-- Low number of seeders
-- Slow internet connection
-- Wait for more data to download
-
-**No video file found:**
-- Torrent may not contain video files
-- Try different torrent
-
-## Privacy & Security
-
-- **No tracking**: Saltplayer doesn't collect any data
-- **No accounts**: No registration required
-- **Local only**: All processing happens on your machine
-- **Auto-cleanup**: Files deleted on exit
-
-## Keyboard Shortcuts
-
-- **Enter**: Load torrent (when input focused)
-- **Space**: Play/Pause (when video focused)
-- **F**: Toggle fullscreen
-- **Esc**: Exit fullscreen
-
-## Limitations
-
-- **No library**: Saltplayer doesn't save history
-- **Single torrent**: One torrent at a time
-- **Temporary storage**: Files not saved permanently
-- **No searching**: Provide your own magnet links
-
-## Legal Notice
-
-Saltplayer is a neutral tool. Users are responsible for ensuring they have rights to access and view content. Respect copyright laws in your jurisdiction.
-
+Salt Player is a neutral tool. You are responsible for having the right to access the content you play. Respect copyright law in your jurisdiction.

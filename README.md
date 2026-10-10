@@ -1,250 +1,105 @@
-# Saltplayer
+<p align="center">
+  <img src="assets/icon.png" width="128" height="128" alt="Salt Player icon">
+</p>
 
-> Minimalist torrent player with progressive streaming
+<h1 align="center">Salt Player</h1>
 
-A lightweight, no-nonsense video player that lets you watch content from torrents **instantly** without waiting for full downloads or managing a media library.
+<p align="center">
+  A minimalist desktop player that streams video straight from torrents.<br>
+  Paste a magnet link, press Enter, watch.
+</p>
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
-![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
+<p align="center">
+  <a href="https://github.com/knrerikh/saltplayer/releases/latest"><img src="https://img.shields.io/github/v/release/knrerikh/saltplayer" alt="Latest release"></a>
+  <a href="https://github.com/knrerikh/saltplayer/actions/workflows/test.yml"><img src="https://github.com/knrerikh/saltplayer/actions/workflows/test.yml/badge.svg" alt="Tests"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license"></a>
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey" alt="Platforms">
+</p>
 
-## ✨ Features
+## Features
 
-- 🚀 **Instant Playback** — Start watching as soon as enough data is buffered
-- 🧲 **Magnet & Torrent Support** — Paste links or drop .torrent files
-- 🎬 **Auto Video Selection** — Automatically picks the main video file
-- 🖱️ **Click-to-Play/Pause** — Click anywhere on video to toggle playback
-- ⌨️ **Spacebar Control** — Press spacebar to play/pause (respects input fields)
-- 🎭 **Animated Feedback** — Visual play/pause icons with smooth fade effect
-- 📺 **Episode Selection** — Built-in dropdown for multi-file torrents
-- 🎨 **Minimalist UI** — Clean, dark interface with no distractions
-- 🔒 **Privacy First** — No tracking, no accounts, no telemetry
-- 🧹 **Auto Cleanup** — Temporary files deleted on exit and orphaned sessions on startup
-- 📊 **Real-time Stats** — Download speed, peers, progress
-- ⚡ **Lightweight** — Minimal resource usage
+- **Streams while it downloads.** Playback starts once the first pieces arrive; pieces are fetched in playback order, and only the episode you are watching is downloaded.
+- **Plays what browsers can't.** AC3, E-AC3, DTS, TrueHD and Vorbis audio is transcoded to AAC on the fly with ffmpeg, so most MKV releases just work.
+- **Audio tracks and subtitles.** Switch between the audio tracks and embedded subtitle tracks of the file from the player controls.
+- **Series-friendly.** Multi-file torrents get an episode list and previous/next buttons.
+- **Stays out of the way.** Controls and cursor hide after 2.5 s without movement; the window has no chrome beyond a draggable title strip.
+- **Leaves nothing behind.** Pieces live in a per-session temp folder that is deleted on exit; folders left by a crash are removed on the next launch. No accounts, no telemetry.
 
-## 🎯 What Saltplayer Is NOT
+Salt Player is deliberately not a library manager, a torrent search engine or a download manager. It plays one torrent, now.
 
-- ❌ Not a media library manager
-- ❌ Not a torrent search engine
-- ❌ Not a permanent storage solution
-- ❌ Not a download manager
+## Install
 
-**Saltplayer does one thing well:** play videos from torrents immediately.
+Download the build for your platform from [**Releases**](https://github.com/knrerikh/saltplayer/releases/latest):
 
-## 📦 Installation
+| Platform | File |
+| --- | --- |
+| macOS (Apple Silicon) | `Salt-Player-<version>-arm64.dmg` |
+| macOS (Intel) | `Salt-Player-<version>.dmg` |
+| Windows (installer) | `Salt-Player-Setup-<version>.exe` |
+| Windows (portable) | `Salt-Player-<version>.exe` |
+| Linux | `Salt-Player-<version>.AppImage`, `saltplayer_<version>_amd64.deb`, `saltplayer-<version>.x86_64.rpm` |
 
-### Download Pre-built Binaries
+Requires macOS 10.15+, Windows 10+ or a 64-bit Linux distribution from the last few years.
 
-Download the latest release for your platform:
+> **macOS:** builds are not notarised yet, so Gatekeeper blocks the first launch. Right-click the app and choose **Open**, or run
+> `xattr -dr com.apple.quarantine "/Applications/Salt Player.app"`.
 
-- **Windows**: `Salt-Player-Setup-1.0.0.exe` or `Salt-Player-1.0.0-portable.exe`
-- **macOS**: `Salt-Player-1.0.0.dmg`
-- **Linux**: `Salt-Player-1.0.0.AppImage`, `.deb`, or `.rpm`
+## Usage
 
-[Download from GitHub Releases](https://github.com/knrerikh/saltplayer/releases/latest)
+1. Paste a magnet link and press **Enter**, or drop a `.torrent` file onto the window (or click **Open File**).
+2. Salt Player picks the main video file and starts playing after a short buffer. For a series, choose the episode from the list in the title bar.
+3. The status bar shows progress, download and upload speed, peers and downloaded size.
 
-### Build from Source
+| Action | Control |
+| --- | --- |
+| Play / pause | <kbd>Space</kbd>, click the video, or the play button |
+| Seek | Click the progress bar |
+| Volume | Slider in the control bar |
+| Audio track / subtitles | Track menus in the control bar; <kbd>Esc</kbd> closes a menu |
+| Previous / next episode | Buttons next to play |
+| Fullscreen | Fullscreen button; <kbd>Esc</kbd> leaves fullscreen |
+
+See the [User Guide](docs/USER_GUIDE.md) for details.
+
+## Troubleshooting
+
+| Symptom | What to check |
+| --- | --- |
+| *Torrent load timed out* (after 60 s) | The swarm has no reachable peers. Try a magnet with more seeders; Salt Player already adds public fallback trackers. |
+| Constant buffering | Few seeders or a slow connection. The download speed turns yellow, then red, when it falls below the video's bitrate. |
+| *No video file found in torrent* | The torrent has no MP4, MKV, WebM, MOV, M4V, AVI, FLV or WMV file. |
+| Picture plays but no sound | Should not happen: report the file's audio codec in an [issue](https://github.com/knrerikh/saltplayer/issues). |
+| AVI / FLV / WMV won't play | Only audio is transcoded; these containers usually carry video codecs Chromium cannot decode. |
+
+## Development
+
+Requires **Node.js 22.18+** and npm.
 
 ```bash
-# Clone the repository
 git clone https://github.com/knrerikh/saltplayer.git
 cd saltplayer
-
-# Install dependencies
 npm install
 
-# Run in development
-npm run dev
-
-# Build for production
-npm run build
-
-# Package for distribution
-npm run package
+npm run dev           # webpack watchers + Electron with reload
+npm run test:unit     # unit tests (Vitest)
+npm run package       # build an installer for the current platform into release/
+npm run icons         # regenerate app icons from scripts/icon/design.mts
 ```
 
-## 🚀 Quick Start
+| Path | Contents |
+| --- | --- |
+| `src/main/` | Electron main process: torrent engine and local streaming server (`torrent.ts`), temp storage, IPC handlers, preload bridge |
+| `src/renderer/` | React UI: player, torrent input, status bar |
+| `src/shared/` | Types and IPC channel names shared by both processes |
+| `tests/` | Unit and integration tests |
+| `scripts/` | Packaging hooks and icon generator |
 
-1. **Launch Saltplayer**
-2. **Enter a magnet link** or **drag & drop a .torrent file**
-3. **Press Enter** or click "Load"
-4. **Video starts playing** after brief buffering
+How streaming, transcoding and piece prioritisation work is described in [Architecture](docs/ARCHITECTURE.md) and [Torrent optimisation](docs/TORRENT_OPTIMIZATION.md). Testing and release processes are in [Testing](docs/TESTING.md) and [Deployment](docs/DEPLOYMENT.md).
 
-That's it! No configuration needed.
+Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). Every change goes through its own branch and pull request, comes with tests, bumps the version and updates the docs it affects. History is in the [Changelog](CHANGELOG.md).
 
-## 💻 Usage
+## Legal
 
-### Magnet Links
+Salt Player is a neutral tool. You are responsible for having the right to access the content you play; respect copyright law in your jurisdiction.
 
-```
-magnet:?xt=urn:btih:...
-```
-
-Paste into input field and press Enter.
-
-### Torrent Files
-
-- Drag & drop `.torrent` file onto the application
-- Or click "Open File" to browse
-
-### Video Controls
-
-- **Play/Pause**: Spacebar, click on video, or click play button
-- **Episode Selection**: Use dropdown in title area (for multi-file torrents)
-- **Seek**: Click progress bar
-- **Volume**: Adjust slider
-- **Fullscreen**: F key or button
-
-## 🔧 Technical Details
-
-### Architecture
-
-- **Frontend**: React + TypeScript
-- **Backend**: Electron Main Process
-- **Streaming**: WebTorrent
-- **Testing**: Vitest + Testing Library
-
-### Supported Video Formats
-
-- MP4, MKV, AVI, MOV, WEBM, M4V, FLV, WMV
-
-### System Requirements
-
-- **OS**: Windows 10+, macOS 10.13+, Ubuntu 18.04+
-- **RAM**: 4GB minimum
-- **Disk**: 2GB free space for temporary files
-- **Network**: Internet connection
-
-## 📚 Documentation
-
-- [User Guide](docs/USER_GUIDE.md) — How to use Saltplayer
-- [Architecture](docs/ARCHITECTURE.md) — Technical architecture
-- [Contributing](CONTRIBUTING.md) — Development guide
-- [Changelog](CHANGELOG.md) — Version history
-
-## 🧪 Development
-
-### Setup
-
-```bash
-npm install
-```
-
-### Commands
-
-```bash
-# Development mode with hot reload
-npm run dev
-
-# Build main and renderer processes
-npm run build
-
-# Run tests
-npm test
-
-# Run tests with coverage
-npm run test:coverage
-
-# Run tests in watch mode
-npm run test:watch
-
-# Package for current platform
-npm run package
-```
-
-### Project Structure
-
-```
-saltplayer/
-├── src/
-│   ├── main/              # Electron main process
-│   │   ├── main.ts        # Entry point
-│   │   ├── torrent.ts     # WebTorrent engine
-│   │   ├── storage.ts     # Temp file management
-│   │   └── ipc-handlers.ts# IPC communication
-│   ├── renderer/          # React UI
-│   │   ├── App.tsx
-│   │   ├── components/
-│   │   └── styles.css
-│   └── shared/            # Shared types
-├── tests/                 # Unit & integration tests
-├── build/                 # Build assets
-└── docs/                  # Documentation
-```
-
-## 🧪 Testing
-
-We maintain good test coverage for critical functionality:
-
-```bash
-# Run all tests
-npm test
-
-# Unit tests only
-npm run test:unit
-
-# Integration tests only
-npm run test:integration
-
-# Coverage report
-npm run test:coverage
-```
-
-**Coverage targets**: >60% for critical modules (torrent engine, storage manager)
-
-## 🛠️ Troubleshooting
-
-### Video won't play
-
-- Check that torrent has active seeders (Peers > 0)
-- Verify the magnet link is valid
-- Ensure video format is supported
-
-### Slow buffering
-
-- Low number of seeders
-- Slow internet connection
-- High demand on torrent
-
-### Error: "No video file found"
-
-- Torrent may not contain video files
-- Only non-video files in torrent
-
-## 🤝 Contributing
-
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-### Development Workflow
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Write/update tests
-5. Submit a pull request
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
-## ⚠️ Legal Notice
-
-Saltplayer is a neutral tool. Users are responsible for ensuring they have the legal right to access and view content. Please respect copyright laws in your jurisdiction.
-
-## 🙏 Acknowledgments
-
-- [WebTorrent](https://webtorrent.io/) — Streaming torrent client
-- [Electron](https://www.electronjs.org/) — Cross-platform framework
-- [React](https://react.dev/) — UI framework
-
-## 📞 Support
-
-- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/knrerikh/saltplayer/issues)
-- 💡 **Feature Requests**: [GitHub Discussions](https://github.com/knrerikh/saltplayer/discussions)
-- 📖 **Documentation**: [docs/](docs/)
-
----
-
-Made with ❤️ by [Konstantin Rerikh](https://github.com/knrerikh)
-
+Released under the [MIT License](LICENSE). Built on [WebTorrent](https://webtorrent.io/), [Electron](https://www.electronjs.org/), [React](https://react.dev/) and [FFmpeg](https://ffmpeg.org/).
