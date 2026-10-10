@@ -45,7 +45,7 @@ All channel names live in `IPC_CHANNELS` (`src/shared/types.ts`).
 1. **Load.** `torrent:load` hands a magnet URI or `.torrent` path to `TorrentEngine.load()`. The torrent is added with the source's trackers plus `FALLBACK_TRACKERS`. If metadata does not arrive within `TORRENT_LOAD_TIMEOUT_MS` (60 s), the torrent is removed and an error is sent. A previous torrent is fully stopped before a new one is added.
 2. **Pick a file.** Video files are filtered by extension; samples and extras (smaller than 10% of the largest file and under 50 MB) are dropped. The first remaining file in alphabetical order is chosen, which is the first episode of a series.
 3. **Prioritise pieces.** See [Piece selection](TORRENT_OPTIMIZATION.md).
-4. **Serve.** A local HTTP server on a random port streams the file with range support; the renderer reaches it at `127.0.0.1`.
+4. **Serve.** A local HTTP server bound to `127.0.0.1` (`STREAM_HOST`) on a random port streams the file with range support.
 5. **Probe.** `ffprobe` (spawned directly, 10 s timeout, 5 MB probe size) reads the duration, codecs, audio tracks and subtitle tracks.
 6. **Hand over.** The renderer receives the stream URL. If the audio codec is one Chromium cannot play (AC3, E-AC3, DTS, TrueHD/MLP, Vorbis), the URL carries `?transcode=true`.
 
@@ -91,5 +91,5 @@ The HTML Fullscreen API is deliberately not used. Chromium handles <kbd>Esc</kbd
 ## Security
 
 - `contextIsolation` is enabled and `nodeIntegration` is disabled; the renderer only sees the functions in `preload.ts`.
-- The streaming server serves only the selected file and its subtitle tracks. It currently listens on all interfaces, not just loopback.
+- The streaming server listens on loopback only (`127.0.0.1`), so other machines on the network cannot reach it, and it serves only the selected file and its subtitle tracks.
 - `app:openExternal` passes URLs to `shell.openExternal` without filtering the scheme.

@@ -46,6 +46,12 @@ const VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.avi', '.mov', '.webm', '.m4v', '.flv
 
 const UNSUPPORTED_AUDIO_CODECS = ['ac3', 'ac-3', 'eac3', 'ec-3', 'dts', 'truehd', 'mlp', 'vorbis'];
 
+/**
+ * The streaming server binds here, never to all interfaces: anyone on the network
+ * could otherwise stream the current video and its subtitles.
+ */
+const STREAM_HOST = '127.0.0.1';
+
 /** How long `load()` waits for WebTorrent's `ontorrent` callback before giving up. */
 export const TORRENT_LOAD_TIMEOUT_MS = 60_000;
 
@@ -557,7 +563,7 @@ export class TorrentEngine {
               index: stream.index,
               language: lang,
               title: stream.tags?.title ?? `Track ${index + 1}`,
-              url: `http://127.0.0.1:${this.serverPort}/subtitle/${stream.index}.vtt`,
+              url: `http://${STREAM_HOST}:${this.serverPort}/subtitle/${stream.index}.vtt`,
             };
             this.subtitleTracks.push(track);
           });
@@ -585,7 +591,7 @@ export class TorrentEngine {
 
     this.server = http.createServer(async (req, res) => {
       try {
-        const reqUrl = new URL(req.url ?? '/', 'http://127.0.0.1');
+        const reqUrl = new URL(req.url ?? '/', `http://${STREAM_HOST}`);
         const isTranscode = reqUrl.searchParams.get('transcode') === 'true';
         const startTime = Number(reqUrl.searchParams.get('startTime') || '0');
 
@@ -603,7 +609,7 @@ export class TorrentEngine {
         }
 
         if (isTranscode) {
-          const rawFileUrl = `http://127.0.0.1:${this.serverPort}${pathname}`;
+          const rawFileUrl = `http://${STREAM_HOST}:${this.serverPort}${pathname}`;
           const audioTrackParam = reqUrl.searchParams.get('audioTrack');
 
           res.writeHead(200, {
@@ -739,12 +745,12 @@ export class TorrentEngine {
       }
     });
 
-    this.server.listen(0, async () => {
+    this.server.listen(0, STREAM_HOST, async () => {
       const address = this.server.address();
       this.serverPort = address?.port ?? null;
       this.currentFilePathname = pathname;
       this.selectedAudioIndex = null;
-      let streamUrl = `http://127.0.0.1:${this.serverPort}${pathname}`;
+      let streamUrl = `http://${STREAM_HOST}:${this.serverPort}${pathname}`;
 
       console.log(`Streaming server started at ${streamUrl}`);
       this.prioritizeStreamingPieces(file, 0);
@@ -777,7 +783,7 @@ export class TorrentEngine {
   }
 
   private async serveSubtitle(streamIndex: number, res: http.ServerResponse, file: any): Promise<void> {
-    const rawFileUrl = `http://127.0.0.1:${this.serverPort}/${encodeURIComponent(file.name)}`;
+    const rawFileUrl = `http://${STREAM_HOST}:${this.serverPort}/${encodeURIComponent(file.name)}`;
     
     res.writeHead(200, {
       'Content-Type': 'text/vtt; charset=utf-8',
@@ -1073,7 +1079,7 @@ export class TorrentEngine {
     this.selectedAudioIndex = streamIndex;
     console.log(`Selecting audio track: ${track.title} (index ${streamIndex}, codec ${track.codec})`);
 
-    const baseUrl = `http://127.0.0.1:${this.serverPort}${this.currentFilePathname}`;
+    const baseUrl = `http://${STREAM_HOST}:${this.serverPort}${this.currentFilePathname}`;
     const url = new URL(baseUrl);
     url.searchParams.set('transcode', 'true');
     url.searchParams.set('audioTrack', String(streamIndex));
