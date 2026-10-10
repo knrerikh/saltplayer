@@ -26,6 +26,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Created detailed documentation in `docs/TORRENT_OPTIMIZATION.md`
 - Full automated test suite passing
 
+## [1.6.0] - 2026-10-10
+
+### Changed
+- **New app icon**: a faceted salt-crystal play button on a deep blue squircle replaces the raster ice cube. It follows the macOS icon grid with a transparent margin, so no dark square shows around it in the Dock, and it stays legible down to 16 px.
+
+### Added
+- `npm run icons` regenerates `build/icon.svg`, `assets/icon.png`, `build/icon.icns` and a seven-size `build/icon.ico` from a single TypeScript source, `scripts/icon/design.mts`.
+- Unit tests cover the icon geometry and the ICO encoder, and fail if the committed SVG drifts from the design code.
+
+### Removed
+- Stale `scripts/generate-icns.sh` and `scripts/generate-ico.js`; the latter depended on `png-to-ico`, which was never installed.
+
 ## [1.5.2] - 2026-09-18
 
 ### Fixed
