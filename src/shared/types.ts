@@ -59,6 +59,7 @@ export const IPC_CHANNELS = {
   WINDOW_DRAG_MOVE: 'window:dragMove',
   WINDOW_DRAG_END: 'window:dragEnd',
   WINDOW_FULLSCREEN: 'window:fullscreen',
+  WINDOW_EXIT_FULLSCREEN: 'window:exitFullscreen',
 } as const;
 
 export type PlaybackControlAction = 'play' | 'pause' | 'stop';

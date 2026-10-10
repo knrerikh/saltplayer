@@ -20,6 +20,7 @@ export function setupIPCHandlers(
     IPC_CHANNELS.APP_OPEN_EXTERNAL,
     IPC_CHANNELS.WINDOW_DRAG_START,
     IPC_CHANNELS.WINDOW_DRAG_END,
+    IPC_CHANNELS.WINDOW_EXIT_FULLSCREEN,
   ]) {
     ipcMain.removeHandler(channel);
   }
@@ -126,5 +127,11 @@ export function setupIPCHandlers(
 
   ipcMain.handle(IPC_CHANNELS.WINDOW_DRAG_END, () => {
     dragging = false;
+  });
+
+  // macOS does not bind Esc to leaving native window fullscreen; the renderer asks for it.
+  ipcMain.handle(IPC_CHANNELS.WINDOW_EXIT_FULLSCREEN, (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) win.setFullScreen(false);
   });
 }

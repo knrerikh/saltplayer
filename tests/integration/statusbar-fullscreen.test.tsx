@@ -1,49 +1,16 @@
 import React from 'react';
 import { readFileSync } from 'fs';
 import path from 'path';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, act } from '@testing-library/react';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { render } from '@testing-library/react';
 import App from '@/renderer/App';
-
-function mockElectronAPI() {
-  let fullscreenCallback: ((isFullscreen: boolean) => void) | undefined;
-
-  (global.window as any).electronAPI = {
-    loadTorrent: vi.fn(),
-    stopTorrent: vi.fn(),
-    selectFile: vi.fn(),
-    playbackControl: vi.fn(),
-    playbackSeek: vi.fn(),
-    selectAudioTrack: vi.fn(),
-    quit: vi.fn(),
-    openExternal: vi.fn(),
-    startWindowDrag: vi.fn(),
-    moveWindowBy: vi.fn(),
-    endWindowDrag: vi.fn(),
-    onTorrentStatus: vi.fn(),
-    onVideoUrl: vi.fn(),
-    onVideoMetadata: vi.fn(),
-    onSubtitles: vi.fn(),
-    onAudioTracks: vi.fn(),
-    onError: vi.fn(),
-    onWindowFullscreen: vi.fn((callback: (isFullscreen: boolean) => void) => {
-      fullscreenCallback = callback;
-    }),
-    removeAllListeners: vi.fn(),
-  };
-
-  return {
-    setWindowFullscreen(isFullscreen: boolean) {
-      act(() => fullscreenCallback?.(isFullscreen));
-    },
-  };
-}
+import { mockElectronAPI } from '../helpers/electron-api';
 
 describe('Status bar in fullscreen (#17)', () => {
-  let api: ReturnType<typeof mockElectronAPI>;
+  let electron: ReturnType<typeof mockElectronAPI>;
 
   beforeEach(() => {
-    api = mockElectronAPI();
+    electron = mockElectronAPI();
   });
 
   it('is shown in a normal window', () => {
@@ -55,7 +22,7 @@ describe('Status bar in fullscreen (#17)', () => {
   it('is hidden while the window is fullscreen', () => {
     const { container } = render(<App />);
 
-    api.setWindowFullscreen(true);
+    electron.setWindowFullscreen(true);
 
     expect(container.querySelector('.status-bar')).toBeNull();
   });
@@ -63,8 +30,8 @@ describe('Status bar in fullscreen (#17)', () => {
   it('comes back when the window leaves fullscreen', () => {
     const { container } = render(<App />);
 
-    api.setWindowFullscreen(true);
-    api.setWindowFullscreen(false);
+    electron.setWindowFullscreen(true);
+    electron.setWindowFullscreen(false);
 
     expect(container.querySelector('.status-bar')).not.toBeNull();
   });

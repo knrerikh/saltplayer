@@ -121,7 +121,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [subtitleData?.tracks, currentSubtitleIndex]);
 
-  // Close subtitle menu on outside click or Escape
+  // Close subtitle menu on outside click or Escape. Escape is marked as handled so the
+  // same press does not also leave window fullscreen (see App).
   useEffect(() => {
     if (!subtitleMenuOpen) return;
     const handleClick = (e: MouseEvent) => {
@@ -130,7 +131,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
     };
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSubtitleMenuOpen(false);
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setSubtitleMenuOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClick);
     document.addEventListener('keydown', handleKeyDown);
@@ -148,7 +152,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
     };
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setAudioMenuOpen(false);
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setAudioMenuOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClick);
     document.addEventListener('keydown', handleKeyDown);

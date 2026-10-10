@@ -13,6 +13,7 @@ global.window = global.window || {};
   startWindowDrag: vi.fn(),
   moveWindowBy: vi.fn(),
   endWindowDrag: vi.fn(),
+  exitWindowFullscreen: vi.fn(),
   onTorrentStatus: vi.fn(),
   onVideoUrl: vi.fn(),
   onError: vi.fn(),
