@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 - **Streaming server reachable from the local network** ([#18](https://github.com/knrerikh/saltplayer/issues/18)): it listened on all interfaces, so anyone on the same network who found the port could stream the current video and its subtitles. It now binds to `127.0.0.1` only.
+- **Any URL could be opened outside the app** ([#19](https://github.com/knrerikh/saltplayer/issues/19)): `app:openExternal` passed whatever the renderer sent to the OS, including `file:`, `smb:` and custom protocol URLs. Only `http:` and `https:` are allowed now.
 
 ### Fixed
 - **Status bar cut off at the bottom of the window** ([#17](https://github.com/knrerikh/saltplayer/issues/17)): the video container could not shrink below the video's own height, so a 1080p file pushed the status bar partly out of the window.

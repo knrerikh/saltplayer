@@ -3,6 +3,7 @@ import { IPC_CHANNELS } from '@/shared/types';
 
 const handlers = new Map<string, (event: unknown, ...args: unknown[]) => unknown>();
 const senderWindow = { setFullScreen: vi.fn(), isDestroyed: () => false };
+const openExternal = vi.fn();
 
 vi.mock('electron', () => ({
   ipcMain: {
@@ -12,7 +13,7 @@ vi.mock('electron', () => ({
     removeHandler: vi.fn(),
     removeAllListeners: vi.fn(),
   },
-  shell: { openExternal: vi.fn() },
+  shell: { openExternal: (url: string) => openExternal(url) },
   BrowserWindow: { fromWebContents: () => senderWindow },
 }));
 
@@ -34,5 +35,28 @@ describe('window:setFullscreen handler', () => {
     await handlers.get(IPC_CHANNELS.WINDOW_SET_FULLSCREEN)?.({ sender: {} }, 'yes');
 
     expect(senderWindow.setFullScreen).not.toHaveBeenCalled();
+  });
+});
+
+describe('app:openExternal handler (#19)', () => {
+  beforeEach(async () => {
+    handlers.clear();
+    openExternal.mockClear();
+    const { setupIPCHandlers } = await import('@/main/ipc-handlers');
+    setupIPCHandlers({} as any, {} as any);
+  });
+
+  it('opens http(s) URLs', async () => {
+    const opened = await handlers.get(IPC_CHANNELS.APP_OPEN_EXTERNAL)?.({}, 'https://example.com/');
+
+    expect(openExternal).toHaveBeenCalledWith('https://example.com/');
+    expect(opened).toBe(true);
+  });
+
+  it('refuses other schemes without passing them to the OS', async () => {
+    const opened = await handlers.get(IPC_CHANNELS.APP_OPEN_EXTERNAL)?.({}, 'file:///etc/passwd');
+
+    expect(openExternal).not.toHaveBeenCalled();
+    expect(opened).toBe(false);
   });
 });
