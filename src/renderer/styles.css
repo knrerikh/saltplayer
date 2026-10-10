@@ -133,6 +133,9 @@ body {
 /* Video Player */
 .video-container {
   flex: 1;
+  /* A flex item's default min-height is its content's height: without this, a 1080p
+     <video> grows the container past the window and pushes the status bar out. */
+  min-height: 0;
   position: relative;
   background-color: #000;
   display: flex;

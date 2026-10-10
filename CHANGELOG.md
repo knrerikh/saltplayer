@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.2] - 2026-10-10
+
+### Fixed
+- **Status bar cut off at the bottom of the window** ([#17](https://github.com/knrerikh/saltplayer/issues/17)): the video container could not shrink below the video's own height, so a 1080p file pushed the status bar partly out of the window.
+- **Status bar visible in fullscreen** ([#17](https://github.com/knrerikh/saltplayer/issues/17)): window fullscreen (the macOS green button, <kbd>⌃⌘F</kbd>) is now forwarded to the UI, and the status bar is hidden until the window leaves fullscreen.
+
 ## [1.6.1] - 2026-10-10
 
 ### Changed
@@ -158,8 +164,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full API documentation in code comments
 - Architecture documentation
 
-[1.6.1]: https://github.com/knrerikh/saltplayer/compare/v1.6.0...v1.6.1
-[1.6.0]: https://github.com/knrerikh/saltplayer/compare/v1.5.2...v1.6.0
+[1.6.2]: https://github.com/knrerikh/saltplayer/compare/v1.6.1...v1.6.2
+[1.6.1]: https://github.com/knrerikh/saltplayer/releases/tag/v1.6.1
+[1.6.0]: https://github.com/knrerikh/saltplayer/pull/14
 [1.5.2]: https://github.com/knrerikh/saltplayer/releases/tag/v1.5.2
 [1.5.1]: https://github.com/knrerikh/saltplayer/releases/tag/v1.5.1
 [1.5.0]: https://github.com/knrerikh/saltplayer/releases/tag/v1.5.0
