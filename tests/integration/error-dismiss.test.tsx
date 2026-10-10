@@ -45,6 +45,7 @@ function setupElectronAPIMock() {
     onError: vi.fn((cb: (err: ErrorInfo) => void) => {
       errorCallback = cb;
     }),
+    onWindowFullscreen: vi.fn(),
     removeAllListeners: vi.fn(),
   };
 

@@ -27,6 +27,8 @@ npx vitest run -t "seek"                    # tests whose name matches
 | `tests/integration/components.test.tsx` | `TorrentInput` and `StatusBar` behaviour, including the speed colour |
 | `tests/integration/videoplayer.test.tsx` | `VideoPlayer`: click and <kbd>Space</kbd> to play, seeking, episode selection, subtitles, audio track menu, auto-hiding controls |
 | `tests/integration/titlebar-drag.test.tsx` | Drag versus click on the title strip |
+| `tests/unit/window-fullscreen.test.ts` | Forwarding window fullscreen changes to the renderer |
+| `tests/integration/statusbar-fullscreen.test.tsx` | Status bar hidden in window fullscreen; the video container can shrink so the status bar is never pushed off-screen |
 | `tests/integration/error-dismiss.test.tsx` | Error banner close button, hover pause and auto-dismiss timers |
 
 `tests/setup.ts` installs a mocked `window.electronAPI` and a `File` subclass with a `path` property for drag-and-drop tests. Main-process tests mock `electron` and, where needed, `webtorrent` with `vi.mock`; no test touches the network.

@@ -45,6 +45,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onError: (callback: (error: ErrorInfo) => void) => {
     ipcRenderer.on(IPC_CHANNELS.ERROR, (_, error) => callback(error));
   },
+  onWindowFullscreen: (callback: (isFullscreen: boolean) => void) => {
+    ipcRenderer.on(IPC_CHANNELS.WINDOW_FULLSCREEN, (_, isFullscreen) => callback(isFullscreen));
+  },
   
   // Remove listeners
   removeAllListeners: (channel: string) => {
@@ -73,6 +76,7 @@ declare global {
       onSubtitles: (callback: (data: SubtitleData) => void) => void;
       onAudioTracks: (callback: (data: AudioData) => void) => void;
       onError: (callback: (error: ErrorInfo) => void) => void;
+      onWindowFullscreen: (callback: (isFullscreen: boolean) => void) => void;
       removeAllListeners: (channel: string) => void;
     };
   }

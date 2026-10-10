@@ -16,6 +16,7 @@ global.window = global.window || {};
   onTorrentStatus: vi.fn(),
   onVideoUrl: vi.fn(),
   onError: vi.fn(),
+  onWindowFullscreen: vi.fn(),
   removeAllListeners: vi.fn(),
 };
 

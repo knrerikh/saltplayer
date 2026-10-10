@@ -31,6 +31,7 @@ declare global {
       onSubtitles: (callback: (data: SubtitleData) => void) => void;
       onAudioTracks: (callback: (data: AudioData) => void) => void;
       onError: (callback: (error: ErrorInfo) => void) => void;
+      onWindowFullscreen: (callback: (isFullscreen: boolean) => void) => void;
       removeAllListeners: (channel: string) => void;
     };
   }
@@ -45,6 +46,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [subtitleData, setSubtitleData] = useState<SubtitleData | null>(null);
   const [audioData, setAudioData] = useState<AudioData | null>(null);
+  const [isWindowFullscreen, setIsWindowFullscreen] = useState(false);
   const errorDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearErrorDismissTimer = () => {
@@ -105,6 +107,8 @@ const App: React.FC = () => {
       scheduleErrorDismiss();
     });
 
+    window.electronAPI.onWindowFullscreen(setIsWindowFullscreen);
+
     return () => {
       window.electronAPI.removeAllListeners('video:url');
       window.electronAPI.removeAllListeners('video:metadata');
@@ -112,6 +116,7 @@ const App: React.FC = () => {
       window.electronAPI.removeAllListeners('audio:available');
       window.electronAPI.removeAllListeners('torrent:status');
       window.electronAPI.removeAllListeners('error');
+      window.electronAPI.removeAllListeners('window:fullscreen');
       clearErrorDismissTimer();
     };
   }, []);
@@ -250,12 +255,14 @@ const App: React.FC = () => {
         onSelectAudioTrack={handleSelectAudioTrack}
       />
       
-      <StatusBar  
-        status={torrentStatus} 
-        metadata={metadata}
-        currentVideoFile={currentIndex !== -1 ? videoFiles[currentIndex] : null}
-        videoDuration={serverDuration}
-      />
+      {!isWindowFullscreen && (
+        <StatusBar
+          status={torrentStatus}
+          metadata={metadata}
+          currentVideoFile={currentIndex !== -1 ? videoFiles[currentIndex] : null}
+          videoDuration={serverDuration}
+        />
+      )}
       
       {error && (
         <div

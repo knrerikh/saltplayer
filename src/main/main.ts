@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import { TorrentEngine } from './torrent';
 import { StorageManager } from './storage';
 import { setupIPCHandlers } from './ipc-handlers';
+import { forwardFullscreenState } from './window-fullscreen';
 
 // Allow Chromium to play audio/video without user interaction (same as WebTorrent Desktop)
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -49,6 +50,8 @@ function createWindow(): void {
   if (process.env.NODE_ENV === 'development') {
     mainWindow.webContents.openDevTools();
   }
+
+  forwardFullscreenState(mainWindow);
 
   // Show window when ready
   mainWindow.once('ready-to-show', () => {

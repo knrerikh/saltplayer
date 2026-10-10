@@ -38,7 +38,7 @@ All channel names live in `IPC_CHANNELS` (`src/shared/types.ts`).
 | --- | --- |
 | Renderer → main (`invoke`) | `torrent:load`, `torrent:stop`, `torrent:selectFile`, `playback:control`, `playback:seek`, `audio:selectTrack`, `app:quit`, `app:openExternal`, `window:dragStart`, `window:dragEnd` |
 | Renderer → main (`send`) | `window:dragMove` (pointer deltas, high frequency) |
-| Main → renderer (`send`) | `torrent:status` (every second), `video:url`, `video:metadata`, `subtitles:available`, `audio:available`, `error` |
+| Main → renderer (`send`) | `torrent:status` (every second), `video:url`, `video:metadata`, `subtitles:available`, `audio:available`, `error`, `window:fullscreen` |
 
 ## Loading and playback
 
@@ -68,6 +68,10 @@ When there is more than one audio track, the renderer offers a menu. Choosing a 
 ### Window dragging
 
 The window is frameless. `TitlebarDragRegion` turns pointer movement over the top strip into `window:dragMove` deltas that main applies to the window position. A press that moves less than 3 px is treated as a click and passed through to the player. There are no `-webkit-app-region` rules, because an app region swallows every click in its area.
+
+### Fullscreen
+
+There are two kinds of fullscreen. The player's button puts the video container into element fullscreen through the Fullscreen API. Window fullscreen (the macOS green button, <kbd>⌃⌘F</kbd>) bypasses that API, so `forwardFullscreenState()` (`src/main/window-fullscreen.ts`) forwards the window's `enter-full-screen` and `leave-full-screen` events as `window:fullscreen`. The renderer hides the status bar while it is set.
 
 ## Storage and lifecycle
 
