@@ -26,6 +26,7 @@ npx vitest run -t "seek"                    # tests whose name matches
 | `tests/unit/utils.test.ts` | Speed, size and time formatting; magnet link validation |
 | `tests/unit/icon.test.ts` | Icon geometry, the ICO encoder, and drift between `build/icon.svg` and the design code |
 | `tests/unit/coverage-summary.test.ts` | The coverage table published in the CI run summary |
+| `tests/unit/release.test.ts` | Release helpers: version bumps, cutting `[Unreleased]` into a version section, release notes |
 | `tests/integration/ipc.test.ts` | Renderer-side calls through the `electronAPI` bridge |
 | `tests/integration/components.test.tsx` | `TorrentInput` and `StatusBar` behaviour, including the speed colour |
 | `tests/integration/videoplayer.test.tsx` | `VideoPlayer`: click and <kbd>Space</kbd> to play, seeking, episode selection, subtitles, audio track menu, auto-hiding controls |

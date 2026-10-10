@@ -1,16 +1,65 @@
 name: Release
 
+# Publishes the version in package.json when it has no tag yet, which happens when
+# a release PR from prepare-release.yml is merged. Other pushes to master skip every
+# job. Run it by hand to rebuild and re-upload the current version's installers.
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [master]
   workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      publish: ${{ steps.version.outputs.publish }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Decide whether to publish
+        id: version
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_EVENT_NAME" = push ] && git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "v$version is already released; nothing to publish."
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create the tag and a draft release
+        if: steps.version.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          tag="v$VERSION"
+          if ! git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git tag -a "$tag" -m "Salt Player $VERSION"
+            git push origin "$tag"
+          fi
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            node scripts/release/notes.mjs "$VERSION" > notes.md
+            gh release create "$tag" --draft --verify-tag --title "Salt Player $VERSION" --notes-file notes.md
+          fi
+
   test:
+    needs: prepare
+    if: needs.prepare.outputs.publish == 'true'
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -41,7 +90,8 @@ jobs:
         run: npm run test:integration
 
   publish:
-    needs: test
+    needs: [prepare, test]
+    if: needs.prepare.outputs.publish == 'true'
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -93,3 +143,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
+
+  # Installers are uploaded to the draft by electron-builder; publish it only when
+  # every platform succeeded, so nobody sees a release with missing downloads.
+  finalize:
+    needs: [prepare, publish]
+    if: needs.prepare.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: gh release edit "v$VERSION" --repo "$GITHUB_REPOSITORY" --draft=false --latest

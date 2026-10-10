@@ -92,7 +92,7 @@ npm run icons         # regenerate app icons from scripts/icon/design.mts
 | `src/renderer/` | React UI: player, torrent input, status bar |
 | `src/shared/` | Types and IPC channel names shared by both processes |
 | `tests/` | Unit and integration tests |
-| `scripts/` | Packaging hooks and icon generator |
+| `scripts/` | Packaging hooks, icon generator, release and coverage helpers for CI |
 
 How streaming, transcoding and piece prioritisation work is described in [Architecture](docs/ARCHITECTURE.md) and [Torrent optimisation](docs/TORRENT_OPTIMIZATION.md). Testing and release processes are in [Testing](docs/TESTING.md) and [Deployment](docs/DEPLOYMENT.md).
 

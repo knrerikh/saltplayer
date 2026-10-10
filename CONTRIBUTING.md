@@ -36,10 +36,10 @@ Commit subjects follow [Conventional Commits](https://www.conventionalcommits.or
 
 ## Releases
 
-Changes accumulate under `[Unreleased]` and are released together, when something user-visible has piled up or right away for urgent fixes (security, crashes). The release PR picks the version from the largest change since the last release:
+Changes accumulate under `[Unreleased]` and are released together, when something user-visible has piled up or right away for urgent fixes (security, crashes). The maintainer decides when to release and picks the version from the largest change since the last release:
 
 - patch (`x.y.Z`): only small fixes, docs and tooling;
 - minor (`x.Y.0`): at least one new feature or fix of a major bug;
 - major (`X.0.0`): large refactors and global changes.
 
-See [Deployment](docs/DEPLOYMENT.md#release-process) for the steps.
+Releasing is two clicks: run **Prepare release** in GitHub Actions with that bump, then merge the pull request it opens. See [Deployment](docs/DEPLOYMENT.md#release-process).
