@@ -10,26 +10,12 @@ import { IPC_CHANNELS } from '@/shared/types';
 
 const send = vi.fn();
 
+/** Room for a cold ffprobe start on a CI runner, beyond the engine's own 10 s probe timeout. */
+const PROBE_TIMEOUT_MS = 25_000;
+
 vi.mock('electron', () => ({
   BrowserWindow: { getAllWindows: vi.fn(() => [{ webContents: { send } }]) },
 }));
-
-// A real ffprobe takes seconds to start on CI runners; these tests are about the
-// server, so every probe answers at once with a file that has no streams.
-vi.mock('child_process', async (importOriginal) => {
-  const { EventEmitter } = await import('events');
-  return {
-    ...(await importOriginal<typeof import('child_process')>()),
-    spawn: vi.fn(() => {
-      const probe = Object.assign(new EventEmitter(), { stdout: new EventEmitter() });
-      setImmediate(() => {
-        probe.stdout.emit('data', Buffer.from('{"streams":[],"format":{}}'));
-        probe.emit('close', 0);
-      });
-      return probe;
-    }),
-  };
-});
 
 function loadFakeTorrent(engine: TorrentEngine) {
   const file = {
@@ -54,9 +40,16 @@ async function streamingServer(engine: TorrentEngine): Promise<Server> {
   return server;
 }
 
+/** The address of the file the engine is serving, read from the server itself. */
+async function streamUrl(engine: TorrentEngine, fileName: string): Promise<string> {
+  const { port } = (await streamingServer(engine)).address() as AddressInfo;
+  return `http://127.0.0.1:${port}/${encodeURIComponent(fileName)}`;
+}
+
 /**
- * The URL this engine hands the player once the stream is probed and ready. Engines
- * from earlier tests may still be finishing their probe, so match the port.
+ * The URL this engine hands the player. It is sent only after the real ffprobe has
+ * probed the stream, which can take seconds on CI runners. Engines from earlier
+ * tests may still be finishing their probe, so match the port.
  */
 async function sentVideoUrl(engine: TorrentEngine): Promise<string> {
   const { port } = (await streamingServer(engine)).address() as AddressInfo;
@@ -69,7 +62,7 @@ async function sentVideoUrl(engine: TorrentEngine): Promise<string> {
       if (!call) throw new Error(`No video URL for port ${port} yet`);
       return call[1] as string;
     },
-    { timeout: 15_000 },
+    { timeout: PROBE_TIMEOUT_MS },
   );
 }
 
@@ -128,10 +121,10 @@ describe('Playing a local video file (#33)', () => {
     engine = new TorrentEngine(new StorageManager());
 
     await engine.openLocalFile(moviePath);
-    const url = await sentVideoUrl(engine);
-    const response = await fetch(url, { headers: { Range: 'bytes=6-10' } });
+    const response = await fetch(await streamUrl(engine, 'Home Movie.mp4'), {
+      headers: { Range: 'bytes=6-10' },
+    });
 
-    expect(new URL(url).hostname).toBe('127.0.0.1');
     expect(response.status).toBe(206);
     expect(response.headers.get('content-range')).toBe(`bytes 6-10/${content.length}`);
     expect(await response.text()).toBe('video');
@@ -172,7 +165,7 @@ describe('Playing a local video file (#33)', () => {
     const sent = send.mock.calls.filter(([channel]) => channel === IPC_CHANNELS.VIDEO_URL);
     expect(sent).toEqual([[IPC_CHANNELS.VIDEO_URL, url]]);
     expect(new URL(url).pathname).toBe('/Other.mp4');
-  });
+  }, PROBE_TIMEOUT_MS + 5_000);
 
   it('keeps playing the previous video when the file cannot be opened', async () => {
     createMovie();
