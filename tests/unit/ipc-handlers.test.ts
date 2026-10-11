@@ -60,3 +60,24 @@ describe('app:openExternal handler (#19)', () => {
     expect(opened).toBe(false);
   });
 });
+
+describe('media:openFile handler (#33)', () => {
+  const torrentEngine = { openLocalFile: vi.fn() };
+
+  beforeEach(async () => {
+    handlers.clear();
+    torrentEngine.openLocalFile.mockReset();
+    const { setupIPCHandlers } = await import('@/main/ipc-handlers');
+    setupIPCHandlers(torrentEngine as any, {} as any);
+  });
+
+  it('opens the file in the engine and returns what it describes', async () => {
+    const metadata = { name: 'Movie.mkv', files: [], totalSize: 1 };
+    torrentEngine.openLocalFile.mockResolvedValue(metadata);
+
+    const result = await handlers.get(IPC_CHANNELS.MEDIA_OPEN_FILE)?.({}, '/Movies/Movie.mkv');
+
+    expect(torrentEngine.openLocalFile).toHaveBeenCalledWith('/Movies/Movie.mkv');
+    expect(result).toBe(metadata);
+  });
+});

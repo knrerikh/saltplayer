@@ -1,11 +1,22 @@
 import React, { useState, useRef } from 'react';
+import { VIDEO_EXTENSIONS, isVideoFile } from '@/shared/video-files';
+
+const ACCEPTED_FILES = ['.torrent', ...VIDEO_EXTENSIONS].join(',');
+
+const isPlayable = (name: string) => name.toLowerCase().endsWith('.torrent') || isVideoFile(name);
+
+/** Electron adds the absolute path on disk to every File it hands the page. */
+const pathOf = (file: File): string | undefined => (file as File & { path?: string }).path;
 
 interface TorrentInputProps {
+  /** A magnet link or torrent URL typed into the field. */
   onLoad: (source: string) => void;
+  /** A .torrent or video file dropped or picked, by its path on disk. */
+  onOpenFile: (filePath: string) => void;
   isLoading: boolean;
 }
 
-const TorrentInput: React.FC<TorrentInputProps> = ({ onLoad, isLoading }) => {
+const TorrentInput: React.FC<TorrentInputProps> = ({ onLoad, onOpenFile, isLoading }) => {
   const [inputValue, setInputValue] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -31,19 +42,15 @@ const TorrentInput: React.FC<TorrentInputProps> = ({ onLoad, isLoading }) => {
     setIsDragging(false);
   };
 
-  const handleDrop = async (e: React.DragEvent) => {
+  const openFile = (file: File | undefined) => {
+    const filePath = file && pathOf(file);
+    if (filePath) onOpenFile(filePath);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-
-    const files = Array.from(e.dataTransfer.files);
-    const torrentFile = files.find(f => f.name.endsWith('.torrent'));
-
-    if (torrentFile) {
-      const path = (torrentFile as any).path;
-      if (path) {
-        onLoad(path);
-      }
-    }
+    openFile(Array.from(e.dataTransfer.files).find((file) => isPlayable(file.name)));
   };
 
   const handleFileSelect = () => {
@@ -51,13 +58,7 @@ const TorrentInput: React.FC<TorrentInputProps> = ({ onLoad, isLoading }) => {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const path = (file as any).path;
-      if (path) {
-        onLoad(path);
-      }
-    }
+    openFile(e.target.files?.[0]);
   };
 
   return (
@@ -95,13 +96,13 @@ const TorrentInput: React.FC<TorrentInputProps> = ({ onLoad, isLoading }) => {
         onDrop={handleDrop}
         onClick={handleFileSelect}
       >
-        Drag & drop .torrent file here or click to browse
+        Drag & drop a video or .torrent file here or click to browse
       </div>
 
       <input
         ref={fileInputRef}
         type="file"
-        accept=".torrent"
+        accept={ACCEPTED_FILES}
         style={{ display: 'none' }}
         onChange={handleFileChange}
       />

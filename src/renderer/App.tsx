@@ -14,6 +14,7 @@ declare global {
   interface Window {
     electronAPI: {
       loadTorrent: (source: string) => Promise<TorrentMetadata>;
+      openVideoFile: (filePath: string) => Promise<TorrentMetadata>;
       stopTorrent: () => Promise<void>;
       selectFile: (fileName: string) => Promise<void>;
       playbackControl: (action: 'play' | 'pause' | 'stop') => Promise<void>;
@@ -133,21 +134,29 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isWindowFullscreen]);
 
-  const handleLoadTorrent = async (source: string) => {
+  const open = async (request: () => Promise<TorrentMetadata>) => {
     try {
       setIsLoading(true);
       setError(null);
       setServerDuration(null);
-      const meta = await window.electronAPI.loadTorrent(source);
-      setMetadata(meta);
+      setMetadata(await request());
     } catch (err: any) {
       setError({
         code: 'LOAD_ERROR',
-        message: err.message || 'Failed to load torrent',
+        message: err.message || 'Failed to open',
       });
       setIsLoading(false);
     }
   };
+
+  const handleLoadTorrent = (source: string) => open(() => window.electronAPI.loadTorrent(source));
+
+  const handleOpenFile = (filePath: string) =>
+    open(() =>
+      isVideoFile(filePath)
+        ? window.electronAPI.openVideoFile(filePath)
+        : window.electronAPI.loadTorrent(filePath)
+    );
 
   const handleClose = async () => {
     try {
@@ -242,7 +251,7 @@ const App: React.FC = () => {
       {!videoUrl && <TitlebarDragRegion />}
 
       {!videoUrl && (
-        <TorrentInput onLoad={handleLoadTorrent} isLoading={isLoading} />
+        <TorrentInput onLoad={handleLoadTorrent} onOpenFile={handleOpenFile} isLoading={isLoading} />
       )}
       
       <VideoPlayer 

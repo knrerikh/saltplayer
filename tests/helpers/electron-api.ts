@@ -16,6 +16,7 @@ export function mockElectronAPI() {
 
   const api = {
     loadTorrent: vi.fn(),
+    openVideoFile: vi.fn(),
     stopTorrent: vi.fn(),
     selectFile: vi.fn(),
     playbackControl: vi.fn(),

@@ -234,7 +234,7 @@ describe('TorrentEngine - Optimization', () => {
       await torrentEngine.selectFile('Episode 02.mp4');
 
       // Should restart streaming server with new file
-      expect((torrentEngine as any).startStreamingServer).toHaveBeenCalledWith(mockTorrent, episode2);
+      expect((torrentEngine as any).startStreamingServer).toHaveBeenCalledWith(episode2);
     });
 
     it('should re-apply optimization when switching episodes', async () => {

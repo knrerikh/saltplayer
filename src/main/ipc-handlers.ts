@@ -12,6 +12,7 @@ export function setupIPCHandlers(
   // left over from a previous initializeApp() before wiring the new instances up.
   for (const channel of [
     IPC_CHANNELS.TORRENT_LOAD,
+    IPC_CHANNELS.MEDIA_OPEN_FILE,
     IPC_CHANNELS.TORRENT_STOP,
     IPC_CHANNELS.TORRENT_SELECT_FILE,
     IPC_CHANNELS.PLAYBACK_CONTROL,
@@ -37,6 +38,11 @@ export function setupIPCHandlers(
       throw error;
     }
   });
+
+  // Play a video file from disk
+  ipcMain.handle(IPC_CHANNELS.MEDIA_OPEN_FILE, (_, filePath: string) =>
+    torrentEngine.openLocalFile(filePath)
+  );
 
   // Stop current torrent
   ipcMain.handle(IPC_CHANNELS.TORRENT_STOP, async () => {

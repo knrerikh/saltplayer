@@ -22,6 +22,7 @@
 - **Plays what browsers can't.** AC3, E-AC3, DTS, TrueHD and Vorbis audio is transcoded to AAC on the fly with ffmpeg, so most MKV releases just work.
 - **Audio tracks and subtitles.** Switch between the audio tracks and embedded subtitle tracks of the file from the player controls.
 - **Series-friendly.** Multi-file torrents get an episode list and previous/next buttons.
+- **Plays local files too.** Drop an MKV or MP4 from disk and get the same transcoding, track menus and subtitles.
 - **Stays out of the way.** Controls and cursor hide after 2.5 s without movement; the window has no chrome beyond a draggable title strip.
 - **Leaves nothing behind.** Pieces live in a per-session temp folder that is deleted on exit; folders left by a crash are removed on the next launch. No accounts, no telemetry.
 
@@ -46,7 +47,7 @@ Requires macOS 10.15+, Windows 10+ or a 64-bit Linux distribution from the last 
 
 ## Usage
 
-1. Paste a magnet link and press **Enter**, or drop a `.torrent` file onto the window (or click **Open File**).
+1. Paste a magnet link and press **Enter**, or drop a `.torrent` file onto the window (or click **Open File**). A video file from disk opens the same way.
 2. Salt Player picks the main video file and starts playing after a short buffer. For a series, choose the episode from the list in the title bar.
 3. The status bar shows progress, download and upload speed, peers and downloaded size.
 
@@ -88,7 +89,7 @@ npm run icons         # regenerate app icons from scripts/icon/design.mts
 
 | Path | Contents |
 | --- | --- |
-| `src/main/` | Electron main process: torrent engine and local streaming server (`torrent.ts`), temp storage, IPC handlers, preload bridge |
+| `src/main/` | Electron main process: torrent engine and local streaming server (`torrent.ts`), local video files (`local-video.ts`), temp storage, IPC handlers, preload bridge |
 | `src/renderer/` | React UI: player, torrent input, status bar |
 | `src/shared/` | Types and IPC channel names shared by both processes |
 | `tests/` | Unit and integration tests |

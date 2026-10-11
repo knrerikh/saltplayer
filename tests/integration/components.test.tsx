@@ -25,7 +25,7 @@ describe('Component Integration Tests', () => {
   describe('TorrentInput', () => {
     it('should render input field and buttons', () => {
       const onLoad = vi.fn();
-      render(<TorrentInput onLoad={onLoad} isLoading={false} />);
+      render(<TorrentInput onLoad={onLoad} onOpenFile={vi.fn()} isLoading={false} />);
 
       expect(screen.getByPlaceholderText(/Enter magnet link/i)).toBeInTheDocument();
       expect(screen.getByText('Load')).toBeInTheDocument();
@@ -35,7 +35,7 @@ describe('Component Integration Tests', () => {
     it('should call onLoad when Load button is clicked', async () => {
       const user = userEvent.setup();
       const onLoad = vi.fn();
-      render(<TorrentInput onLoad={onLoad} isLoading={false} />);
+      render(<TorrentInput onLoad={onLoad} onOpenFile={vi.fn()} isLoading={false} />);
 
       const input = screen.getByPlaceholderText(/Enter magnet link/i);
       const loadButton = screen.getByText('Load');
@@ -49,7 +49,7 @@ describe('Component Integration Tests', () => {
     it('should call onLoad when Enter is pressed', async () => {
       const user = userEvent.setup();
       const onLoad = vi.fn();
-      render(<TorrentInput onLoad={onLoad} isLoading={false} />);
+      render(<TorrentInput onLoad={onLoad} onOpenFile={vi.fn()} isLoading={false} />);
 
       const input = screen.getByPlaceholderText(/Enter magnet link/i);
 
@@ -60,7 +60,7 @@ describe('Component Integration Tests', () => {
 
     it('should disable inputs while loading', () => {
       const onLoad = vi.fn();
-      render(<TorrentInput onLoad={onLoad} isLoading={true} />);
+      render(<TorrentInput onLoad={onLoad} onOpenFile={vi.fn()} isLoading={true} />);
 
       expect(screen.getByPlaceholderText(/Enter magnet link/i)).toBeDisabled();
       expect(screen.getByText('Loading...')).toBeInTheDocument();
@@ -69,7 +69,7 @@ describe('Component Integration Tests', () => {
     it('should not call onLoad with empty input', async () => {
       const user = userEvent.setup();
       const onLoad = vi.fn();
-      render(<TorrentInput onLoad={onLoad} isLoading={false} />);
+      render(<TorrentInput onLoad={onLoad} onOpenFile={vi.fn()} isLoading={false} />);
 
       const loadButton = screen.getByText('Load');
       await user.click(loadButton);
@@ -80,7 +80,7 @@ describe('Component Integration Tests', () => {
     it('should trim whitespace from input', async () => {
       const user = userEvent.setup();
       const onLoad = vi.fn();
-      render(<TorrentInput onLoad={onLoad} isLoading={false} />);
+      render(<TorrentInput onLoad={onLoad} onOpenFile={vi.fn()} isLoading={false} />);
 
       const input = screen.getByPlaceholderText(/Enter magnet link/i);
       const loadButton = screen.getByText('Load');
@@ -191,7 +191,7 @@ describe('Component Integration Tests', () => {
 
         return (
           <>
-            <TorrentInput onLoad={handleLoad} isLoading={isLoading} />
+            <TorrentInput onLoad={handleLoad} onOpenFile={vi.fn()} isLoading={isLoading} />
             <StatusBar status={status} metadata={metadata} />
           </>
         );
