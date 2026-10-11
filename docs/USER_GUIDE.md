@@ -1,11 +1,12 @@
 # Salt Player User Guide
 
-## Opening a torrent
+## Opening a video
 
 - **Magnet link:** paste it into the input field and press <kbd>Enter</kbd> or click **Load**.
 - **Torrent file:** drop a `.torrent` file onto the window, or click **Open File**.
+- **Video file from disk:** drop it onto the window, or click **Open File**. It plays at once, with the same audio transcoding, track menus and subtitles as a torrent; the status bar shows its name and size. If you drop several files, the first video or `.torrent` among them is opened.
 
-Salt Player fetches the torrent's metadata, picks the main video file and starts playing as soon as enough data is buffered. If no peers can be reached within 60 seconds, loading stops with a timeout error; try a magnet with more seeders. Public fallback trackers are added to every torrent automatically.
+For a torrent, Salt Player fetches its metadata, picks the main video file and starts playing as soon as enough data is buffered. If no peers can be reached within 60 seconds, loading stops with a timeout error; try a magnet with more seeders. Public fallback trackers are added to every torrent automatically.
 
 Recognised video files: MP4, MKV, WebM, MOV, M4V, AVI, FLV, WMV. Video is played as-is, so files whose video codec Chromium cannot decode (common in AVI, FLV and WMV) will not play.
 

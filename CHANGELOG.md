@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Local video files** ([#33](https://github.com/knrerikh/saltplayer/issues/33)): drop a video onto the window or choose it with **Open File** to play it from disk. It goes through the same streaming server as a torrent, so transcoding of AC3/DTS audio, audio track switching, embedded subtitles and seeking all work. The status bar shows the file's name and size.
+
 ## [1.6.2] - 2026-10-10
 
 ### Security

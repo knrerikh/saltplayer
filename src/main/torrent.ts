@@ -1,6 +1,7 @@
 import { TorrentFile, TorrentMetadata, TorrentStatus, IPC_CHANNELS, SubtitleTrack, AudioTrack } from '@/shared/types';
 import { StorageManager } from './storage';
 import { pickMainVideoFile } from '@/shared/video-files';
+import { MediaSource, openLocalVideo } from './local-video';
 import { BrowserWindow } from 'electron';
 import * as http from 'http';
 import * as fs from 'fs';
@@ -295,7 +296,7 @@ export class TorrentEngine {
           console.log('Torrent ready:', torrent.name);
 
           // Select video file
-          const videoFile = pickMainVideoFile<{ name: string; length: number }>(torrent.files, (file) => file.length);
+          const videoFile = pickMainVideoFile<MediaSource>(torrent.files, (file) => file.length);
 
           if (!videoFile) {
             const error = new Error('No video file found in torrent');
@@ -305,7 +306,7 @@ export class TorrentEngine {
           }
 
           // Start streaming server
-          this.startStreamingServer(torrent, videoFile);
+          this.startStreamingServer(videoFile);
 
           // Start status updates
           this.startStatusUpdates();
@@ -372,7 +373,25 @@ export class TorrentEngine {
     }
 
     // Restart streaming server with new file
-    this.startStreamingServer(this.currentTorrent, file);
+    this.startStreamingServer(file);
+  }
+
+  /**
+   * Play a video file from disk through the same streaming server as torrents, so
+   * probing, transcoding, audio tracks and subtitles work unchanged. Whatever was
+   * playing keeps playing if the file cannot be opened.
+   */
+  async openLocalFile(filePath: string): Promise<TorrentMetadata> {
+    const video = await openLocalVideo(filePath);
+    await this.stop();
+
+    this.startStreamingServer(video);
+
+    return {
+      name: video.name,
+      files: [{ name: video.name, size: video.length, path: video.path }],
+      totalSize: video.length,
+    };
   }
 
   /**
@@ -548,7 +567,7 @@ export class TorrentEngine {
   /**
    * Start HTTP streaming server
    */
-  private startStreamingServer(torrent: any, file: any): void {
+  private startStreamingServer(file: MediaSource): void {
     if (this.server) {
       this.server.close();
     }
@@ -750,7 +769,7 @@ export class TorrentEngine {
     return 'application/octet-stream';
   }
 
-  private async serveSubtitle(streamIndex: number, res: http.ServerResponse, file: any): Promise<void> {
+  private async serveSubtitle(streamIndex: number, res: http.ServerResponse, file: MediaSource): Promise<void> {
     const rawFileUrl = `http://${STREAM_HOST}:${this.serverPort}/${encodeURIComponent(file.name)}`;
     
     res.writeHead(200, {
@@ -783,7 +802,8 @@ export class TorrentEngine {
   }
 
   /**
-   * Prioritize pieces for streaming from a byte offset.
+   * Prioritize pieces for streaming from a byte offset. A local file has no torrent
+   * and nothing to prioritize.
    */
   private prioritizeStreamingPieces(file: any, startByte: number = 0): void {
     if (!this.currentTorrent) return;

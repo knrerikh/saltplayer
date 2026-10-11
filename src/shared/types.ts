@@ -18,11 +18,12 @@ export interface TorrentStatus {
   isBuffering: boolean;
 }
 
+/** What is open: a torrent, or a single video file from disk (which has no infoHash). */
 export interface TorrentMetadata {
   name: string;
   files: TorrentFile[];
   totalSize: number;
-  infoHash: string;
+  infoHash?: string;
 }
 
 export interface PlaybackState {
@@ -44,6 +45,7 @@ export const IPC_CHANNELS = {
   TORRENT_LOAD: 'torrent:load',
   TORRENT_STATUS: 'torrent:status',
   TORRENT_STOP: 'torrent:stop',
+  MEDIA_OPEN_FILE: 'media:openFile',
   PLAYBACK_CONTROL: 'playback:control',
   PLAYBACK_SEEK: 'playback:seek',
   APP_QUIT: 'app:quit',

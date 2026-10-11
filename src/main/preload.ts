@@ -5,6 +5,7 @@ import { IPC_CHANNELS, TorrentStatus, TorrentMetadata, ErrorInfo, SubtitleData, 
 contextBridge.exposeInMainWorld('electronAPI', {
   // Torrent operations
   loadTorrent: (source: string) => ipcRenderer.invoke(IPC_CHANNELS.TORRENT_LOAD, source),
+  openVideoFile: (filePath: string) => ipcRenderer.invoke(IPC_CHANNELS.MEDIA_OPEN_FILE, filePath),
   stopTorrent: () => ipcRenderer.invoke(IPC_CHANNELS.TORRENT_STOP),
   selectFile: (fileName: string) => ipcRenderer.invoke(IPC_CHANNELS.TORRENT_SELECT_FILE, fileName),
   
@@ -62,6 +63,7 @@ declare global {
   interface Window {
     electronAPI: {
       loadTorrent: (source: string) => Promise<TorrentMetadata>;
+      openVideoFile: (filePath: string) => Promise<TorrentMetadata>;
       stopTorrent: () => Promise<void>;
       selectFile: (fileName: string) => Promise<void>;
       playbackControl: (action: 'play' | 'pause' | 'stop') => Promise<void>;

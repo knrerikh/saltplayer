@@ -56,6 +56,25 @@ const StatusBar: React.FC<StatusBarProps> = ({ status, metadata, currentVideoFil
     return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
   };
 
+  // A local file has no torrent status: there is nothing to download.
+  if (metadata && !status) {
+    return (
+      <div className="status-bar">
+        <div className="status-left">
+          <div className="status-item">
+            <span className="status-label">Name:</span>
+            <span className="status-value">{metadata.name}</span>
+          </div>
+
+          <div className="status-item">
+            <span className="status-label">Size:</span>
+            <span className="status-value">{formatSize(metadata.totalSize)}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!status || !metadata) {
     return (
       <div className="status-bar">

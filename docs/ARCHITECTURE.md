@@ -23,6 +23,7 @@ Salt Player is an Electron app with a strict split between the main process (Nod
 | --- | --- |
 | `src/main/main.ts` | App lifecycle, `BrowserWindow` (frameless, `titleBarStyle: 'hiddenInset'`), crash log, wiring |
 | `src/main/torrent.ts` | `TorrentEngine`: WebTorrent client, file selection, piece prioritisation, streaming server, probing, transcoding, subtitles, audio tracks, status updates |
+| `src/main/local-video.ts` | `MediaSource`, the shape the streaming server plays, and `openLocalVideo()`, which validates a path on disk and opens it as one |
 | `src/main/storage.ts` | `StorageManager`: per-session temp directory, stale-session cleanup, disk space checks |
 | `src/main/ipc-handlers.ts` | Registers `ipcMain` handlers; a thin layer that delegates to `TorrentEngine` and the window |
 | `src/main/preload.ts` | Exposes `window.electronAPI` through `contextBridge`, the only crossing point between processes |
@@ -37,13 +38,14 @@ All channel names live in `IPC_CHANNELS` (`src/shared/types.ts`).
 
 | Direction | Channels |
 | --- | --- |
-| Renderer → main (`invoke`) | `torrent:load`, `torrent:stop`, `torrent:selectFile`, `playback:control`, `playback:seek`, `audio:selectTrack`, `app:quit`, `app:openExternal`, `window:dragStart`, `window:dragEnd`, `window:setFullscreen` |
+| Renderer → main (`invoke`) | `torrent:load`, `media:openFile`, `torrent:stop`, `torrent:selectFile`, `playback:control`, `playback:seek`, `audio:selectTrack`, `app:quit`, `app:openExternal`, `window:dragStart`, `window:dragEnd`, `window:setFullscreen` |
 | Renderer → main (`send`) | `window:dragMove` (pointer deltas, high frequency) |
 | Main → renderer (`send`) | `torrent:status` (every second), `video:url`, `video:metadata`, `subtitles:available`, `audio:available`, `error`, `window:fullscreen` |
 
 ## Loading and playback
 
 1. **Load.** `torrent:load` hands a magnet URI or `.torrent` path to `TorrentEngine.load()`. The torrent is added with the source's trackers plus `FALLBACK_TRACKERS`. If metadata does not arrive within `TORRENT_LOAD_TIMEOUT_MS` (60 s), the torrent is removed and an error is sent. A previous torrent is fully stopped before a new one is added.
+   A video file from disk takes a shorter path: `media:openFile` hands its path to `TorrentEngine.openLocalFile()`, which skips steps 2–3 and serves the file directly. See [Local files](#local-files).
 2. **Pick a file.** Video files are filtered by extension; samples and extras (smaller than 10% of the largest file and under 50 MB) are dropped. The first remaining file in alphabetical order is chosen, which is the first episode of a series. This rule (`pickMainVideoFile`) and the list of video extensions live in `src/shared/video-files.ts`, which the renderer also uses to build the episode list.
 3. **Prioritise pieces.** See [Piece selection](TORRENT_OPTIMIZATION.md).
 4. **Serve.** A local HTTP server bound to `127.0.0.1` (`STREAM_HOST`) on a random port streams the file with range support.
@@ -57,6 +59,12 @@ All channel names live in `IPC_CHANNELS` (`src/shared/types.ts`).
 | `/<file>` | The file itself, with HTTP range support |
 | `/<file>?transcode=true[&startTime=<s>][&audioTrack=<index>]` | Matroska stream from ffmpeg: video copied, audio transcoded to stereo AAC (or copied when the selected track is already playable). The input is the server's own raw URL, so ffmpeg can read the container index and `seekInput` accurately. |
 | `/subtitle/<index>.vtt` | The embedded subtitle stream `<index>`, converted to WebVTT by ffmpeg on request |
+
+### Local files
+
+The streaming server plays a `MediaSource`: a name, a length and `createReadStream({ start, end })`. A WebTorrent file has that shape already; `openLocalVideo()` (`src/main/local-video.ts`) gives a file on disk the same shape over `fs.createReadStream`. Probing, transcoding, audio tracks, subtitles and range requests are therefore identical for both. Piece prioritisation and `torrent:status` exist only for torrents: with no torrent loaded they do nothing, and the status bar shows the file's name and size instead.
+
+`openLocalFile()` validates and opens the new file before stopping the current torrent or file, so a bad path leaves playback untouched. The playlist of a local file is that one file.
 
 ### Seeking
 
@@ -93,4 +101,5 @@ The HTML Fullscreen API is deliberately not used. Chromium handles <kbd>Esc</kbd
 
 - `contextIsolation` is enabled and `nodeIntegration` is disabled; the renderer only sees the functions in `preload.ts`.
 - The streaming server listens on loopback only (`127.0.0.1`), so other machines on the network cannot reach it, and it serves only the selected file and its subtitle tracks.
+- `media:openFile` takes a path from the renderer (a drop or the file picker) and accepts only an absolute path to a regular file with a recognised video extension. It adds no new reach: the page is loaded from `file://` and could already point a `<video>` at a local file.
 - `app:openExternal` hands only `http:` and `https:` URLs to `shell.openExternal` (`isSafeExternalUrl`, `src/main/external-url.ts`); `file:`, `smb:`, custom protocol handlers and anything unparsable are refused.
