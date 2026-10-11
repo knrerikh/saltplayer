@@ -129,6 +129,33 @@ describe('Playing a local video file (#33)', () => {
     expect((engine as any).currentTorrent).toBeNull();
   });
 
+  it('sends nothing for a stream stopped before its server started listening', async () => {
+    createMovie();
+    engine = new TorrentEngine(new StorageManager());
+    await engine.openLocalFile(moviePath);
+
+    await engine.stop();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(send).not.toHaveBeenCalledWith(IPC_CHANNELS.VIDEO_URL, expect.anything());
+  });
+
+  it('sends only the URL of the file opened last when files are switched quickly', async () => {
+    createMovie();
+    const otherPath = path.join(dir, 'Other.mp4');
+    fs.writeFileSync(otherPath, content);
+    engine = new TorrentEngine(new StorageManager());
+
+    await engine.openLocalFile(moviePath);
+    await engine.openLocalFile(otherPath);
+    const url = await sentVideoUrl(engine);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    const sent = send.mock.calls.filter(([channel]) => channel === IPC_CHANNELS.VIDEO_URL);
+    expect(sent).toEqual([[IPC_CHANNELS.VIDEO_URL, url]]);
+    expect(new URL(url).pathname).toBe('/Other.mp4');
+  });
+
   it('keeps playing the previous video when the file cannot be opened', async () => {
     createMovie();
     engine = new TorrentEngine(new StorageManager());

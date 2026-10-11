@@ -4,6 +4,7 @@ import { pickMainVideoFile } from '@/shared/video-files';
 import { MediaSource, openLocalVideo } from './local-video';
 import { BrowserWindow } from 'electron';
 import * as http from 'http';
+import type { AddressInfo } from 'net';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -576,7 +577,7 @@ export class TorrentEngine {
     const totalSize: number = typeof file.length === 'number' ? file.length : Number(file.length);
     let lastReprioritizedStart = 0;
 
-    this.server = http.createServer(async (req, res) => {
+    const server = http.createServer(async (req, res) => {
       try {
         const reqUrl = new URL(req.url ?? '/', `http://${STREAM_HOST}`);
         const isTranscode = reqUrl.searchParams.get('transcode') === 'true';
@@ -732,9 +733,16 @@ export class TorrentEngine {
       }
     });
 
-    this.server.listen(0, STREAM_HOST, async () => {
-      const address = this.server.address();
-      this.serverPort = address?.port ?? null;
+    this.server = server;
+
+    // Stopping or switching files replaces this.server, possibly before this one has
+    // even started listening; a replaced server must not report its stream.
+    const isCurrent = () => this.server === server;
+
+    server.listen(0, STREAM_HOST, async () => {
+      if (!isCurrent()) return;
+      const address = server.address() as AddressInfo;
+      this.serverPort = address.port;
       this.currentFilePathname = pathname;
       this.selectedAudioIndex = null;
       let streamUrl = `http://${STREAM_HOST}:${this.serverPort}${pathname}`;
@@ -742,6 +750,7 @@ export class TorrentEngine {
       console.log(`Streaming server started at ${streamUrl}`);
       this.prioritizeStreamingPieces(file, 0);
       const probeResult = await this.probeStream(streamUrl);
+      if (!isCurrent()) return;
       this.currentStreamUrl = streamUrl;
 
       if (probeResult.duration > 0) {
@@ -1021,7 +1030,7 @@ export class TorrentEngine {
 
   private extractAudioTracks(metadata: { streams: any[] }): void {
     this.audioTracks = [];
-    const audioStreams = metadata.streams.filter((s: any) => s.codec_type === 'audio');
+    const audioStreams = (metadata.streams ?? []).filter((s: any) => s.codec_type === 'audio');
 
     if (audioStreams.length === 0) {
       this.sendAudioTracks();
