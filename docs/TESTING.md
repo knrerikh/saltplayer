@@ -21,7 +21,10 @@ npx vitest run -t "seek"                    # tests whose name matches
 | `tests/unit/video-files.test.ts` | Video extensions and the choice of the file to play first: samples, extras, series |
 | `tests/unit/torrent-magnet-load.test.ts` | The load contract with a mocked WebTorrent: TCP-only client, fallback trackers, timeout and removal, settling exactly once, stopping before re-adding |
 | `tests/unit/torrent-optimization.test.ts` | Piece selection: file deselection, piece windows, critical and sequential ranges, episode switching, seek reprioritisation |
-| `tests/unit/torrent-server.test.ts` | The streaming server binds to loopback only |
+| `tests/unit/torrent-server.test.ts` | The streaming server binds to loopback only; a local file is served with byte ranges and replaces a loaded torrent; a server stopped or replaced before it starts listening reports nothing |
+| `tests/unit/local-video.test.ts` | Opening a file on disk: range reads, and refusing relative paths, non-video files, directories and missing files |
+| `tests/integration/local-file-playback.test.ts` | Real media end to end: a generated MKV with AC3 audio is probed, needs transcoding and streams out of ffmpeg as Matroska |
+| `tests/integration/open-local-file.test.tsx` | Dropping or picking a video or `.torrent`, routing each to its IPC call, and the status bar of a local file |
 | `tests/unit/storage.test.ts` | Temp directory creation and cleanup, size and free-space checks |
 | `tests/unit/utils.test.ts` | Speed, size and time formatting; magnet link validation |
 | `tests/unit/icon.test.ts` | Icon geometry, the ICO encoder, and drift between `build/icon.svg` and the design code |
@@ -33,12 +36,14 @@ npx vitest run -t "seek"                    # tests whose name matches
 | `tests/integration/titlebar-drag.test.tsx` | Drag versus click on the title strip |
 | `tests/unit/window-fullscreen.test.ts` | Forwarding window fullscreen changes to the renderer |
 | `tests/integration/statusbar-fullscreen.test.tsx` | Status bar hidden in window fullscreen; the video container can shrink so the status bar is never pushed off-screen |
-| `tests/unit/ipc-handlers.test.ts` | IPC handlers: `window:setFullscreen`, and `app:openExternal` refusing non-web URLs |
+| `tests/unit/ipc-handlers.test.ts` | IPC handlers: `window:setFullscreen`, `app:openExternal` refusing non-web URLs, `media:openFile` |
 | `tests/unit/external-url.test.ts` | The URL scheme allow-list for opening links outside the app |
 | `tests/integration/escape-fullscreen.test.tsx` | The ⛶ button toggles window fullscreen; <kbd>Esc</kbd> leaves it, but closes an open subtitle or audio menu first |
 | `tests/integration/error-dismiss.test.tsx` | Error banner close button, hover pause and auto-dismiss timers |
 
 `tests/helpers/electron-api.ts` provides `mockElectronAPI()`, a complete `electronAPI` mock for rendering `<App />` with helpers that deliver main-process events. `tests/setup.ts` installs a default mocked `window.electronAPI` and a `File` subclass with a `path` property for drag-and-drop tests. Main-process tests mock `electron` and, where needed, `webtorrent` with `vi.mock`; no test touches the network.
+
+ffprobe and ffmpeg are not mocked. Tests that need them run the bundled binaries on real media generated with `ffmpeg-static` (`local-file-playback.test.ts`) and allow for a slow cold start on CI runners. Tests that are only about the server read its address directly instead of waiting for the probe. Temporary fixtures must not be named `saltplayer-*`: `StorageManager` deletes such folders as stale sessions, also while a parallel test uses them.
 
 ## Conventions
 
