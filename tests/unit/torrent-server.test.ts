@@ -14,6 +14,23 @@ vi.mock('electron', () => ({
   BrowserWindow: { getAllWindows: vi.fn(() => [{ webContents: { send } }]) },
 }));
 
+// A real ffprobe takes seconds to start on CI runners; these tests are about the
+// server, so every probe answers at once with a file that has no streams.
+vi.mock('child_process', async (importOriginal) => {
+  const { EventEmitter } = await import('events');
+  return {
+    ...(await importOriginal<typeof import('child_process')>()),
+    spawn: vi.fn(() => {
+      const probe = Object.assign(new EventEmitter(), { stdout: new EventEmitter() });
+      setImmediate(() => {
+        probe.stdout.emit('data', Buffer.from('{"streams":[],"format":{}}'));
+        probe.emit('close', 0);
+      });
+      return probe;
+    }),
+  };
+});
+
 function loadFakeTorrent(engine: TorrentEngine) {
   const file = {
     name: 'Movie.mp4',
