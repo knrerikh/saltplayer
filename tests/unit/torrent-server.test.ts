@@ -87,7 +87,8 @@ describe('Playing a local video file (#33)', () => {
   });
 
   function createMovie(): void {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'saltplayer-engine-'));
+    // Not `saltplayer-*`: StorageManager deletes those as stale sessions, even mid-test.
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'local-video-engine-test-'));
     moviePath = path.join(dir, 'Home Movie.mp4');
     fs.writeFileSync(moviePath, content);
   }

@@ -18,7 +18,8 @@ describe('openLocalVideo (#33)', () => {
   let moviePath: string;
 
   beforeAll(() => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'saltplayer-local-video-'));
+    // Not `saltplayer-*`: StorageManager deletes those as stale sessions, even mid-test.
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'local-video-test-'));
     moviePath = path.join(dir, 'Movie.mkv');
     fs.writeFileSync(moviePath, CONTENT);
     fs.writeFileSync(path.join(dir, 'notes.txt'), 'not a video');
