@@ -13,8 +13,8 @@ const movie: TorrentMetadata = {
   infoHash: 'aaa',
 };
 
-function renderWith(speeds: Partial<TorrentStatus>) {
-  const status: TorrentStatus = {
+function statusWith(speeds: Partial<TorrentStatus>): TorrentStatus {
+  return {
     progress: 9.7,
     downloadSpeed: 0,
     uploadSpeed: 0,
@@ -26,7 +26,10 @@ function renderWith(speeds: Partial<TorrentStatus>) {
     isBuffering: false,
     ...speeds,
   };
-  render(<StatusBar status={status} metadata={movie} currentVideoFile={movie.files[0]} videoDuration={3500} />);
+}
+
+function renderWith(speeds: Partial<TorrentStatus>) {
+  render(<StatusBar status={statusWith(speeds)} metadata={movie} currentVideoFile={movie.files[0]} videoDuration={3500} />);
 }
 
 const download = () => screen.getByText('↓').nextElementSibling!;
@@ -57,5 +60,29 @@ describe('StatusBar speeds (#58)', () => {
     renderWith({ downloadSpeed });
 
     expect(download()).toHaveTextContent(shown);
+  });
+});
+
+describe('StatusBar value widths (#58)', () => {
+  const bar = (status: TorrentStatus) => (
+    <StatusBar status={status} metadata={movie} currentVideoFile={movie.files[0]} videoDuration={3500} />
+  );
+  const downloadWidth = () => (download() as HTMLElement).style.minWidth;
+
+  it('starts as narrow as the value', () => {
+    render(bar(statusWith({ downloadSpeed: 5.3 * MB })));
+
+    expect(download()).toHaveTextContent('5.3 MB/s');
+    expect(downloadWidth()).toBe('8ch');
+  });
+
+  it('grows with a longer value and does not shrink back, so neighbours stay put', () => {
+    const { rerender } = render(bar(statusWith({ downloadSpeed: 5.3 * MB })));
+
+    rerender(bar(statusWith({ downloadSpeed: 512 * KB })));
+    expect(downloadWidth()).toBe('10ch');
+
+    rerender(bar(statusWith({ downloadSpeed: 5.3 * MB })));
+    expect(downloadWidth()).toBe('10ch');
   });
 });

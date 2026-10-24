@@ -181,35 +181,20 @@ body {
   color: var(--text-secondary);
 }
 
+/* An arrow belongs to its number more closely than a word label does. */
+.status-item--speed {
+  gap: 3px;
+}
+
 .status-value {
   color: var(--text-primary);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
-/* Values that change every second keep a fixed width, so the items after them stay put. */
-.status-value--percent,
-.status-value--speed,
-.status-value--count,
-.status-value--size {
+/* Left-aligned, so a value sits next to its label; its width only grows (SteadyValue). */
+.status-value--steady {
   display: inline-block;
-  text-align: right;
-}
-
-.status-value--percent {
-  min-width: 6ch;
-}
-
-.status-value--speed {
-  min-width: 10ch;
-}
-
-.status-value--count {
-  min-width: 3ch;
-}
-
-.status-value--size {
-  min-width: 9ch;
 }
 
 .progress-bar {
