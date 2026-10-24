@@ -283,7 +283,7 @@ app.on('before-quit', async (event) => {
 });
 
 // Handle uncaught errors — write to log file so packaged-app crashes are diagnosable.
-// Log path on macOS: ~/Library/Logs/Salt Player/crash.log
+// Log path on macOS: ~/Library/Logs/saltplayer/crash.log
 function writeCrashLog(label: string, error: unknown): void {
   try {
     const logDir = app.getPath('logs');

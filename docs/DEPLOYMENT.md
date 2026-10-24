@@ -74,5 +74,5 @@ The bundled ffmpeg encodes AAC and decodes AC3, E-AC3 and DTS. Those formats are
 | --- | --- |
 | `npm install` fails compiling native modules | Install the platform toolchain listed above. |
 | Packaged app plays video without sound (macOS) | Check that the ffmpeg binary matches the app's architecture: `file "Salt Player.app/Contents/Resources/app.asar.unpacked/node_modules/ffmpeg-static/ffmpeg"`. |
-| Packaged app crashes on start | Read `crash.log` in the app's log directory (`~/Library/Logs/Salt Player/` on macOS); it records startup diagnostics and uncaught errors. |
+| Packaged app crashes on start | Read `crash.log` in the app's log directory (`~/Library/Logs/saltplayer/` on macOS); it records startup diagnostics and uncaught errors. |
 | AppImage won't start | `chmod +x Salt-Player-<v>.AppImage` |

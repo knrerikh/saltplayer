@@ -129,7 +129,7 @@ The HTML Fullscreen API is deliberately not used. Chromium handles <kbd>Esc</kbd
 - **TCP only.** WebTorrent is created with `utp: false`. Its uTP-first dialing took ~41 s to fall back to TCP, longer than the load timeout, on networks that drop uTP.
 - **No WebRTC.** `node-datachannel` is not rebuilt for Electron, so `Module._load` is intercepted while WebTorrent loads and the native module is replaced by a no-op stub. A desktop client only needs TCP peers.
 - **ffmpeg failures do not crash the app.** `ffprobe` is spawned directly instead of through `fluent-ffmpeg`, whose capability check could throw synchronously on an architecture mismatch (`EBADARCH`). Recoverable `uncaughtException`s are logged and the app keeps running without transcoding.
-- **Crash log.** Fatal errors and startup diagnostics (architecture, resolved ffmpeg paths) are appended to `crash.log` in the app's log directory (`~/Library/Logs/Salt Player/` on macOS).
+- **Crash log.** Fatal errors and startup diagnostics (architecture, resolved ffmpeg paths) are appended to `crash.log` in the app's log directory (`~/Library/Logs/saltplayer/` on macOS).
 
 ## Security
 
