@@ -65,7 +65,7 @@ The status bar at the bottom of the window shows the torrent name, progress, dow
 - No accounts, no telemetry.
 - Torrent pieces are stored in a temporary folder for the current session and deleted when you quit. Folders left behind by a crash are removed on the next launch.
 - One torrent plays at a time; no video data is kept.
-- Two small files are kept between launches, in the app's data folder (`~/Library/Application Support/Salt Player` on macOS, `%APPDATA%\Salt Player` on Windows, `~/.config/Salt Player` on Linux):
+- Two small files are kept between launches, in the app's data folder (`~/Library/Application Support/saltplayer` on macOS, `%APPDATA%\saltplayer` on Windows, `~/.config/saltplayer` on Linux):
   - `recent-sources.json`, the **Open Recent** list: the names and sources (magnet links, torrent URLs, file paths) of the last 10 things you opened. **File → Open Recent → Clear Menu** empties it, along with the system's recent documents for the app.
   - `settings.json`, your preferences, such as **Autoplay Next Episode**. It holds nothing about what you watched.
 
