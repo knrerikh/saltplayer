@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Bounded disk use** ([#54](https://github.com/knrerikh/saltplayer/issues/54)):
+  - Only about five minutes of playback ahead of the player are downloaded, instead of the rest of the episode. Pausing stops the download once that is in.
+  - Switching to another episode frees the disk space of the one left behind; going back downloads it again.
+  - Torrents are added with nothing selected, so WebTorrent no longer starts fetching the whole torrent before playback picks a file, or re-fetches failed pieces of other files.
+
 ### Fixed
 - **File → Open URL… on the start screen showed a second URL field** ([#50](https://github.com/knrerikh/saltplayer/issues/50)) in a dialog over the one already there. It now focuses and selects the start screen's field; the dialog appears only while a video is on screen.
 - **The status bar showed the size of the whole torrent** ([#55](https://github.com/knrerikh/saltplayer/issues/55)), e.g. 30 GB for a season, which read as if all of it was downloading. It now shows the size of the file playing.

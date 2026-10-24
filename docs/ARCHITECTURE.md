@@ -26,6 +26,7 @@ Salt Player is an Electron app with a strict split between the main process (Nod
 | --- | --- |
 | `src/main/main.ts` | App lifecycle, `BrowserWindow` (frameless, `titleBarStyle: 'hiddenInset'`), crash log, wiring |
 | `src/main/torrent.ts` | `TorrentEngine`: WebTorrent client, file selection, piece prioritisation, streaming server, probing, transcoding, subtitles, audio tracks, status updates |
+| `src/main/download-window.ts` | Read-ahead window and release arithmetic, and `readInChunks()`, the bounded reads behind every response |
 | `src/main/local-video.ts` | `MediaSource`, the shape the streaming server plays, and `openLocalVideo()`, which validates a path on disk and opens it as one |
 | `src/main/storage.ts` | `StorageManager`: per-session temp directory, stale-session cleanup, disk space checks |
 | `src/main/app-menu.ts` | `buildAppMenuTemplate()`: the application menu as a plain template (File, View, Playback, Help; plus the app, Edit and Window menus on macOS) |
@@ -57,7 +58,7 @@ All channel names live in `IPC_CHANNELS` (`src/shared/types.ts`).
    A video file from disk takes a shorter path: `media:openFile` hands its path to `TorrentEngine.openLocalFile()`, which skips steps 2–3 and serves the file directly. See [Local files](#local-files).
 2. **Pick a file.** Video files are filtered by extension; samples and extras (smaller than 10% of the largest file and under 50 MB) are dropped. The first remaining file in alphabetical order is chosen, which is the first episode of a series. This rule (`pickMainVideoFile`) and the list of video extensions live in `src/shared/video-files.ts`, which the renderer also uses to build the episode list.
 3. **Prioritise pieces.** See [Piece selection](TORRENT_OPTIMIZATION.md).
-4. **Serve.** A local HTTP server bound to `127.0.0.1` (`STREAM_HOST`) on a random port streams the file with range support.
+4. **Serve.** A local HTTP server bound to `127.0.0.1` (`STREAM_HOST`) on a random port streams the file with range support, a bounded chunk at a time, so the download follows what the player reads (see [Bounded reads](TORRENT_OPTIMIZATION.md#bounded-reads)).
 5. **Probe.** `ffprobe` (spawned directly, 10 s timeout, 5 MB probe size) reads the duration, codecs, audio tracks and subtitle tracks.
 6. **Hand over.** The renderer receives the stream URL. If the audio codec is one Chromium cannot play (AC3, E-AC3, DTS, TrueHD/MLP, Vorbis), the URL carries `?transcode=true`.
 

@@ -36,7 +36,7 @@ Subtitle tracks embedded in the file are listed in the subtitle menu. The select
 
 ### Series
 
-For a torrent with several video files, choose the episode from the list in the title bar, or use the previous / next buttons beside play. Only the episode you are watching is downloaded, plus the first few megabytes of the next one during the last two minutes, so it starts without a long wait.
+For a torrent with several video files, choose the episode from the list in the title bar, or use the previous / next buttons beside play. Only the episode you are watching is downloaded, about five minutes ahead of where you are, plus the first few megabytes of the next one during the last two minutes, so it starts without a long wait. Pausing stops the download once those minutes are in. Switching to another episode frees the disk space of the one you left.
 
 When an episode is about to end, *Next episode in 5 s* appears in the corner and the next episode starts when the video ends. **Play now** switches at once; **Cancel** or <kbd>Esc</kbd> lets this episode end normally (in fullscreen, <kbd>Esc</kbd> cancels first and leaves fullscreen on the next press). The countdown follows the video, so pausing holds it. After the last episode, playback stops. Fullscreen stays on across the switch.
 
@@ -63,7 +63,7 @@ The status bar at the bottom of the window shows the torrent name, the size of t
 ## Privacy and storage
 
 - No accounts, no telemetry.
-- Torrent pieces are stored in a temporary folder for the current session and deleted when you quit. Folders left behind by a crash are removed on the next launch.
+- Torrent pieces are stored in a temporary folder for the current session and deleted when you quit; an episode you switch away from is deleted from it at once. Folders left behind by a crash are removed on the next launch. Finder may show the files there at their full size: they are sparse, and only the downloaded parts take up space.
 - One torrent plays at a time; no video data is kept.
 - Two small files are kept between launches, in the app's data folder (`~/Library/Application Support/saltplayer` on macOS, `%APPDATA%\saltplayer` on Windows, `~/.config/saltplayer` on Linux):
   - `recent-sources.json`, the **Open Recent** list: the names and sources (magnet links, torrent URLs, file paths) of the last 10 things you opened. **File → Open Recent → Clear Menu** empties it, along with the system's recent documents for the app.

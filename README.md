@@ -18,7 +18,7 @@
 
 ## Features
 
-- **Streams while it downloads.** Playback starts once the first pieces arrive; pieces are fetched in playback order, and only the episode you are watching is downloaded.
+- **Streams while it downloads.** Playback starts once the first pieces arrive; pieces are fetched in playback order, about five minutes ahead, and only for the episode you are watching. Pausing stops the download, and an episode you switch away from is removed from disk, so a 30 GB season never takes 30 GB.
 - **Plays what browsers can't.** AC3, E-AC3, DTS, TrueHD and Vorbis audio is transcoded to AAC on the fly with ffmpeg, so most MKV releases just work.
 - **Audio tracks and subtitles.** Switch between the audio tracks and embedded subtitle tracks of the file from the player controls.
 - **Series-friendly.** Multi-file torrents get an episode list and previous/next buttons, and the next episode starts by itself after a short countdown (Playback → Autoplay Next Episode). Its first megabytes are fetched ahead, so it starts without a long wait.
