@@ -36,7 +36,7 @@ Subtitle tracks embedded in the file are listed in the subtitle menu. The select
 
 ### Resuming
 
-A file you open again continues where you stopped, a few seconds earlier to pick up the scene, and *Resumed from 23:14* appears for a moment; **Start over** plays it from the beginning. A season opens at the episode you watched last, or at the next one if you finished it. Files you watched to the end, or stopped within the first 30 seconds, start from the beginning.
+A file you open again continues where you stopped, 10 seconds earlier to pick up the scene, and *Resumed from 23:14* appears for a moment; **Start over** plays it from the beginning. A season opens at the episode you watched last, or at the next one if you finished it. Files you watched to the end, or stopped within the first 30 seconds, start from the beginning.
 
 Turn this off with **Playback → Resume Playback**: everything then starts from the beginning and nothing is recorded.
 

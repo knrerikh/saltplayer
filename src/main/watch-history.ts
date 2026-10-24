@@ -4,7 +4,7 @@ import { JsonFile } from './json-file';
 /** Positions under this are not resumed: the video had barely started. */
 export const MIN_RESUME_S = 30;
 /** Resuming starts this much earlier, to pick the scene up again. */
-export const RESUME_REWIND_S = 5;
+export const RESUME_REWIND_S = 10;
 /** Past this share of the duration a file counts as watched to the end. */
 export const FINISHED_SHARE = 0.95;
 export const WATCH_HISTORY_LIMIT = 200;
