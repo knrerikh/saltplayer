@@ -11,6 +11,7 @@ const PIECE = 1 * MB;
 
 const file = (name: string, length: number, offset: number) => ({
   name,
+  path: name,
   length,
   offset,
   select: vi.fn(),
@@ -23,7 +24,16 @@ function setup() {
     file('S01E02.mkv', 500 * MB, 500 * MB),
     file('S01E03.mkv', 500 * MB, 1000 * MB),
   ];
-  const torrent = { files: episodes, pieceLength: PIECE, select: vi.fn() };
+  const torrent = {
+    files: episodes,
+    pieceLength: PIECE,
+    // Nothing downloaded or on disk: switching episodes has nothing to free (#54).
+    path: '/nonexistent/saltplayer-prefetch-test',
+    bitfield: { get: () => false },
+    _markUnverified: vi.fn(),
+    select: vi.fn(),
+    deselect: vi.fn(),
+  };
   const engine = new TorrentEngine(new StorageManager());
   (engine as any).currentTorrent = torrent;
   (engine as any).prioritizeStreamingPieces(episodes[0], 0);
