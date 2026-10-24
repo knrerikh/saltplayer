@@ -60,6 +60,6 @@ describe('Settings (#42)', () => {
 
     await settings.set({ autoplayNext: false });
 
-    expect(onChange).toHaveBeenCalledWith({ autoplayNext: false });
+    expect(onChange).toHaveBeenCalledWith({ ...DEFAULT_SETTINGS, autoplayNext: false });
   });
 });

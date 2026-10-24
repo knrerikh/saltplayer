@@ -8,7 +8,7 @@ import type { AppSettings, AudioData, MenuCommand, SubtitleData, TorrentMetadata
  */
 export function mockElectronAPI() {
   const listeners: {
-    videoUrl?: (url: string) => void;
+    videoUrl?: (url: string, startAt?: number | null) => void;
     subtitles?: (data: SubtitleData) => void;
     audioTracks?: (data: AudioData) => void;
     windowFullscreen?: (isFullscreen: boolean) => void;
@@ -29,6 +29,7 @@ export function mockElectronAPI() {
     getSettings: vi.fn(() => new Promise<AppSettings>(() => {})),
     playbackControl: vi.fn(),
     playbackSeek: vi.fn(),
+    savePlaybackPosition: vi.fn().mockResolvedValue(undefined),
     selectAudioTrack: vi.fn(),
     quit: vi.fn(),
     openExternal: vi.fn(),
@@ -37,7 +38,7 @@ export function mockElectronAPI() {
     endWindowDrag: vi.fn(),
     setWindowFullscreen: vi.fn(),
     onTorrentStatus: vi.fn(),
-    onVideoUrl: vi.fn((callback: (url: string) => void) => {
+    onVideoUrl: vi.fn((callback: (url: string, startAt?: number | null) => void) => {
       listeners.videoUrl = callback;
     }),
     onVideoMetadata: vi.fn(),
@@ -72,8 +73,9 @@ export function mockElectronAPI() {
     setWindowFullscreen(isFullscreen: boolean) {
       act(() => listeners.windowFullscreen?.(isFullscreen));
     },
-    playVideo(url: string) {
-      act(() => listeners.videoUrl?.(url));
+    /** Main hands over a stream, with where to resume it (#51). */
+    playVideo(url: string, startAt: number | null = null) {
+      act(() => listeners.videoUrl?.(url, startAt));
     },
     sendSubtitles(data: SubtitleData) {
       act(() => listeners.subtitles?.(data));

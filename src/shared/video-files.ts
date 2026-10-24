@@ -33,3 +33,19 @@ export function pickMainVideoFile<T extends { name: string }>(
 
   return [...(candidates.length > 0 ? candidates : videos)].sort(compareFileNames)[0];
 }
+
+/**
+ * The file to start a torrent with when it was played before: the episode left
+ * unfinished, or the one after an episode watched to the end. Without such an episode,
+ * the main file.
+ */
+export function pickStartFile<T extends { name: string }>(
+  files: readonly T[],
+  sizeOf: (file: T) => number,
+  lastWatched: { fileName: string; finished: boolean } | null,
+): T | null {
+  const playlist = files.filter((file) => isVideoFile(file.name)).sort(compareFileNames);
+  const index = lastWatched ? playlist.findIndex((file) => file.name === lastWatched.fileName) : -1;
+  const resumed = index === -1 ? undefined : playlist[lastWatched!.finished ? index + 1 : index];
+  return resumed ?? pickMainVideoFile(files, sizeOf);
+}

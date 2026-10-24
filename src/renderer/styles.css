@@ -614,7 +614,8 @@ body {
 
 /* Action Icon Overlay */
 /* Stays visible when the controls hide: it is the last chance to cancel autoplay. */
-.next-episode-overlay {
+.next-episode-overlay,
+.resume-hint {
   position: absolute;
   right: 24px;
   bottom: 110px;
@@ -629,8 +630,15 @@ body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
-.next-episode-overlay .button {
+.next-episode-overlay .button,
+.resume-hint .button {
   padding: 8px 16px;
+}
+
+/* Bottom left, so it never sits under the next-episode countdown. */
+.resume-hint {
+  right: auto;
+  left: 24px;
 }
 
 .icon-overlay {

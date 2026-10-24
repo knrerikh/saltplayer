@@ -10,6 +10,7 @@ const actions = (): AppMenuActions => ({
   clearRecent: vi.fn(),
   closeVideo: vi.fn(),
   setAutoplayNext: vi.fn(),
+  setResumePlayback: vi.fn(),
   openLink: vi.fn(),
 });
 
@@ -18,7 +19,7 @@ const build = (overrides: Partial<Parameters<typeof buildAppMenuTemplate>[0]> = 
     platform: 'darwin',
     appName: 'Salt Player',
     recents: [],
-    settings: { autoplayNext: true },
+    settings: { autoplayNext: true, resumePlayback: true },
     actions: actions(),
     isDevelopment: false,
     ...overrides,
@@ -103,7 +104,7 @@ describe('buildAppMenuTemplate (#31)', () => {
       itemIn(template, 'Playback', 'Autoplay Next Episode');
 
     it.each([true, false])('is a checkbox showing the setting (%s)', (autoplayNext) => {
-      const item = autoplayItem(build({ settings: { autoplayNext } }));
+      const item = autoplayItem(build({ settings: { autoplayNext, resumePlayback: true } }));
 
       expect(item).toMatchObject({ type: 'checkbox', checked: autoplayNext });
     });
@@ -115,6 +116,26 @@ describe('buildAppMenuTemplate (#31)', () => {
       (item?.click as (menuItem: { checked: boolean }) => void)({ checked });
 
       expect(menuActions.setAutoplayNext).toHaveBeenCalledWith(checked);
+    });
+  });
+
+  describe('Playback → Resume Playback (#51)', () => {
+    const resumeItem = (template: MenuItemConstructorOptions[]) =>
+      itemIn(template, 'Playback', 'Resume Playback');
+
+    it.each([true, false])('is a checkbox showing the setting (%s)', (resumePlayback) => {
+      const item = resumeItem(build({ settings: { autoplayNext: true, resumePlayback } }));
+
+      expect(item).toMatchObject({ type: 'checkbox', checked: resumePlayback });
+    });
+
+    it.each([true, false])('sets resuming to the new checkbox state (%s)', (checked) => {
+      const menuActions = actions();
+      const item = resumeItem(build({ actions: menuActions }));
+
+      (item?.click as (menuItem: { checked: boolean }) => void)({ checked });
+
+      expect(menuActions.setResumePlayback).toHaveBeenCalledWith(checked);
     });
   });
 

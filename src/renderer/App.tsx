@@ -5,6 +5,7 @@ import StatusBar from './components/StatusBar';
 import TitlebarDragRegion from './components/TitlebarDragRegion';
 import OpenUrlDialog from './components/OpenUrlDialog';
 import { isVideoFile, compareFileNames } from '@/shared/video-files';
+import type { WatchedFile } from '@/shared/playback-key';
 import { TorrentStatus, TorrentMetadata, ErrorInfo, TorrentFile, SubtitleData, AudioData, MenuCommand, AppSettings, DEFAULT_SETTINGS } from '@/shared/types';
 
 /** How long the error banner stays up before auto-dismissing, unless hovered. */
@@ -22,6 +23,7 @@ declare global {
       getSettings: () => Promise<AppSettings>;
       playbackControl: (action: 'play' | 'pause' | 'stop') => Promise<void>;
       playbackSeek: (time: number) => Promise<void>;
+      savePlaybackPosition: (file: WatchedFile, position: number, duration: number) => Promise<void>;
       selectAudioTrack: (streamIndex: number) => Promise<void>;
       quit: () => Promise<void>;
       openExternal: (url: string) => Promise<boolean>;
@@ -30,7 +32,7 @@ declare global {
       endWindowDrag: () => Promise<void>;
       setWindowFullscreen: (isFullscreen: boolean) => Promise<void>;
       onTorrentStatus: (callback: (status: TorrentStatus) => void) => void;
-      onVideoUrl: (callback: (url: string) => void) => void;
+      onVideoUrl: (callback: (url: string, startAt: number | null) => void) => void;
       onVideoMetadata: (callback: (metadata: { duration: number }) => void) => void;
       onSubtitles: (callback: (data: SubtitleData) => void) => void;
       onAudioTracks: (callback: (data: AudioData) => void) => void;
@@ -47,6 +49,7 @@ declare global {
 
 const App: React.FC = () => {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [resumeAt, setResumeAt] = useState<number | null>(null);
   const [serverDuration, setServerDuration] = useState<number | null>(null);
   const [torrentStatus, setTorrentStatus] = useState<TorrentStatus | null>(null);
   const [metadata, setMetadata] = useState<TorrentMetadata | null>(null);
@@ -85,8 +88,9 @@ const App: React.FC = () => {
     document.title = 'Salt Player';
 
     // Listen for video URL from main process
-    window.electronAPI.onVideoUrl((url) => {
+    window.electronAPI.onVideoUrl((url, startAt) => {
       setVideoUrl(url);
+      setResumeAt(startAt);
       // Don't reset serverDuration here, as metadata might have arrived just before
       setIsLoading(false);
     });
@@ -175,6 +179,7 @@ const App: React.FC = () => {
 
   const clearPlayback = () => {
     setVideoUrl(null);
+    setResumeAt(null);
     setServerDuration(null);
     setTorrentStatus(null);
     setMetadata(null);
@@ -273,7 +278,16 @@ const App: React.FC = () => {
     }
   };
 
+  const currentFile = currentIndex !== -1 ? videoFiles[currentIndex] : undefined;
   const nextFile = currentIndex !== -1 ? videoFiles[currentIndex + 1] : undefined;
+
+  const handleSavePosition = (position: number, duration: number) => {
+    if (!metadata || !currentFile) return;
+    const file = { infoHash: metadata.infoHash, path: currentFile.path, fileName: currentFile.name };
+    window.electronAPI.savePlaybackPosition(file, position, duration).catch((err) => {
+      console.error('Error saving playback position:', err);
+    });
+  };
 
   const handlePrefetchNext = (fileName: string) => {
     window.electronAPI.prefetchFile(fileName).catch((err) => {
@@ -325,6 +339,8 @@ const App: React.FC = () => {
         onNext={nextFile ? handleNext : undefined}
         autoplayNext={settings.autoplayNext}
         onPrefetchNext={nextFile ? () => handlePrefetchNext(nextFile.name) : undefined}
+        resumeAt={resumeAt}
+        onSavePosition={handleSavePosition}
         title={currentIndex !== -1 ? videoFiles[currentIndex].name : undefined}
         videoFiles={videoFiles}
         onSelectFile={handleSelectFile}

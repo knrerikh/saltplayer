@@ -2,7 +2,9 @@ import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react'
 import { SubtitleData, SubtitleTrack, AudioData, AudioTrack } from '@/shared/types';
 import TitlebarDragRegion from './TitlebarDragRegion';
 import NextEpisodeOverlay from './NextEpisodeOverlay';
+import ResumeHint from './ResumeHint';
 import { useAutoplayNext } from '../hooks/useAutoplayNext';
+import { useSavePosition } from '../hooks/useSavePosition';
 
 const LANGUAGE_NAMES: Record<string, string> = {
   eng: 'English', rus: 'Russian', spa: 'Spanish', fra: 'French', deu: 'German',
@@ -63,6 +65,10 @@ interface VideoPlayerProps {
   autoplayNext?: boolean;
   /** Fetch the start of the next episode; called shortly before this one ends. */
   onPrefetchNext?: () => void;
+  /** Where to start a newly opened file, in seconds; null starts from the beginning. */
+  resumeAt?: number | null;
+  /** Hears where playback is, for resuming the file later. */
+  onSavePosition?: (position: number, duration: number) => void;
   title?: string;
   videoFiles?: { name: string }[];
   onSelectFile?: (fileName: string) => void;
@@ -83,6 +89,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onNext,
   autoplayNext = false,
   onPrefetchNext,
+  resumeAt = null,
+  onSavePosition,
   title,
   videoFiles,
   onSelectFile,
@@ -107,6 +115,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [audioMenuOpen, setAudioMenuOpen] = useState(false);
   const [selectedAudioTrackIndex, setSelectedAudioTrackIndex] = useState(0);
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [resumedFrom, setResumedFrom] = useState<number | null>(null);
   const subtitleControlRef = useRef<HTMLDivElement>(null);
   const audioControlRef = useRef<HTMLDivElement>(null);
   const pendingAudioSwitchTime = useRef<number | null>(null);
@@ -121,6 +130,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     onNext,
     onPrefetchNext,
   });
+
+  useSavePosition({ episode: title, currentTime, duration, isPlaying, save: onSavePosition });
+
+  const dismissResumeHint = useCallback(() => setResumedFrom(null), []);
 
   const isTranscode = useMemo(() => {
     return videoUrl?.includes('transcode=true') || false;
@@ -291,16 +304,24 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setPlaybackError(null);
       setIsBuffering(true);
 
-      const resumeTime = pendingAudioSwitchTime.current;
+      // An audio track switch restarts the stream where it was; a newly opened file
+      // may resume where it was left last time.
+      const switchedAt = pendingAudioSwitchTime.current;
       pendingAudioSwitchTime.current = null;
+      const resumeTime = switchedAt ?? resumeAt;
+      setResumedFrom(switchedAt === null ? resumeAt : null);
 
-      if (resumeTime !== null) {
+      if (resumeTime !== null && isTranscode) {
         const url = new URL(videoUrl);
         url.searchParams.set('startTime', Math.floor(resumeTime).toString());
         setTimeOffset(resumeTime);
         video.src = url.toString();
       } else {
         video.src = videoUrl;
+        if (resumeTime !== null) video.currentTime = resumeTime;
+      }
+      if (resumeAt !== null && switchedAt === null) {
+        window.electronAPI.playbackSeek(resumeAt);
       }
 
       video.muted = false;
@@ -412,6 +433,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     
     if (!Number.isFinite(time)) return;
 
+    seekTo(time);
+  };
+
+  /** A transcoded stream restarts at `time`; a direct one just moves there. */
+  const seekTo = (time: number) => {
+    if (!videoRef.current) return;
+
     if (isTranscode && videoUrl) {
       const url = new URL(videoUrl);
       url.searchParams.set('startTime', Math.floor(time).toString());
@@ -500,6 +528,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             <div className="icon-overlay">
               {overlayIcon === 'play' ? '▶' : '⏸'}
             </div>
+          )}
+
+          {resumedFrom !== null && (
+            <ResumeHint
+              from={formatTime(resumedFrom)}
+              onStartOver={() => {
+                dismissResumeHint();
+                seekTo(0);
+              }}
+              onDismiss={dismissResumeHint}
+            />
           )}
 
           {autoplay.secondsLeft !== null && (

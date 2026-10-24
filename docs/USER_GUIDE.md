@@ -34,6 +34,12 @@ If the file has several audio tracks, pick one from the audio menu in the contro
 
 Subtitle tracks embedded in the file are listed in the subtitle menu. The selected track is extracted when you choose it. <kbd>Esc</kbd> or a click outside closes either menu.
 
+### Resuming
+
+A file you open again continues where you stopped, a few seconds earlier to pick up the scene, and *Resumed from 23:14* appears for a moment; **Start over** plays it from the beginning. A season opens at the episode you watched last, or at the next one if you finished it. Files you watched to the end, or stopped within the first 30 seconds, start from the beginning.
+
+Turn this off with **Playback → Resume Playback**: everything then starts from the beginning and nothing is recorded.
+
 ### Series
 
 For a torrent with several video files, choose the episode from the list in the title bar, or use the previous / next buttons beside play. Only the episode you are watching is downloaded, about five minutes ahead of where you are, plus the first few megabytes of the next one during the last two minutes, so it starts without a long wait. Pausing stops the download once those minutes are in. Switching to another episode frees the disk space of the one you left.
@@ -65,8 +71,9 @@ The status bar at the bottom of the window shows the torrent name, the size of t
 - No accounts, no telemetry.
 - Torrent pieces are stored in a temporary folder for the current session and deleted when you quit; an episode you switch away from is deleted from it at once. Folders left behind by a crash are removed on the next launch. Finder may show the files there at their full size: they are sparse, and only the downloaded parts take up space.
 - One torrent plays at a time; no video data is kept.
-- Two small files are kept between launches, in the app's data folder (`~/Library/Application Support/saltplayer` on macOS, `%APPDATA%\saltplayer` on Windows, `~/.config/saltplayer` on Linux):
+- Three small files are kept between launches, in the app's data folder (`~/Library/Application Support/saltplayer` on macOS, `%APPDATA%\saltplayer` on Windows, `~/.config/saltplayer` on Linux):
   - `recent-sources.json`, the **Open Recent** list: the names and sources (magnet links, torrent URLs, file paths) of the last 10 things you opened. **File → Open Recent → Clear Menu** empties it, along with the system's recent documents for the app.
+  - `watch-history.json`, where you stopped each file (the last 200): the torrent's info hash or the file's path, the file name and the position. It is a watch history: **Clear Menu** forgets it together with the recent list, and **Playback → Resume Playback** off stops recording it.
   - `settings.json`, your preferences, such as **Autoplay Next Episode**. It holds nothing about what you watched.
 
 ## Troubleshooting

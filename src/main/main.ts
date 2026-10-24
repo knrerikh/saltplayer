@@ -7,6 +7,7 @@ import { setupIPCHandlers } from './ipc-handlers';
 import { forwardFullscreenState } from './window-fullscreen';
 import { RecentSources } from './recent-sources';
 import { Settings } from './settings';
+import { WatchHistory } from './watch-history';
 import { MediaOpener } from './media-opener';
 import { buildAppMenuTemplate, OPEN_FILE_FILTERS, REPOSITORY_URL } from './app-menu';
 import { isSafeExternalUrl } from './external-url';
@@ -20,6 +21,7 @@ let torrentEngine: TorrentEngine | null = null;
 let storageManager: StorageManager | null = null;
 let recentSources: RecentSources | null = null;
 let settings: Settings | null = null;
+let watchHistory: WatchHistory | null = null;
 let mediaOpener: MediaOpener | null = null;
 /** A source to open once the page has loaded: Finder and the Dock can hand one over before that. */
 let pendingSource: string | null = null;
@@ -96,20 +98,25 @@ async function doInitializeApp(): Promise<void> {
   storageManager = new StorageManager();
   await storageManager.initialize();
 
-  // Initialize torrent engine (lazy initialization - WebTorrent loaded on first use)
-  torrentEngine = new TorrentEngine(storageManager);
-
   recentSources = new RecentSources(path.join(app.getPath('userData'), 'recent-sources.json'), {
     onChange: updateAppMenu,
   });
   await recentSources.load();
-  settings = new Settings(path.join(app.getPath('userData'), 'settings.json'), {
+  const appSettings = new Settings(path.join(app.getPath('userData'), 'settings.json'), {
     onChange: (changed: AppSettings) => {
       updateAppMenu();
       sendToPage(IPC_CHANNELS.SETTINGS_CHANGED, changed);
     },
   });
-  await settings.load();
+  await appSettings.load();
+  settings = appSettings;
+  watchHistory = new WatchHistory(path.join(app.getPath('userData'), 'watch-history.json'), {
+    isEnabled: () => appSettings.get().resumePlayback,
+  });
+  await watchHistory.load();
+
+  // Initialize torrent engine (lazy initialization - WebTorrent loaded on first use)
+  torrentEngine = new TorrentEngine(storageManager, watchHistory);
   mediaOpener = new MediaOpener({
     engine: torrentEngine,
     recents: recentSources,
@@ -118,7 +125,7 @@ async function doInitializeApp(): Promise<void> {
   });
 
   // Setup IPC handlers
-  setupIPCHandlers(torrentEngine, storageManager, mediaOpener, settings);
+  setupIPCHandlers(torrentEngine, storageManager, mediaOpener, appSettings, watchHistory);
 
   app.setAboutPanelOptions({
     applicationName: 'Salt Player',
@@ -203,12 +210,15 @@ function updateAppMenu(): void {
       openFile: () => void chooseFileToOpen(),
       openUrl: () => sendMenuCommand('open-url'),
       openRecent: openSource,
+      // The recent list and where each file was left are both watch history.
       clearRecent: () => {
         void recentSources?.clear();
+        void watchHistory?.clear();
         app.clearRecentDocuments();
       },
       closeVideo: () => sendMenuCommand('close-video'),
       setAutoplayNext: (autoplayNext) => void settings?.set({ autoplayNext }),
+      setResumePlayback: (resumePlayback) => void settings?.set({ resumePlayback }),
       openLink: (url) => {
         if (isSafeExternalUrl(url)) void shell.openExternal(url);
       },
