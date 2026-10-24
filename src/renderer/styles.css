@@ -162,6 +162,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 20px;
   font-size: 13px;
 }
 
@@ -183,6 +184,32 @@ body {
 .status-value {
   color: var(--text-primary);
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Values that change every second keep a fixed width, so the items after them stay put. */
+.status-value--percent,
+.status-value--speed,
+.status-value--count,
+.status-value--size {
+  display: inline-block;
+  text-align: right;
+}
+
+.status-value--percent {
+  min-width: 6ch;
+}
+
+.status-value--speed {
+  min-width: 10ch;
+}
+
+.status-value--count {
+  min-width: 3ch;
+}
+
+.status-value--size {
+  min-width: 9ch;
 }
 
 .progress-bar {

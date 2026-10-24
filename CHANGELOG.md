@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Torrents are added with nothing selected, so WebTorrent no longer starts fetching the whole torrent before playback picks a file, or re-fetches failed pieces of other files.
 
 ### Fixed
+- **Status bar** ([#58](https://github.com/knrerikh/saltplayer/issues/58)): the progress bar no longer touches *Downloaded*; speeds under 2 KB/s (peer messages, not video data, e.g. while paused) show as `0.0 KB/s`; speeds are always in KB/s or MB/s with one decimal and the changing values keep a fixed width, so the bar no longer jitters.
 - **File → Open URL… on the start screen showed a second URL field** ([#50](https://github.com/knrerikh/saltplayer/issues/50)) in a dialog over the one already there. It now focuses and selects the start screen's field; the dialog appears only while a video is on screen.
 - **The status bar showed the size of the whole torrent** ([#55](https://github.com/knrerikh/saltplayer/issues/55)), e.g. 30 GB for a season, which read as if all of it was downloading. It now shows the size of the file playing.
 

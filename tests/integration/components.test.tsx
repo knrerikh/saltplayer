@@ -134,12 +134,12 @@ describe('Component Integration Tests', () => {
 
     it('should format download speed', () => {
       render(<StatusBar status={mockStatus} metadata={mockMetadata} />);
-      expect(screen.getByText(/2\.50 MB\/s/i)).toBeInTheDocument();
+      expect(screen.getByText(/^2\.5 MB\/s$/)).toBeInTheDocument();
     });
 
     it('should format upload speed', () => {
       render(<StatusBar status={mockStatus} metadata={mockMetadata} />);
-      expect(screen.getByText(/512\.00 KB\/s/i)).toBeInTheDocument();
+      expect(screen.getByText(/^512\.0 KB\/s$/)).toBeInTheDocument();
     });
 
     it('should format downloaded size', () => {

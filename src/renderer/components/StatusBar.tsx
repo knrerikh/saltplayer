@@ -1,6 +1,22 @@
 import React from 'react';
 import { TorrentStatus, TorrentMetadata, TorrentFile } from '@/shared/types';
 
+/**
+ * Speeds below this are shown as 0. WebTorrent counts every byte received from peers,
+ * including protocol messages (`have`, keep-alives, peer exchange), which run at a few
+ * hundred bytes a second even when no video data is downloading.
+ */
+const IDLE_SPEED_BYTES = 2 * 1024;
+
+const shownSpeed = (bytesPerSecond: number) => (bytesPerSecond < IDLE_SPEED_BYTES ? 0 : bytesPerSecond);
+
+/** Always KB/s or MB/s with one decimal, so the value keeps its width as it changes. */
+const formatSpeed = (bytesPerSecond: number): string => {
+  const kilobytes = shownSpeed(bytesPerSecond) / 1024;
+  // MB/s from 1000 KB/s: "1023.9 KB/s" would be a character wider than any other value.
+  return kilobytes < 1000 ? `${kilobytes.toFixed(1)} KB/s` : `${(kilobytes / 1024).toFixed(1)} MB/s`;
+};
+
 interface StatusBarProps {
   status: TorrentStatus | null;
   metadata: TorrentMetadata | null;
@@ -9,14 +25,6 @@ interface StatusBarProps {
 }
 
 const StatusBar: React.FC<StatusBarProps> = ({ status, metadata, currentVideoFile, videoDuration }) => {
-  const formatSpeed = (bytes: number): string => {
-    if (bytes === 0) return '0 B/s';
-    const k = 1024;
-    const sizes = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
-  };
-
   // Calculate minimum speed required for smooth playback (bytes/sec)
   const getMinimumRequiredSpeed = (): number => {
     if (!currentVideoFile || !videoDuration || videoDuration <= 0) {
@@ -31,7 +39,8 @@ const StatusBar: React.FC<StatusBarProps> = ({ status, metadata, currentVideoFil
     return (currentVideoFile.size / videoDuration) * 1.3;
   };
 
-  const getSpeedColor = (downloadSpeed: number): string => {
+  const getSpeedColor = (bytesPerSecond: number): string => {
+    const downloadSpeed = shownSpeed(bytesPerSecond);
     if (downloadSpeed === 0) return 'var(--text-secondary)';
     
     const minSpeed = getMinimumRequiredSpeed();
@@ -105,7 +114,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ status, metadata, currentVideoFil
         
         <div className="status-item">
           <span className="status-label">Progress:</span>
-          <span className="status-value">{status.progress.toFixed(1)}%</span>
+          <span className="status-value status-value--percent">{status.progress.toFixed(1)}%</span>
         </div>
         
         <div className="status-item">
@@ -115,22 +124,22 @@ const StatusBar: React.FC<StatusBarProps> = ({ status, metadata, currentVideoFil
           >
             ↓
           </span>
-          <span className="status-value">{formatSpeed(status.downloadSpeed)}</span>
+          <span className="status-value status-value--speed">{formatSpeed(status.downloadSpeed)}</span>
         </div>
         
         <div className="status-item">
           <span className="status-label">↑</span>
-          <span className="status-value">{formatSpeed(status.uploadSpeed)}</span>
+          <span className="status-value status-value--speed">{formatSpeed(status.uploadSpeed)}</span>
         </div>
         
         <div className="status-item">
           <span className="status-label">Peers:</span>
-          <span className="status-value">{status.numPeers}</span>
+          <span className="status-value status-value--count">{status.numPeers}</span>
         </div>
         
         <div className="status-item">
           <span className="status-label">Downloaded:</span>
-          <span className="status-value">{formatSize(status.downloaded)}</span>
+          <span className="status-value status-value--size">{formatSize(status.downloaded)}</span>
         </div>
       </div>
 
