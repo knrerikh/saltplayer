@@ -92,7 +92,9 @@ describe('Playing a local video file (#33)', () => {
 
   afterEach(async () => {
     await engine.destroy();
-    fs.rmSync(dir, { recursive: true, force: true });
+    // Our ffprobe for subtitles may still be reading the movie when a test ends, and
+    // Windows will not delete a file that is open: retry until it lets go.
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     send.mockClear();
   });
 
