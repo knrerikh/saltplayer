@@ -2,6 +2,14 @@ import { TorrentFile, TorrentMetadata, TorrentStatus, IPC_CHANNELS, SubtitleTrac
 import { StorageManager } from './storage';
 import { pickMainVideoFile } from '@/shared/video-files';
 import { MediaSource, openLocalVideo } from './local-video';
+import {
+  READ_CHUNK_BYTES,
+  PieceRange,
+  planRelease,
+  readAheadBytes,
+  readAheadPieces,
+  readInChunks,
+} from './download-window';
 import { BrowserWindow } from 'electron';
 import * as http from 'http';
 import type { AddressInfo } from 'net';
@@ -53,6 +61,13 @@ const UNSUPPORTED_AUDIO_CODECS = ['ac3', 'ac-3', 'eac3', 'ec-3', 'dts', 'truehd'
  */
 const STREAM_HOST = '127.0.0.1';
 
+/**
+ * Marks requests from our own ffprobe and subtitle extraction, so their reads do not
+ * move the download window away from the player's position.
+ */
+const INTERNAL_READ_PARAM = 'internal';
+const internalUrl = (url: string) => `${url}?${INTERNAL_READ_PARAM}=1`;
+
 /** How long `load()` waits for WebTorrent's `ontorrent` callback before giving up. */
 export const TORRENT_LOAD_TIMEOUT_MS = 60_000;
 
@@ -88,6 +103,7 @@ export class TorrentEngine {
   private currentTorrent: any | null = null;
   private selectedFile: any | null = null;
   private prefetchedFile: any | null = null;
+  private readAheadRange: PieceRange | null = null;
   private lastKnownDurationSec = 0;
   private storageManager: StorageManager;
   private server: any = null;
@@ -276,6 +292,10 @@ export class TorrentEngine {
       const options = {
         path: this.storageManager.getTempDir(),
         announce: FALLBACK_TRACKERS,
+        // Nothing downloads until prioritizeStreamingPieces() selects it; by default
+        // WebTorrent selects the whole torrent, and selects again any piece that fails
+        // verification.
+        deselect: true,
       };
 
       // Set a timeout to detect if callback is never called
@@ -607,6 +627,10 @@ export class TorrentEngine {
     const pathname = `/${encodedName}`;
     const totalSize: number = typeof file.length === 'number' ? file.length : Number(file.length);
     let lastReprioritizedStart = 0;
+    // The download window follows what the player (or the transcoding ffmpeg) reads.
+    const followPlayback = (position: number) => {
+      if (isCurrent()) this.moveReadAhead(position);
+    };
 
     const server = http.createServer(async (req, res) => {
       try {
@@ -691,6 +715,7 @@ export class TorrentEngine {
           return;
         }
 
+        const isInternalRead = reqUrl.searchParams.has(INTERNAL_READ_PARAM);
         const rangeHeader = req.headers.range;
         const contentType = this.guessVideoContentType(file.name);
 
@@ -700,8 +725,8 @@ export class TorrentEngine {
             'Content-Length': String(totalSize),
             'Accept-Ranges': 'bytes',
           });
-          const rs = file.createReadStream();
-          pipeline(rs, res, () => {});
+          const onChunk = isInternalRead ? undefined : followPlayback;
+          pipeline(readInChunks(file, { start: 0, end: totalSize - 1 }, READ_CHUNK_BYTES, onChunk), res, () => {});
           return;
         }
 
@@ -739,7 +764,8 @@ export class TorrentEngine {
         const isNearEnd = start >= Math.max(0, totalSize - 2 * 1024 * 1024);
         const isTinyRange = chunkSize <= 256 * 1024;
         const isLikelyMetadataProbe = isNearEnd && isTinyRange;
-        const shouldReprioritize = isLargeJump && !isLikelyMetadataProbe;
+        const isPlaybackRead = !isLikelyMetadataProbe && !isInternalRead;
+        const shouldReprioritize = isLargeJump && isPlaybackRead;
 
         if (shouldReprioritize) {
           this.prioritizeStreamingPieces(file, start);
@@ -752,9 +778,8 @@ export class TorrentEngine {
           'Content-Range': `bytes ${start}-${end}/${totalSize}`,
           'Accept-Ranges': 'bytes',
         });
-        const rs = file.createReadStream({ start, end });
-
-        pipeline(rs, res, () => {});
+        const onChunk = isPlaybackRead ? followPlayback : undefined;
+        pipeline(readInChunks(file, { start, end }, READ_CHUNK_BYTES, onChunk), res, () => {});
       } catch (e) {
         if (!res.headersSent) {
           res.statusCode = 500;
@@ -780,7 +805,7 @@ export class TorrentEngine {
 
       console.log(`Streaming server started at ${streamUrl}`);
       this.prioritizeStreamingPieces(file, 0);
-      const probeResult = await this.probeStream(streamUrl);
+      const probeResult = await this.probeStream(internalUrl(streamUrl));
       if (!isCurrent()) return;
       this.currentStreamUrl = streamUrl;
 
@@ -788,7 +813,7 @@ export class TorrentEngine {
         this.sendVideoMetadata(probeResult.duration);
       }
 
-      this.extractSubtitles(streamUrl);
+      this.extractSubtitles(internalUrl(streamUrl));
 
       if (probeResult.needsTranscode) {
         console.log('Transcoding enabled due to unsupported audio codec');
@@ -810,7 +835,7 @@ export class TorrentEngine {
   }
 
   private async serveSubtitle(streamIndex: number, res: http.ServerResponse, file: MediaSource): Promise<void> {
-    const rawFileUrl = `http://${STREAM_HOST}:${this.serverPort}/${encodeURIComponent(file.name)}`;
+    const rawFileUrl = internalUrl(`http://${STREAM_HOST}:${this.serverPort}/${encodeURIComponent(file.name)}`);
     
     res.writeHead(200, {
       'Content-Type': 'text/vtt; charset=utf-8',
@@ -842,46 +867,94 @@ export class TorrentEngine {
   }
 
   /**
-   * Prioritize pieces for streaming from a byte offset. A local file has no torrent
+   * Point the download at a byte offset of a file: the first pieces there at high
+   * priority, then a read-ahead window that moveReadAhead() keeps in step with playback.
+   * Nothing else of the torrent downloads, except the start of a prefetched next file.
+   * Switching to another file frees the one left behind. A local file has no torrent
    * and nothing to prioritize.
    */
   private prioritizeStreamingPieces(file: any, startByte: number = 0): void {
     if (!this.currentTorrent) return;
 
+    const previousFile = this.selectedFile;
     this.selectedFile = file;
 
+    // Drops every selection but those of open read streams.
     this.currentTorrent.files.forEach((f: any) => {
       f.deselect();
     });
-    file.select();
+    this.readAheadRange = null;
 
     const pieceLength = this.currentTorrent.pieceLength;
-    const absoluteStart = file.offset + startByte;
-    const startPiece = Math.floor(absoluteStart / pieceLength);
+    const startPiece = Math.floor((file.offset + startByte) / pieceLength);
     const endPiece = Math.floor((file.offset + file.length - 1) / pieceLength);
     const criticalPiecesCount = Math.min(10, endPiece - startPiece + 1);
 
     for (let i = 0; i < criticalPiecesCount; i++) {
-      const pieceIndex = startPiece + i;
-      if (pieceIndex <= endPiece) {
-        this.currentTorrent.select(pieceIndex, pieceIndex, true);
-      }
+      this.currentTorrent.select(startPiece + i, startPiece + i, true);
     }
 
-    if (startPiece + criticalPiecesCount <= endPiece) {
-      this.currentTorrent.select(startPiece + criticalPiecesCount, endPiece, false);
-    }
-
-    // Deselecting every file above dropped the prefetch too.
     if (this.prefetchedFile === file) {
       this.prefetchedFile = null;
-    } else if (this.prefetchedFile) {
-      this.selectFileStart(this.prefetchedFile);
+    }
+
+    this.moveReadAhead(startByte);
+
+    if (previousFile && previousFile !== file) {
+      void this.releaseFile(previousFile);
     }
 
     console.log(`Prioritized streaming for file: ${file.name}`);
     console.log(`File pieces: ${startPiece} to ${endPiece} (total: ${endPiece - startPiece + 1})`);
-    console.log(`Critical pieces: ${criticalPiecesCount}, Sequential: ${endPiece - startPiece + 1 - criticalPiecesCount}`);
+    console.log(`Critical pieces: ${criticalPiecesCount}, read-ahead: ${this.readAheadRange!.from} to ${this.readAheadRange!.to}`);
+  }
+
+  /** Slide the read-ahead window of the playing file to start at `byteOffset`. */
+  private moveReadAhead(byteOffset: number): void {
+    const torrent = this.currentTorrent;
+    const file = this.selectedFile;
+    if (!torrent || !file) return;
+
+    const bytes = readAheadBytes(file.length, this.lastKnownDurationSec);
+    const range = readAheadPieces(file, byteOffset, bytes, torrent.pieceLength);
+    if (this.readAheadRange) {
+      torrent.deselect(this.readAheadRange.from, this.readAheadRange.to);
+    }
+    torrent.select(range.from, range.to, false);
+    this.readAheadRange = range;
+
+    // Deselecting the old window may have cut into a boundary piece of the prefetch.
+    if (this.prefetchedFile) {
+      this.selectFileStart(this.prefetchedFile);
+    }
+  }
+
+  /**
+   * Free the disk space of a file no longer played: forget its downloaded pieces and
+   * truncate it, keeping what the playing and prefetched files share with it (see
+   * planRelease). Coming back to it downloads it again.
+   */
+  private async releaseFile(file: any): Promise<void> {
+    const torrent = this.currentTorrent;
+    if (!torrent) return;
+
+    const needed = [this.selectedFile, this.prefetchedFile].filter(Boolean);
+    const { pieces, keepBytes } = planRelease(file, needed, torrent.pieceLength);
+    if (pieces) {
+      for (let index = pieces.from; index <= pieces.to; index++) {
+        // Private WebTorrent API: resets the piece and clears it from the bitfield.
+        // With the torrent added deselected, this does not select it again.
+        if (torrent.bitfield.get(index)) torrent._markUnverified(index);
+      }
+    }
+
+    try {
+      await fs.promises.truncate(path.join(torrent.path, file.path), keepBytes);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        console.error(`Could not free ${file.name}:`, error);
+      }
+    }
   }
 
   /**
@@ -967,6 +1040,7 @@ export class TorrentEngine {
     this.currentTorrent = null;
     this.selectedFile = null;
     this.prefetchedFile = null;
+    this.readAheadRange = null;
   }
 
   /**

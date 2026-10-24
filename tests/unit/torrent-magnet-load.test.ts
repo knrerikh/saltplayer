@@ -719,6 +719,16 @@ describe('TorrentEngine - magnet load contract', () => {
     expect(storageStub.getTempDir).toHaveBeenCalled();
   });
 
+  it('C.2b adds the torrent with nothing selected, so only what is played downloads (#54)', async () => {
+    const mod = await importTorrentModule();
+    const engine = createEngine(mod);
+
+    track(engine.load(MAGNET));
+    await waitForAdd();
+
+    expect(mocks.add.mock.calls[0][1].deselect).toBe(true);
+  });
+
   it('C.3 passes the exported FALLBACK_TRACKERS array as options.announce', async () => {
     const mod = await importTorrentModule();
     const engine = createEngine(mod);

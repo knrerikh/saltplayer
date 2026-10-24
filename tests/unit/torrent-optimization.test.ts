@@ -19,6 +19,7 @@ const mockWebTorrent = {
 // Mock file object
 const createMockFile = (name: string, size: number, offset: number) => ({
   name,
+  path: name,
   length: size,
   offset,
   select: vi.fn(),
@@ -41,7 +42,12 @@ const createMockTorrent = (files: any[]) => ({
   uploaded: 0,
   timeRemaining: Infinity,
   pieceLength: 16384, // 16KB pieces
+  // Nothing on disk to free: a released file is simply not found.
+  path: '/nonexistent/saltplayer-optimization-test',
+  bitfield: { get: () => false },
+  _markUnverified: vi.fn(),
   select: vi.fn(),
+  deselect: vi.fn(),
   on: vi.fn(),
 });
 
@@ -82,10 +88,13 @@ describe('TorrentEngine - Optimization', () => {
       expect(file2.deselect).toHaveBeenCalled();
       expect(file3.deselect).toHaveBeenCalled();
 
-      // Verify only file1 was selected
-      expect(file1.select).toHaveBeenCalled();
-      expect(file2.select).not.toHaveBeenCalled();
-      expect(file3.select).not.toHaveBeenCalled();
+      // No file is selected whole (#54): only pieces of file1 are
+      [file1, file2, file3].forEach((file) => expect(file.select).not.toHaveBeenCalled());
+      const file1LastPiece = (500 * 1024 * 1024) / 16384 - 1;
+      for (const [from, to] of (mockTorrent.select as any).mock.calls) {
+        expect(from).toBeGreaterThanOrEqual(0);
+        expect(to).toBeLessThanOrEqual(file1LastPiece);
+      }
     });
 
     it('should handle single file torrents correctly', async () => {
@@ -97,9 +106,10 @@ describe('TorrentEngine - Optimization', () => {
 
       prioritizeMethod(file1);
 
-      // Should still deselect and reselect
+      // Should still deselect, then select a window rather than the whole file (#54)
       expect(file1.deselect).toHaveBeenCalled();
-      expect(file1.select).toHaveBeenCalled();
+      expect(file1.select).not.toHaveBeenCalled();
+      expect(mockTorrent.select).toHaveBeenCalled();
     });
   });
 
@@ -212,11 +222,14 @@ describe('TorrentEngine - Optimization', () => {
         expect(ep.deselect).toHaveBeenCalled();
       });
 
-      // Only first episode should be selected
-      expect(episodes[0].select).toHaveBeenCalled();
-      episodes.slice(1).forEach(ep => {
+      // Only pieces of the first episode are selected, never a whole file (#54)
+      episodes.forEach(ep => {
         expect(ep.select).not.toHaveBeenCalled();
       });
+      const firstEpisodeLastPiece = (500 * 1024 * 1024) / 16384 - 1;
+      for (const [, to] of (mockTorrent.select as any).mock.calls) {
+        expect(to).toBeLessThanOrEqual(firstEpisodeLastPiece);
+      }
     });
 
     it('should switch to new episode when selectFile is called', async () => {
@@ -249,8 +262,7 @@ describe('TorrentEngine - Optimization', () => {
       // 1. Select first episode
       prioritizeMethod(episode1);
       
-      // Verify episode 1 selected, episode 2 deselected
-      expect(episode1.select).toHaveBeenCalled();
+      // Verify episode 2 deselected
       expect(episode2.deselect).toHaveBeenCalled();
       
       // Reset mocks to clear call history
@@ -259,8 +271,7 @@ describe('TorrentEngine - Optimization', () => {
       // 2. Switch to second episode (simulate what happens in selectFile -> startStreamingServer)
       prioritizeMethod(episode2);
       
-      // Verify episode 2 selected, episode 1 deselected
-      expect(episode2.select).toHaveBeenCalled(); // New file selected
+      // Verify episode 1 deselected
       expect(episode1.deselect).toHaveBeenCalled(); // Old file deselected
       
       // Verify correct piece range calculation for second file
