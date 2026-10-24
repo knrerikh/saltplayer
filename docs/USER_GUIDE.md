@@ -2,11 +2,15 @@
 
 ## Opening a video
 
-- **Magnet link:** paste it into the input field and press <kbd>Enter</kbd> or click **Load**.
-- **Torrent file:** drop a `.torrent` file onto the window, or click **Open File**.
-- **Video file from disk:** drop it onto the window, or click **Open File**. It plays at once, with the same audio transcoding, track menus and subtitles as a torrent; the status bar shows its name and size. If you drop several files, the first video or `.torrent` among them is opened.
+- **Magnet link:** paste it into the input field and press <kbd>Enter</kbd> or click **Load**. While a video plays, use **File → Open URL…** (<kbd>⌘U</kbd> / <kbd>Ctrl+U</kbd>).
+- **Torrent file:** drop a `.torrent` file onto the window, click **Open File**, or choose **File → Open File…** (<kbd>⌘O</kbd> / <kbd>Ctrl+O</kbd>).
+- **Video file from disk:** drop it onto the window, click **Open File**, or choose **File → Open File…**. It plays at once, with the same audio transcoding, track menus and subtitles as a torrent; the status bar shows its name and size. If you drop several files, the first video or `.torrent` among them is opened.
 
 For a torrent, Salt Player fetches its metadata, picks the main video file and starts playing as soon as enough data is buffered. If no peers can be reached within 60 seconds, loading stops with a timeout error; try a magnet with more seeders. Public fallback trackers are added to every torrent automatically.
+
+- **Again:** **File → Open Recent** lists the last 10 torrents and files you opened, newest first. On macOS, files from disk also appear in the Dock icon's menu, and dropping a file on the Dock icon opens it.
+
+Opening something new from the menu replaces the video that is playing. **File → Close Video** (<kbd>⌘W</kbd> / <kbd>Ctrl+W</kbd>) returns to the start screen.
 
 Recognised video files: MP4, MKV, WebM, MOV, M4V, AVI, FLV, WMV. Video is played as-is, so files whose video codec Chromium cannot decode (common in AVI, FLV and WMV) will not play.
 
@@ -17,7 +21,7 @@ Recognised video files: MP4, MKV, WebM, MOV, M4V, AVI, FLV, WMV. Video is played
 | Play / pause | <kbd>Space</kbd> (ignored while typing in a field), click the video, or the play button |
 | Seek | Click the progress bar |
 | Volume | Volume slider |
-| Fullscreen | Fullscreen button, or the green window button on macOS; <kbd>Esc</kbd> leaves either |
+| Fullscreen | Fullscreen button, **View → Toggle Full Screen**, or the green window button on macOS; <kbd>Esc</kbd> leaves either |
 | Close the video | ✕ in the top corner |
 
 While a video plays, the controls and cursor hide after 2.5 seconds without mouse movement. Move the mouse to bring them back. They stay visible while the video is paused, while a menu is open, or while the pointer rests on the controls.
@@ -34,15 +38,30 @@ Subtitle tracks embedded in the file are listed in the subtitle menu. The select
 
 For a torrent with several video files, choose the episode from the list in the title bar, or use the previous / next buttons beside play. Only the episode you are watching is downloaded.
 
+## Keyboard shortcuts
+
+| Action | macOS | Windows / Linux |
+| --- | --- | --- |
+| Play / pause | <kbd>Space</kbd> | <kbd>Space</kbd> |
+| Open File… | <kbd>⌘O</kbd> | <kbd>Ctrl+O</kbd> |
+| Open URL… | <kbd>⌘U</kbd> | <kbd>Ctrl+U</kbd> |
+| Close Video | <kbd>⌘W</kbd> | <kbd>Ctrl+W</kbd> |
+| Toggle fullscreen | <kbd>⌃⌘F</kbd> | <kbd>F11</kbd> |
+| Close a menu or dialog, leave fullscreen | <kbd>Esc</kbd> | <kbd>Esc</kbd> |
+| Quit | <kbd>⌘Q</kbd> | <kbd>Ctrl+Q</kbd> (Linux), <kbd>Alt+F4</kbd> (Windows) |
+
+The **Help** menu links to this guide, the issue tracker and the latest release notes.
+
 ## Status bar
 
 The status bar at the bottom of the window shows the torrent name, progress, download and upload speed, connected peers and downloaded size. The download speed is green when it keeps up with the video's bitrate, yellow when it is slightly below, and red when buffering is likely. It is hidden in fullscreen.
 
 ## Privacy and storage
 
-- No accounts, no history, no telemetry.
+- No accounts, no telemetry.
 - Torrent pieces are stored in a temporary folder for the current session and deleted when you quit. Folders left behind by a crash are removed on the next launch.
-- One torrent plays at a time; nothing is kept permanently.
+- One torrent plays at a time; no video data is kept.
+- The one thing remembered between launches is the **Open Recent** list: the names and sources (magnet links, torrent URLs, file paths) of the last 10 things you opened. It is stored in `recent-sources.json` in the app's data folder (`~/Library/Application Support/Salt Player` on macOS, `%APPDATA%\Salt Player` on Windows, `~/.config/Salt Player` on Linux). **File → Open Recent → Clear Menu** empties it, along with the system's recent documents for the app.
 
 ## Troubleshooting
 

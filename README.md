@@ -24,7 +24,8 @@
 - **Series-friendly.** Multi-file torrents get an episode list and previous/next buttons.
 - **Plays local files too.** Drop an MKV or MP4 from disk and get the same transcoding, track menus and subtitles.
 - **Stays out of the way.** Controls and cursor hide after 2.5 s without movement; the window has no chrome beyond a draggable title strip.
-- **Leaves nothing behind.** Pieces live in a per-session temp folder that is deleted on exit; folders left by a crash are removed on the next launch. No accounts, no telemetry.
+- **A real desktop menu.** Open files and URLs, reopen recent torrents and files, close the video, toggle fullscreen; links to help and releases.
+- **Leaves nothing behind.** Pieces live in a per-session temp folder that is deleted on exit; folders left by a crash are removed on the next launch. The only thing kept is the **Open Recent** list, which **Clear Menu** empties. No accounts, no telemetry.
 
 Salt Player is deliberately not a library manager, a torrent search engine or a download manager. It plays one torrent, now.
 
@@ -47,7 +48,7 @@ Requires macOS 10.15+, Windows 10+ or a 64-bit Linux distribution from the last 
 
 ## Usage
 
-1. Paste a magnet link and press **Enter**, or drop a `.torrent` file onto the window (or click **Open File**). A video file from disk opens the same way.
+1. Paste a magnet link and press **Enter**, or drop a `.torrent` file onto the window (or click **Open File**). A video file from disk opens the same way. The **File** menu does the same at any time: **Open File…** (<kbd>⌘O</kbd> / <kbd>Ctrl+O</kbd>), **Open URL…** (<kbd>⌘U</kbd> / <kbd>Ctrl+U</kbd>) and **Open Recent**.
 2. Salt Player picks the main video file and starts playing after a short buffer. For a series, choose the episode from the list in the title bar.
 3. The status bar shows progress, download and upload speed, peers and downloaded size.
 
@@ -58,9 +59,10 @@ Requires macOS 10.15+, Windows 10+ or a 64-bit Linux distribution from the last 
 | Volume | Slider in the control bar |
 | Audio track / subtitles | Track menus in the control bar; <kbd>Esc</kbd> closes a menu |
 | Previous / next episode | Buttons next to play |
-| Fullscreen | Fullscreen button or the macOS green button; <kbd>Esc</kbd> leaves fullscreen |
+| Fullscreen | Fullscreen button, **View → Toggle Full Screen** (<kbd>⌃⌘F</kbd> / <kbd>F11</kbd>) or the macOS green button; <kbd>Esc</kbd> leaves fullscreen |
+| Close the video | ✕ in the top corner, or **File → Close Video** (<kbd>⌘W</kbd> / <kbd>Ctrl+W</kbd>) |
 
-See the [User Guide](docs/USER_GUIDE.md) for details.
+See the [User Guide](docs/USER_GUIDE.md) for details and the full [keyboard shortcuts](docs/USER_GUIDE.md#keyboard-shortcuts).
 
 ## Troubleshooting
 

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { IPC_CHANNELS, TorrentStatus, TorrentMetadata, ErrorInfo, SubtitleData, AudioData } from '@/shared/types';
+import { IPC_CHANNELS, TorrentStatus, TorrentMetadata, ErrorInfo, SubtitleData, AudioData, MenuCommand } from '@/shared/types';
 
 // Expose safe API to renderer process
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -51,6 +51,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onWindowFullscreen: (callback: (isFullscreen: boolean) => void) => {
     ipcRenderer.on(IPC_CHANNELS.WINDOW_FULLSCREEN, (_, isFullscreen) => callback(isFullscreen));
   },
+  // Opening started from the app menu or the Dock rather than by the page
+  onMediaOpening: (callback: () => void) => {
+    ipcRenderer.on(IPC_CHANNELS.MEDIA_OPENING, () => callback());
+  },
+  onMediaOpened: (callback: (metadata: TorrentMetadata) => void) => {
+    ipcRenderer.on(IPC_CHANNELS.MEDIA_OPENED, (_, metadata) => callback(metadata));
+  },
+  onMenuCommand: (callback: (command: MenuCommand) => void) => {
+    ipcRenderer.on(IPC_CHANNELS.MENU_COMMAND, (_, command) => callback(command));
+  },
   
   // Remove listeners
   removeAllListeners: (channel: string) => {
@@ -82,6 +92,9 @@ declare global {
       onAudioTracks: (callback: (data: AudioData) => void) => void;
       onError: (callback: (error: ErrorInfo) => void) => void;
       onWindowFullscreen: (callback: (isFullscreen: boolean) => void) => void;
+      onMediaOpening: (callback: () => void) => void;
+      onMediaOpened: (callback: (metadata: TorrentMetadata) => void) => void;
+      onMenuCommand: (callback: (command: MenuCommand) => void) => void;
       removeAllListeners: (channel: string) => void;
     };
   }

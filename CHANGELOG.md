@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Application menu** ([#31](https://github.com/knrerikh/saltplayer/issues/31)) in place of Electron's default one:
+  - **File:** Open File… (<kbd>⌘O</kbd> / <kbd>Ctrl+O</kbd>), Open URL… (<kbd>⌘U</kbd> / <kbd>Ctrl+U</kbd>), Open Recent with Clear Menu, Close Video (<kbd>⌘W</kbd> / <kbd>Ctrl+W</kbd>). Opening from the menu works while a video plays and replaces it.
+  - **View:** Toggle Full Screen (<kbd>⌃⌘F</kbd> / <kbd>F11</kbd>), the same window fullscreen as the ⛶ button.
+  - **Help:** Keyboard Shortcuts, User Guide, Report an Issue…, Release Notes, and About on Windows and Linux. macOS keeps its standard app, Edit and Window menus.
+- **Open Recent** remembers the last 10 torrents and files, one entry per torrent whether it was opened by magnet or `.torrent`. It is the app's first persistent state: `recent-sources.json` in the app's data folder, emptied by **Clear Menu**. On macOS, files from disk also appear in the Dock icon's menu, and a file dropped on the Dock icon opens.
 - **Local video files** ([#33](https://github.com/knrerikh/saltplayer/issues/33)): drop a video onto the window or choose it with **Open File** to play it from disk. It goes through the same streaming server as a torrent, so transcoding of AC3/DTS audio, audio track switching, embedded subtitles and seeking all work. The status bar shows the file's name and size.
 
 ### Fixed

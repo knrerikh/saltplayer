@@ -22,7 +22,7 @@ describe('window:setFullscreen handler', () => {
     handlers.clear();
     senderWindow.setFullScreen.mockClear();
     const { setupIPCHandlers } = await import('@/main/ipc-handlers');
-    setupIPCHandlers({} as any, {} as any);
+    setupIPCHandlers({} as any, {} as any, {} as any);
   });
 
   it.each([true, false])('sets the sending window fullscreen to %s', async (isFullscreen) => {
@@ -43,7 +43,7 @@ describe('app:openExternal handler (#19)', () => {
     handlers.clear();
     openExternal.mockClear();
     const { setupIPCHandlers } = await import('@/main/ipc-handlers');
-    setupIPCHandlers({} as any, {} as any);
+    setupIPCHandlers({} as any, {} as any, {} as any);
   });
 
   it('opens http(s) URLs', async () => {
@@ -61,23 +61,29 @@ describe('app:openExternal handler (#19)', () => {
   });
 });
 
-describe('media:openFile handler (#33)', () => {
-  const torrentEngine = { openLocalFile: vi.fn() };
+describe('opening from the page goes through the opener (#33, #31)', () => {
+  const metadata = { name: 'Movie.mkv', files: [], totalSize: 1 };
+  const opener = { loadTorrent: vi.fn(), openVideoFile: vi.fn() };
 
   beforeEach(async () => {
     handlers.clear();
-    torrentEngine.openLocalFile.mockReset();
+    opener.loadTorrent.mockReset().mockResolvedValue(metadata);
+    opener.openVideoFile.mockReset().mockResolvedValue(metadata);
     const { setupIPCHandlers } = await import('@/main/ipc-handlers');
-    setupIPCHandlers(torrentEngine as any, {} as any);
+    setupIPCHandlers({} as any, {} as any, opener as any);
   });
 
-  it('opens the file in the engine and returns what it describes', async () => {
-    const metadata = { name: 'Movie.mkv', files: [], totalSize: 1 };
-    torrentEngine.openLocalFile.mockResolvedValue(metadata);
-
+  it('media:openFile opens the file and returns what it describes', async () => {
     const result = await handlers.get(IPC_CHANNELS.MEDIA_OPEN_FILE)?.({}, '/Movies/Movie.mkv');
 
-    expect(torrentEngine.openLocalFile).toHaveBeenCalledWith('/Movies/Movie.mkv');
+    expect(opener.openVideoFile).toHaveBeenCalledWith('/Movies/Movie.mkv');
+    expect(result).toBe(metadata);
+  });
+
+  it('torrent:load loads the torrent and returns what it describes', async () => {
+    const result = await handlers.get(IPC_CHANNELS.TORRENT_LOAD)?.({}, 'magnet:?xt=urn:btih:aaa');
+
+    expect(opener.loadTorrent).toHaveBeenCalledWith('magnet:?xt=urn:btih:aaa');
     expect(result).toBe(metadata);
   });
 });
