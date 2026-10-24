@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-24
+
 ### Added
 - **Application menu** ([#31](https://github.com/knrerikh/saltplayer/issues/31)) in place of Electron's default one:
   - **File:** Open File… (<kbd>⌘O</kbd> / <kbd>Ctrl+O</kbd>), Open URL… (<kbd>⌘U</kbd> / <kbd>Ctrl+U</kbd>), Open Recent with Clear Menu, Close Video (<kbd>⌘W</kbd> / <kbd>Ctrl+W</kbd>). Opening from the menu works while a video plays and replaces it.
@@ -192,7 +194,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full API documentation in code comments
 - Architecture documentation
 
-[Unreleased]: https://github.com/knrerikh/saltplayer/compare/v1.6.2...HEAD
+[Unreleased]: https://github.com/knrerikh/saltplayer/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/knrerikh/saltplayer/compare/v1.6.2...v1.7.0
 [1.6.2]: https://github.com/knrerikh/saltplayer/compare/v1.6.1...v1.6.2
 [1.6.1]: https://github.com/knrerikh/saltplayer/releases/tag/v1.6.1
 [1.6.0]: https://github.com/knrerikh/saltplayer/pull/14
