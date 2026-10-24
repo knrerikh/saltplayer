@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { TorrentStatus, TorrentMetadata, TorrentFile } from '@/shared/types';
 
 /**
@@ -15,6 +15,20 @@ const formatSpeed = (bytesPerSecond: number): string => {
   const kilobytes = shownSpeed(bytesPerSecond) / 1024;
   // MB/s from 1000 KB/s: "1023.9 KB/s" would be a character wider than any other value.
   return kilobytes < 1000 ? `${kilobytes.toFixed(1)} KB/s` : `${(kilobytes / 1024).toFixed(1)} MB/s`;
+};
+
+/**
+ * A value that changes every second: as narrow as it needs at first, it widens for a
+ * longer value but never narrows back, so the items after it do not jitter.
+ */
+const SteadyValue: React.FC<{ children: string }> = ({ children: text }) => {
+  const widestRef = useRef(0);
+  widestRef.current = Math.max(widestRef.current, text.length);
+  return (
+    <span className="status-value status-value--steady" style={{ minWidth: `${widestRef.current}ch` }}>
+      {text}
+    </span>
+  );
 };
 
 interface StatusBarProps {
@@ -114,32 +128,32 @@ const StatusBar: React.FC<StatusBarProps> = ({ status, metadata, currentVideoFil
         
         <div className="status-item">
           <span className="status-label">Progress:</span>
-          <span className="status-value status-value--percent">{status.progress.toFixed(1)}%</span>
+          <SteadyValue>{`${status.progress.toFixed(1)}%`}</SteadyValue>
         </div>
         
-        <div className="status-item">
+        <div className="status-item status-item--speed">
           <span 
             className="status-label" 
             style={{ color: getSpeedColor(status.downloadSpeed) }}
           >
             ↓
           </span>
-          <span className="status-value status-value--speed">{formatSpeed(status.downloadSpeed)}</span>
+          <SteadyValue>{formatSpeed(status.downloadSpeed)}</SteadyValue>
         </div>
         
-        <div className="status-item">
+        <div className="status-item status-item--speed">
           <span className="status-label">↑</span>
-          <span className="status-value status-value--speed">{formatSpeed(status.uploadSpeed)}</span>
+          <SteadyValue>{formatSpeed(status.uploadSpeed)}</SteadyValue>
         </div>
         
         <div className="status-item">
           <span className="status-label">Peers:</span>
-          <span className="status-value status-value--count">{status.numPeers}</span>
+          <SteadyValue>{String(status.numPeers)}</SteadyValue>
         </div>
         
         <div className="status-item">
           <span className="status-label">Downloaded:</span>
-          <span className="status-value status-value--size">{formatSize(status.downloaded)}</span>
+          <SteadyValue>{formatSize(status.downloaded)}</SteadyValue>
         </div>
       </div>
 
