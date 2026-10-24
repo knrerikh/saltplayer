@@ -46,6 +46,9 @@ export const IPC_CHANNELS = {
   TORRENT_STATUS: 'torrent:status',
   TORRENT_STOP: 'torrent:stop',
   MEDIA_OPEN_FILE: 'media:openFile',
+  MEDIA_OPENING: 'media:opening',
+  MEDIA_OPENED: 'media:opened',
+  MENU_COMMAND: 'menu:command',
   PLAYBACK_CONTROL: 'playback:control',
   PLAYBACK_SEEK: 'playback:seek',
   APP_QUIT: 'app:quit',
@@ -65,6 +68,9 @@ export const IPC_CHANNELS = {
 } as const;
 
 export type PlaybackControlAction = 'play' | 'pause' | 'stop';
+
+/** Menu items the page carries out itself: it owns the URL prompt and the player state. */
+export type MenuCommand = 'open-url' | 'close-video';
 
 export interface SubtitleTrack {
   index: number;

@@ -1,10 +1,15 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, Menu, shell } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { TorrentEngine } from './torrent';
 import { StorageManager } from './storage';
 import { setupIPCHandlers } from './ipc-handlers';
 import { forwardFullscreenState } from './window-fullscreen';
+import { RecentSources } from './recent-sources';
+import { MediaOpener } from './media-opener';
+import { buildAppMenuTemplate, OPEN_FILE_FILTERS, REPOSITORY_URL } from './app-menu';
+import { isSafeExternalUrl } from './external-url';
+import { IPC_CHANNELS, type MenuCommand } from '@/shared/types';
 
 // Allow Chromium to play audio/video without user interaction (same as WebTorrent Desktop)
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -12,6 +17,10 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 let mainWindow: BrowserWindow | null = null;
 let torrentEngine: TorrentEngine | null = null;
 let storageManager: StorageManager | null = null;
+let recentSources: RecentSources | null = null;
+let mediaOpener: MediaOpener | null = null;
+/** A source to open once the page has loaded: Finder and the Dock can hand one over before that. */
+let pendingSource: string | null = null;
 
 // Helper to get icon path for both dev and production
 function getIconPath(): string {
@@ -52,6 +61,7 @@ function createWindow(): void {
   }
 
   forwardFullscreenState(mainWindow);
+  mainWindow.webContents.on('did-finish-load', openPendingSource);
 
   // Show window when ready
   mainWindow.once('ready-to-show', () => {
@@ -87,11 +97,113 @@ async function doInitializeApp(): Promise<void> {
   // Initialize torrent engine (lazy initialization - WebTorrent loaded on first use)
   torrentEngine = new TorrentEngine(storageManager);
 
+  recentSources = new RecentSources(path.join(app.getPath('userData'), 'recent-sources.json'), {
+    onChange: updateAppMenu,
+  });
+  await recentSources.load();
+  mediaOpener = new MediaOpener({
+    engine: torrentEngine,
+    recents: recentSources,
+    addRecentDocument: (filePath) => app.addRecentDocument(filePath),
+    send: sendToPage,
+  });
+
   // Setup IPC handlers
-  setupIPCHandlers(torrentEngine, storageManager);
+  setupIPCHandlers(torrentEngine, storageManager, mediaOpener);
+
+  app.setAboutPanelOptions({
+    applicationName: 'Salt Player',
+    applicationVersion: app.getVersion(),
+    copyright: 'Copyright (c) 2025 Konstantin Rerikh. MIT License.',
+    website: REPOSITORY_URL,
+    iconPath: getIconPath(),
+  });
+  updateAppMenu();
 
   // Create main window
   createWindow();
+}
+
+function sendToPage(channel: string, ...args: unknown[]): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(channel, ...args);
+  }
+}
+
+/** Creates the window again after the last one was closed (macOS keeps running). */
+function ensureWindow(): void {
+  if (mainWindow !== null) {
+    return;
+  }
+  initializeApp()
+    .then(() => {
+      if (mainWindow === null) {
+        createWindow();
+      }
+    })
+    .catch((error) => {
+      console.error('Failed to reopen window:', error);
+      writeCrashLog('ensureWindow', error);
+    });
+}
+
+function openSource(source: string): void {
+  pendingSource = source;
+  if (mainWindow === null) {
+    // Before 'ready' the first window is on its way; either way 'did-finish-load' opens it.
+    if (app.isReady()) ensureWindow();
+  } else if (!mainWindow.webContents.isLoading()) {
+    openPendingSource();
+  }
+}
+
+function openPendingSource(): void {
+  if (!pendingSource || !mediaOpener) return;
+  const source = pendingSource;
+  pendingSource = null;
+  void mediaOpener.open(source);
+}
+
+async function chooseFileToOpen(): Promise<void> {
+  const options: Electron.OpenDialogOptions = { properties: ['openFile'], filters: OPEN_FILE_FILTERS };
+  const { canceled, filePaths } = mainWindow
+    ? await dialog.showOpenDialog(mainWindow, options)
+    : await dialog.showOpenDialog(options);
+  if (!canceled && filePaths[0]) {
+    openSource(filePaths[0]);
+  }
+}
+
+function sendMenuCommand(command: MenuCommand): void {
+  if (mainWindow === null) {
+    // The start screen that opens has the URL field, and there is no video to close.
+    ensureWindow();
+    return;
+  }
+  sendToPage(IPC_CHANNELS.MENU_COMMAND, command);
+}
+
+function updateAppMenu(): void {
+  const template = buildAppMenuTemplate({
+    platform: process.platform,
+    appName: app.name,
+    recents: recentSources?.list() ?? [],
+    isDevelopment: process.env.NODE_ENV === 'development',
+    actions: {
+      openFile: () => void chooseFileToOpen(),
+      openUrl: () => sendMenuCommand('open-url'),
+      openRecent: openSource,
+      clearRecent: () => {
+        void recentSources?.clear();
+        app.clearRecentDocuments();
+      },
+      closeVideo: () => sendMenuCommand('close-video'),
+      openLink: (url) => {
+        if (isSafeExternalUrl(url)) void shell.openExternal(url);
+      },
+    },
+  });
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
 async function cleanupApp(): Promise<void> {
@@ -119,26 +231,19 @@ async function cleanupApp(): Promise<void> {
 app.whenReady().then(() => {
   // Registered only after ready so a first-launch 'activate' cannot race
   // initializeApp() into running twice.
-  app.on('activate', () => {
-    if (mainWindow !== null) {
-      return;
-    }
-    initializeApp()
-      .then(() => {
-        if (mainWindow === null) {
-          createWindow();
-        }
-      })
-      .catch((error) => {
-        console.error('Failed to reopen window:', error);
-        writeCrashLog('activate', error);
-      });
-  });
+  app.on('activate', ensureWindow);
 
   return initializeApp();
 }).catch((error) => {
   console.error('Failed to initialize application:', error);
   writeCrashLog('initializeApp', error);
+});
+
+// macOS: a file dropped on the Dock icon or picked from its recent documents. This can
+// arrive before 'ready', so it is registered at once and held until the page loads.
+app.on('open-file', (event, filePath) => {
+  event.preventDefault();
+  openSource(filePath);
 });
 
 app.on('window-all-closed', async () => {

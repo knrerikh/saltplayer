@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 import { act } from '@testing-library/react';
-import type { AudioData, SubtitleData } from '@/shared/types';
+import type { AudioData, MenuCommand, SubtitleData, TorrentMetadata } from '@/shared/types';
 
 /**
  * Installs a complete `window.electronAPI` mock for rendering `<App />` and returns
@@ -12,6 +12,9 @@ export function mockElectronAPI() {
     subtitles?: (data: SubtitleData) => void;
     audioTracks?: (data: AudioData) => void;
     windowFullscreen?: (isFullscreen: boolean) => void;
+    mediaOpening?: () => void;
+    mediaOpened?: (metadata: TorrentMetadata) => void;
+    menuCommand?: (command: MenuCommand) => void;
   } = {};
 
   const api = {
@@ -43,6 +46,15 @@ export function mockElectronAPI() {
     onWindowFullscreen: vi.fn((callback: (isFullscreen: boolean) => void) => {
       listeners.windowFullscreen = callback;
     }),
+    onMediaOpening: vi.fn((callback: () => void) => {
+      listeners.mediaOpening = callback;
+    }),
+    onMediaOpened: vi.fn((callback: (metadata: TorrentMetadata) => void) => {
+      listeners.mediaOpened = callback;
+    }),
+    onMenuCommand: vi.fn((callback: (command: MenuCommand) => void) => {
+      listeners.menuCommand = callback;
+    }),
     removeAllListeners: vi.fn(),
   };
   (globalThis.window as any).electronAPI = api;
@@ -60,6 +72,17 @@ export function mockElectronAPI() {
     },
     sendAudioTracks(data: AudioData) {
       act(() => listeners.audioTracks?.(data));
+    },
+    /** Main started opening a source itself (the app menu, the Dock), then finished. */
+    openFromMain(metadata: TorrentMetadata) {
+      act(() => listeners.mediaOpening?.());
+      act(() => listeners.mediaOpened?.(metadata));
+    },
+    startOpeningFromMain() {
+      act(() => listeners.mediaOpening?.());
+    },
+    sendMenuCommand(command: MenuCommand) {
+      act(() => listeners.menuCommand?.(command));
     },
   };
 }

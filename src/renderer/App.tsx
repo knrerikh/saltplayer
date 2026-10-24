@@ -3,8 +3,9 @@ import TorrentInput from './components/TorrentInput';
 import VideoPlayer from './components/VideoPlayer';
 import StatusBar from './components/StatusBar';
 import TitlebarDragRegion from './components/TitlebarDragRegion';
+import OpenUrlDialog from './components/OpenUrlDialog';
 import { isVideoFile, compareFileNames } from '@/shared/video-files';
-import { TorrentStatus, TorrentMetadata, ErrorInfo, TorrentFile, SubtitleData, AudioData } from '@/shared/types';
+import { TorrentStatus, TorrentMetadata, ErrorInfo, TorrentFile, SubtitleData, AudioData, MenuCommand } from '@/shared/types';
 
 /** How long the error banner stays up before auto-dismissing, unless hovered. */
 const ERROR_AUTO_DISMISS_MS = 5000;
@@ -33,6 +34,9 @@ declare global {
       onAudioTracks: (callback: (data: AudioData) => void) => void;
       onError: (callback: (error: ErrorInfo) => void) => void;
       onWindowFullscreen: (callback: (isFullscreen: boolean) => void) => void;
+      onMediaOpening: (callback: () => void) => void;
+      onMediaOpened: (callback: (metadata: TorrentMetadata) => void) => void;
+      onMenuCommand: (callback: (command: MenuCommand) => void) => void;
       removeAllListeners: (channel: string) => void;
     };
   }
@@ -48,6 +52,7 @@ const App: React.FC = () => {
   const [subtitleData, setSubtitleData] = useState<SubtitleData | null>(null);
   const [audioData, setAudioData] = useState<AudioData | null>(null);
   const [isWindowFullscreen, setIsWindowFullscreen] = useState(false);
+  const [isOpenUrlVisible, setIsOpenUrlVisible] = useState(false);
   const errorDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearErrorDismissTimer = () => {
@@ -110,6 +115,15 @@ const App: React.FC = () => {
 
     window.electronAPI.onWindowFullscreen(setIsWindowFullscreen);
 
+    // Opened from the app menu or the Dock: main loads it and reports here.
+    window.electronAPI.onMediaOpening(beginOpening);
+    window.electronAPI.onMediaOpened(setMetadata);
+
+    window.electronAPI.onMenuCommand((command) => {
+      if (command === 'open-url') setIsOpenUrlVisible(true);
+      if (command === 'close-video') handleClose();
+    });
+
     return () => {
       window.electronAPI.removeAllListeners('video:url');
       window.electronAPI.removeAllListeners('video:metadata');
@@ -118,6 +132,9 @@ const App: React.FC = () => {
       window.electronAPI.removeAllListeners('torrent:status');
       window.electronAPI.removeAllListeners('error');
       window.electronAPI.removeAllListeners('window:fullscreen');
+      window.electronAPI.removeAllListeners('media:opening');
+      window.electronAPI.removeAllListeners('media:opened');
+      window.electronAPI.removeAllListeners('menu:command');
       clearErrorDismissTimer();
     };
   }, []);
@@ -134,11 +151,25 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isWindowFullscreen]);
 
+  const clearPlayback = () => {
+    setVideoUrl(null);
+    setServerDuration(null);
+    setTorrentStatus(null);
+    setMetadata(null);
+    setSubtitleData(null);
+    setAudioData(null);
+  };
+
+  /** Opening anything replaces the current video, which main stops. */
+  const beginOpening = () => {
+    clearPlayback();
+    setError(null);
+    setIsLoading(true);
+  };
+
   const open = async (request: () => Promise<TorrentMetadata>) => {
     try {
-      setIsLoading(true);
-      setError(null);
-      setServerDuration(null);
+      beginOpening();
       setMetadata(await request());
     } catch (err: any) {
       setError({
@@ -161,13 +192,8 @@ const App: React.FC = () => {
   const handleClose = async () => {
     try {
       await window.electronAPI.stopTorrent();
-      setVideoUrl(null);
-      setServerDuration(null);
-      setTorrentStatus(null);
-      setMetadata(null);
+      clearPlayback();
       setIsLoading(false);
-      setSubtitleData(null);
-      setAudioData(null);
     } catch (err: any) {
       console.error('Error stopping torrent:', err);
     }
@@ -281,6 +307,16 @@ const App: React.FC = () => {
         />
       )}
       
+      {isOpenUrlVisible && (
+        <OpenUrlDialog
+          onOpen={(source) => {
+            setIsOpenUrlVisible(false);
+            handleLoadTorrent(source);
+          }}
+          onCancel={() => setIsOpenUrlVisible(false)}
+        />
+      )}
+
       {error && (
         <div
           className="error-message"

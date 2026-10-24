@@ -46,6 +46,9 @@ function setupElectronAPIMock() {
       errorCallback = cb;
     }),
     onWindowFullscreen: vi.fn(),
+    onMediaOpening: vi.fn(),
+    onMediaOpened: vi.fn(),
+    onMenuCommand: vi.fn(),
     removeAllListeners: vi.fn(),
   };
 

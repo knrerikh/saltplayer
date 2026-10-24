@@ -4,12 +4,15 @@ Salt Player is an Electron app with a strict split between the main process (Nod
 
 ```
 ┌──────────────────────── Renderer (React) ────────────────────────┐
-│  App.tsx ── TorrentInput · VideoPlayer · StatusBar · TitlebarDrag │
+│  App.tsx ── TorrentInput · VideoPlayer · StatusBar · OpenUrlDialog│
 │      │  window.electronAPI (invoke)        ▲ events (send)        │
 └──────┼─────────────────────────────────────┼─────────────────────┘
        │            preload.ts (contextBridge)│
 ┌──────▼───────────────── Main (Node.js) ─────┼─────────────────────┐
-│  ipc-handlers.ts ──► TorrentEngine (torrent.ts) ──► webContents   │
+│  ipc-handlers.ts ──► MediaOpener ◄── app menu                     │
+│                          │   └──► RecentSources (userData JSON)   │
+│                          ▼                                        │
+│                     TorrentEngine (torrent.ts) ──► webContents    │
 │                         │        │                                │
 │                   WebTorrent   local HTTP server ◄── <video src>  │
 │                         │        │   └─ ffmpeg / ffprobe          │
@@ -25,12 +28,15 @@ Salt Player is an Electron app with a strict split between the main process (Nod
 | `src/main/torrent.ts` | `TorrentEngine`: WebTorrent client, file selection, piece prioritisation, streaming server, probing, transcoding, subtitles, audio tracks, status updates |
 | `src/main/local-video.ts` | `MediaSource`, the shape the streaming server plays, and `openLocalVideo()`, which validates a path on disk and opens it as one |
 | `src/main/storage.ts` | `StorageManager`: per-session temp directory, stale-session cleanup, disk space checks |
+| `src/main/app-menu.ts` | `buildAppMenuTemplate()`: the application menu as a plain template (File, View, Help; plus the app, Edit and Window menus on macOS) |
+| `src/main/media-opener.ts` | `MediaOpener`: opens torrents and video files, remembers each one that opened, and tells the page about opens it did not start |
+| `src/main/recent-sources.ts` | `RecentSources`: the Open Recent list, kept in `recent-sources.json` in `userData` |
 | `src/main/ipc-handlers.ts` | Registers `ipcMain` handlers; a thin layer that delegates to `TorrentEngine` and the window |
 | `src/main/preload.ts` | Exposes `window.electronAPI` through `contextBridge`, the only crossing point between processes |
 | `src/shared/types.ts` | `IPC_CHANNELS` and the types shared by both processes |
 | `src/shared/video-files.ts` | Video extensions, playlist ordering and the choice of the file to play first |
 | `src/renderer/App.tsx` | Root component: subscribes to main-process events, owns torrent, playlist, track and error state |
-| `src/renderer/components/` | `TorrentInput`, `VideoPlayer`, `StatusBar`, `TitlebarDragRegion` |
+| `src/renderer/components/` | `TorrentInput`, `VideoPlayer`, `StatusBar`, `TitlebarDragRegion`, `OpenUrlDialog` |
 
 ## IPC
 
@@ -40,7 +46,7 @@ All channel names live in `IPC_CHANNELS` (`src/shared/types.ts`).
 | --- | --- |
 | Renderer → main (`invoke`) | `torrent:load`, `media:openFile`, `torrent:stop`, `torrent:selectFile`, `playback:control`, `playback:seek`, `audio:selectTrack`, `app:quit`, `app:openExternal`, `window:dragStart`, `window:dragEnd`, `window:setFullscreen` |
 | Renderer → main (`send`) | `window:dragMove` (pointer deltas, high frequency) |
-| Main → renderer (`send`) | `torrent:status` (every second), `video:url`, `video:metadata`, `subtitles:available`, `audio:available`, `error`, `window:fullscreen` |
+| Main → renderer (`send`) | `torrent:status` (every second), `video:url`, `video:metadata`, `subtitles:available`, `audio:available`, `error`, `window:fullscreen`, `media:opening`, `media:opened`, `menu:command` |
 
 ## Loading and playback
 
@@ -74,6 +80,18 @@ In direct mode the `<video>` element seeks with range requests. In transcode mod
 
 When there is more than one audio track, the renderer offers a menu. Choosing a track calls `audio:selectTrack`, and main replies with a new transcode URL that maps only that stream (`-map 0:v:0 -map 0:<index>`); playback resumes from the current position. Subtitle tracks are listed with human-readable language names and attached as `<track>` elements pointing at `/subtitle/<index>.vtt`.
 
+### Application menu
+
+`buildAppMenuTemplate()` (`src/main/app-menu.ts`) returns the menu as a template with its actions injected, so it is tested without Electron; `main.ts` builds it with `Menu.buildFromTemplate` and rebuilds it whenever the recent list changes.
+
+- **Open File…** shows the open dialog in main (videos and `.torrent`), so that path never comes from the page.
+- **Open Recent**, **Open File…** and macOS `open-file` (a file dropped on the Dock icon or picked from its recent documents) all go through `MediaOpener.open()`. It sends `media:opening`, and the page clears the current video and shows loading; then `media:opened` with the metadata, or `error`. `open-file` can arrive before the window exists, so the source waits until the page has loaded.
+- **Open URL…** and **Close Video** are `menu:command`s, carried out by the page: it owns the URL prompt (`OpenUrlDialog`) and the player state. With no window open (macOS), they just bring the window back.
+- **View → Toggle Full Screen** is Electron's `togglefullscreen` role, the same window fullscreen as the ⛶ button.
+- **Help** links go through `isSafeExternalUrl` like `app:openExternal`. About is the native panel on macOS and Linux and a message box on Windows, filled by `app.setAboutPanelOptions`.
+
+Every source that opens, from the page or from the menu, is recorded by `MediaOpener`: `RecentSources` keeps the newest 10, one per torrent info hash (a magnet and a `.torrent` of the same torrent are one entry) or per file path, and writes them to `recent-sources.json` in `app.getPath('userData')`. Files from disk also go to `app.addRecentDocument` for the Dock and the Jump List. A missing or corrupt file starts the list empty; a failed write is logged and never stops a video from opening.
+
 ### Window dragging
 
 The window is frameless. `TitlebarDragRegion` turns pointer movement over the top strip into `window:dragMove` deltas that main applies to the window position. A press that moves less than 3 px is treated as a click and passed through to the player. There are no `-webkit-app-region` rules, because an app region swallows every click in its area.
@@ -85,6 +103,8 @@ All fullscreen is window fullscreen. The player's ⛶ button calls `window:setFu
 The HTML Fullscreen API is deliberately not used. Chromium handles <kbd>Esc</kbd> for it before the page sees the key, so an open menu could not take precedence. macOS does not bind <kbd>Esc</kbd> to window fullscreen either, so `App` handles it and calls `window:setFullscreen(false)`. Open subtitle and audio menus handle <kbd>Esc</kbd> first on `document` and mark the event as handled; one press closes the menu, the next leaves fullscreen.
 
 ## Storage and lifecycle
+
+- The only state kept between launches is the recent list, `recent-sources.json` in the app's `userData` folder. **File → Open Recent → Clear Menu** empties it.
 
 - `StorageManager.initialize()` deletes `saltplayer-*` folders left in the system temp directory by earlier sessions, then creates a fresh `saltplayer-<id>` folder for this one.
 - On quit (`before-quit`, or closing the last window on Windows and Linux), the engine stops the torrent and closes the HTTP server and ffmpeg processes, and the session folder is deleted.

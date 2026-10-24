@@ -3,10 +3,12 @@ import { IPC_CHANNELS } from '@/shared/types';
 import { TorrentEngine } from './torrent';
 import { StorageManager } from './storage';
 import { isSafeExternalUrl } from './external-url';
+import { MediaOpener } from './media-opener';
 
 export function setupIPCHandlers(
   torrentEngine: TorrentEngine,
-  storageManager: StorageManager
+  storageManager: StorageManager,
+  opener: MediaOpener
 ): void {
   // Re-registering would throw ("second handler for ..."), so drop any handlers
   // left over from a previous initializeApp() before wiring the new instances up.
@@ -31,8 +33,7 @@ export function setupIPCHandlers(
   // Load torrent or magnet link
   ipcMain.handle(IPC_CHANNELS.TORRENT_LOAD, async (_, source: string) => {
     try {
-      const metadata = await torrentEngine.load(source);
-      return metadata;
+      return await opener.loadTorrent(source);
     } catch (error: any) {
       console.error('Error loading torrent:', error);
       throw error;
@@ -41,7 +42,7 @@ export function setupIPCHandlers(
 
   // Play a video file from disk
   ipcMain.handle(IPC_CHANNELS.MEDIA_OPEN_FILE, (_, filePath: string) =>
-    torrentEngine.openLocalFile(filePath)
+    opener.openVideoFile(filePath)
   );
 
   // Stop current torrent
