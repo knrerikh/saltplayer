@@ -901,7 +901,9 @@ export class TorrentEngine {
     this.moveReadAhead(startByte);
 
     if (previousFile && previousFile !== file) {
-      void this.releaseFile(previousFile);
+      this.releaseFile(previousFile).catch((error) => {
+        console.error(`Could not free ${previousFile.name}:`, error);
+      });
     }
 
     console.log(`Prioritized streaming for file: ${file.name}`);
