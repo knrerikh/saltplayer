@@ -6,10 +6,11 @@ import { StorageManager } from './storage';
 import { setupIPCHandlers } from './ipc-handlers';
 import { forwardFullscreenState } from './window-fullscreen';
 import { RecentSources } from './recent-sources';
+import { Settings } from './settings';
 import { MediaOpener } from './media-opener';
 import { buildAppMenuTemplate, OPEN_FILE_FILTERS, REPOSITORY_URL } from './app-menu';
 import { isSafeExternalUrl } from './external-url';
-import { IPC_CHANNELS, type MenuCommand } from '@/shared/types';
+import { DEFAULT_SETTINGS, IPC_CHANNELS, type AppSettings, type MenuCommand } from '@/shared/types';
 
 // Allow Chromium to play audio/video without user interaction (same as WebTorrent Desktop)
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -18,6 +19,7 @@ let mainWindow: BrowserWindow | null = null;
 let torrentEngine: TorrentEngine | null = null;
 let storageManager: StorageManager | null = null;
 let recentSources: RecentSources | null = null;
+let settings: Settings | null = null;
 let mediaOpener: MediaOpener | null = null;
 /** A source to open once the page has loaded: Finder and the Dock can hand one over before that. */
 let pendingSource: string | null = null;
@@ -101,6 +103,13 @@ async function doInitializeApp(): Promise<void> {
     onChange: updateAppMenu,
   });
   await recentSources.load();
+  settings = new Settings(path.join(app.getPath('userData'), 'settings.json'), {
+    onChange: (changed: AppSettings) => {
+      updateAppMenu();
+      sendToPage(IPC_CHANNELS.SETTINGS_CHANGED, changed);
+    },
+  });
+  await settings.load();
   mediaOpener = new MediaOpener({
     engine: torrentEngine,
     recents: recentSources,
@@ -109,7 +118,7 @@ async function doInitializeApp(): Promise<void> {
   });
 
   // Setup IPC handlers
-  setupIPCHandlers(torrentEngine, storageManager, mediaOpener);
+  setupIPCHandlers(torrentEngine, storageManager, mediaOpener, settings);
 
   app.setAboutPanelOptions({
     applicationName: 'Salt Player',
@@ -188,6 +197,7 @@ function updateAppMenu(): void {
     platform: process.platform,
     appName: app.name,
     recents: recentSources?.list() ?? [],
+    settings: settings?.get() ?? DEFAULT_SETTINGS,
     isDevelopment: process.env.NODE_ENV === 'development',
     actions: {
       openFile: () => void chooseFileToOpen(),
@@ -198,6 +208,7 @@ function updateAppMenu(): void {
         app.clearRecentDocuments();
       },
       closeVideo: () => sendMenuCommand('close-video'),
+      setAutoplayNext: (autoplayNext) => void settings?.set({ autoplayNext }),
       openLink: (url) => {
         if (isSafeExternalUrl(url)) void shell.openExternal(url);
       },

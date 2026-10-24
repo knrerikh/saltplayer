@@ -4,11 +4,13 @@ import { TorrentEngine } from './torrent';
 import { StorageManager } from './storage';
 import { isSafeExternalUrl } from './external-url';
 import { MediaOpener } from './media-opener';
+import { Settings } from './settings';
 
 export function setupIPCHandlers(
   torrentEngine: TorrentEngine,
   storageManager: StorageManager,
-  opener: MediaOpener
+  opener: MediaOpener,
+  settings: Settings
 ): void {
   // Re-registering would throw ("second handler for ..."), so drop any handlers
   // left over from a previous initializeApp() before wiring the new instances up.
@@ -17,6 +19,8 @@ export function setupIPCHandlers(
     IPC_CHANNELS.MEDIA_OPEN_FILE,
     IPC_CHANNELS.TORRENT_STOP,
     IPC_CHANNELS.TORRENT_SELECT_FILE,
+    IPC_CHANNELS.TORRENT_PREFETCH_FILE,
+    IPC_CHANNELS.SETTINGS_GET,
     IPC_CHANNELS.PLAYBACK_CONTROL,
     IPC_CHANNELS.PLAYBACK_SEEK,
     IPC_CHANNELS.APP_QUIT,
@@ -64,6 +68,13 @@ export function setupIPCHandlers(
       throw error;
     }
   });
+
+  // Fetch the start of the next episode before the current one ends
+  ipcMain.handle(IPC_CHANNELS.TORRENT_PREFETCH_FILE, (_, fileName: string) =>
+    torrentEngine.prefetchFile(fileName)
+  );
+
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_GET, () => settings.get());
 
   // Playback control
   ipcMain.handle(IPC_CHANNELS.PLAYBACK_CONTROL, async (_, action: string) => {

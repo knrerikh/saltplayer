@@ -9,6 +9,7 @@ const actions = (): AppMenuActions => ({
   openRecent: vi.fn(),
   clearRecent: vi.fn(),
   closeVideo: vi.fn(),
+  setAutoplayNext: vi.fn(),
   openLink: vi.fn(),
 });
 
@@ -17,6 +18,7 @@ const build = (overrides: Partial<Parameters<typeof buildAppMenuTemplate>[0]> = 
     platform: 'darwin',
     appName: 'Salt Player',
     recents: [],
+    settings: { autoplayNext: true },
     actions: actions(),
     isDevelopment: false,
     ...overrides,
@@ -45,6 +47,7 @@ describe('buildAppMenuTemplate (#31)', () => {
       'File',
       'editMenu',
       'View',
+      'Playback',
       'windowMenu',
       'help',
     ]);
@@ -61,10 +64,10 @@ describe('buildAppMenuTemplate (#31)', () => {
     ]);
   });
 
-  it.each(['win32', 'linux'] as const)('gives %s File, View and Help, with Quit and About in them', (platform) => {
+  it.each(['win32', 'linux'] as const)('gives %s File, View, Playback and Help, with Quit and About in them', (platform) => {
     const template = build({ platform });
 
-    expect(template.map((item) => item.label ?? item.role)).toEqual(['File', 'View', 'help']);
+    expect(template.map((item) => item.label ?? item.role)).toEqual(['File', 'View', 'Playback', 'help']);
     expect(submenuOf(topLevel(template, 'File')).at(-1)?.role).toBe('quit');
     expect(submenuOf(topLevel(template, 'help')).at(-1)?.role).toBe('about');
   });
@@ -93,6 +96,26 @@ describe('buildAppMenuTemplate (#31)', () => {
     const view = submenuOf(topLevel(build({ isDevelopment: true }), 'View'));
 
     expect(view.map((item) => item.role)).toContain('toggleDevTools');
+  });
+
+  describe('Playback → Autoplay Next Episode (#42)', () => {
+    const autoplayItem = (template: MenuItemConstructorOptions[]) =>
+      itemIn(template, 'Playback', 'Autoplay Next Episode');
+
+    it.each([true, false])('is a checkbox showing the setting (%s)', (autoplayNext) => {
+      const item = autoplayItem(build({ settings: { autoplayNext } }));
+
+      expect(item).toMatchObject({ type: 'checkbox', checked: autoplayNext });
+    });
+
+    it.each([true, false])('sets autoplay to the new checkbox state (%s)', (checked) => {
+      const menuActions = actions();
+      const item = autoplayItem(build({ actions: menuActions }));
+
+      (item?.click as (menuItem: { checked: boolean }) => void)({ checked });
+
+      expect(menuActions.setAutoplayNext).toHaveBeenCalledWith(checked);
+    });
   });
 
   describe('Open Recent', () => {

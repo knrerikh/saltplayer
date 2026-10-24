@@ -29,6 +29,8 @@ function setupElectronAPIMock() {
     loadTorrent: vi.fn(),
     stopTorrent: vi.fn(),
     selectFile: vi.fn(),
+    prefetchFile: vi.fn(),
+    getSettings: vi.fn(() => new Promise(() => {})),
     playbackControl: vi.fn(),
     playbackSeek: vi.fn(),
     selectAudioTrack: vi.fn(),
@@ -49,6 +51,7 @@ function setupElectronAPIMock() {
     onMediaOpening: vi.fn(),
     onMediaOpened: vi.fn(),
     onMenuCommand: vi.fn(),
+    onSettingsChanged: vi.fn(),
     removeAllListeners: vi.fn(),
   };
 

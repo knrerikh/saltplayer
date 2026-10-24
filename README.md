@@ -21,11 +21,11 @@
 - **Streams while it downloads.** Playback starts once the first pieces arrive; pieces are fetched in playback order, and only the episode you are watching is downloaded.
 - **Plays what browsers can't.** AC3, E-AC3, DTS, TrueHD and Vorbis audio is transcoded to AAC on the fly with ffmpeg, so most MKV releases just work.
 - **Audio tracks and subtitles.** Switch between the audio tracks and embedded subtitle tracks of the file from the player controls.
-- **Series-friendly.** Multi-file torrents get an episode list and previous/next buttons.
+- **Series-friendly.** Multi-file torrents get an episode list and previous/next buttons, and the next episode starts by itself after a short countdown (Playback → Autoplay Next Episode). Its first megabytes are fetched ahead, so it starts without a long wait.
 - **Plays local files too.** Drop an MKV or MP4 from disk and get the same transcoding, track menus and subtitles.
 - **Stays out of the way.** Controls and cursor hide after 2.5 s without movement; the window has no chrome beyond a draggable title strip.
 - **A real desktop menu.** Open files and URLs, reopen recent torrents and files, close the video, toggle fullscreen; links to help and releases.
-- **Leaves nothing behind.** Pieces live in a per-session temp folder that is deleted on exit; folders left by a crash are removed on the next launch. The only thing kept is the **Open Recent** list, which **Clear Menu** empties. No accounts, no telemetry.
+- **Leaves nothing behind.** Pieces live in a per-session temp folder that is deleted on exit; folders left by a crash are removed on the next launch. The only things kept are your settings and the **Open Recent** list, which **Clear Menu** empties. No accounts, no telemetry.
 
 Salt Player is deliberately not a library manager, a torrent search engine or a download manager. It plays one torrent, now.
 
@@ -58,7 +58,7 @@ Requires macOS 10.15+, Windows 10+ or a 64-bit Linux distribution from the last 
 | Seek | Click the progress bar |
 | Volume | Slider in the control bar |
 | Audio track / subtitles | Track menus in the control bar; <kbd>Esc</kbd> closes a menu |
-| Previous / next episode | Buttons next to play |
+| Previous / next episode | Buttons next to play; the next one also starts by itself (<kbd>Esc</kbd> or **Cancel** stops the countdown) |
 | Fullscreen | Fullscreen button, **View → Toggle Full Screen** (<kbd>⌃⌘F</kbd> / <kbd>F11</kbd>) or the macOS green button; <kbd>Esc</kbd> leaves fullscreen |
 | Close the video | ✕ in the top corner, or **File → Close Video** (<kbd>⌘W</kbd> / <kbd>Ctrl+W</kbd>) |
 

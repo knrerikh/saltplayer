@@ -69,6 +69,12 @@ export const FALLBACK_TRACKERS = [
   'udp://open.stealth.si:80/announce',
 ];
 
+/**
+ * How much of the next episode `prefetchFile()` fetches ahead: enough for ffprobe and
+ * the first seconds of playback, so autoplay does not start on an empty buffer.
+ */
+export const PREFETCH_BYTES = 16 * 1024 * 1024;
+
 /** Extract ISO 639-2 language code from values like "rus-sub", "eng-forced" */
 function normalizeLanguage(raw: string): string {
   const s = (raw || 'und').trim().toLowerCase();
@@ -81,6 +87,7 @@ export class TorrentEngine {
   private client: any | null = null;
   private currentTorrent: any | null = null;
   private selectedFile: any | null = null;
+  private prefetchedFile: any | null = null;
   private lastKnownDurationSec = 0;
   private storageManager: StorageManager;
   private server: any = null;
@@ -375,6 +382,30 @@ export class TorrentEngine {
 
     // Restart streaming server with new file
     this.startStreamingServer(file);
+  }
+
+  /**
+   * Fetch the start of another file of the torrent ahead of time — the next episode,
+   * shortly before the current one ends. A local file has no torrent to fetch from.
+   */
+  async prefetchFile(fileName: string): Promise<void> {
+    if (!this.currentTorrent) return;
+
+    const file = this.currentTorrent.files.find((f: any) => f.name === fileName);
+    if (!file) {
+      throw new Error(`File not found: ${fileName}`);
+    }
+    if (file === this.selectedFile) return;
+
+    this.prefetchedFile = file;
+    this.selectFileStart(file);
+  }
+
+  private selectFileStart(file: any): void {
+    const pieceLength = this.currentTorrent.pieceLength;
+    const startPiece = Math.floor(file.offset / pieceLength);
+    const endByte = file.offset + Math.min(file.length, PREFETCH_BYTES) - 1;
+    this.currentTorrent.select(startPiece, Math.floor(endByte / pieceLength), false);
   }
 
   /**
@@ -841,6 +872,13 @@ export class TorrentEngine {
       this.currentTorrent.select(startPiece + criticalPiecesCount, endPiece, false);
     }
 
+    // Deselecting every file above dropped the prefetch too.
+    if (this.prefetchedFile === file) {
+      this.prefetchedFile = null;
+    } else if (this.prefetchedFile) {
+      this.selectFileStart(this.prefetchedFile);
+    }
+
     console.log(`Prioritized streaming for file: ${file.name}`);
     console.log(`File pieces: ${startPiece} to ${endPiece} (total: ${endPiece - startPiece + 1})`);
     console.log(`Critical pieces: ${criticalPiecesCount}, Sequential: ${endPiece - startPiece + 1 - criticalPiecesCount}`);
@@ -928,6 +966,7 @@ export class TorrentEngine {
 
     this.currentTorrent = null;
     this.selectedFile = null;
+    this.prefetchedFile = null;
   }
 
   /**

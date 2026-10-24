@@ -601,6 +601,26 @@ body {
 }
 
 /* Action Icon Overlay */
+/* Stays visible when the controls hide: it is the last chance to cancel autoplay. */
+.next-episode-overlay {
+  position: absolute;
+  right: 24px;
+  bottom: 110px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background-color: rgba(26, 26, 26, 0.9);
+  border: 1px solid var(--bg-tertiary);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.next-episode-overlay .button {
+  padding: 8px 16px;
+}
+
 .icon-overlay {
   position: absolute;
   top: 50%;
