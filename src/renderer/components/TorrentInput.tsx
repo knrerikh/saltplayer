@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, type RefObject } from 'react';
 import { VIDEO_EXTENSIONS, isVideoFile } from '@/shared/video-files';
 
 const ACCEPTED_FILES = ['.torrent', ...VIDEO_EXTENSIONS].join(',');
@@ -14,9 +14,11 @@ interface TorrentInputProps {
   /** A .torrent or video file dropped or picked, by its path on disk. */
   onOpenFile: (filePath: string) => void;
   isLoading: boolean;
+  /** The magnet/URL field, for File → Open URL… to focus. */
+  urlFieldRef?: RefObject<HTMLInputElement>;
 }
 
-const TorrentInput: React.FC<TorrentInputProps> = ({ onLoad, onOpenFile, isLoading }) => {
+const TorrentInput: React.FC<TorrentInputProps> = ({ onLoad, onOpenFile, isLoading, urlFieldRef }) => {
   const [inputValue, setInputValue] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -65,6 +67,7 @@ const TorrentInput: React.FC<TorrentInputProps> = ({ onLoad, onOpenFile, isLoadi
     <div className="input-section">
       <div className="input-container">
         <input
+          ref={urlFieldRef}
           type="text"
           className="input-field"
           placeholder="Enter magnet link or paste torrent URL..."

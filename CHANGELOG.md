@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Application menu** ([#31](https://github.com/knrerikh/saltplayer/issues/31)) in place of Electron's default one:
-  - **File:** Open File… (<kbd>⌘O</kbd> / <kbd>Ctrl+O</kbd>), Open URL… (<kbd>⌘U</kbd> / <kbd>Ctrl+U</kbd>), Open Recent with Clear Menu, Close Video (<kbd>⌘W</kbd> / <kbd>Ctrl+W</kbd>). Opening from the menu works while a video plays and replaces it.
+  - **File:** Open File… (<kbd>⌘O</kbd> / <kbd>Ctrl+O</kbd>), Open URL… (<kbd>⌘U</kbd> / <kbd>Ctrl+U</kbd>; it jumps to the start screen's field, or asks in a dialog while a video is on screen), Open Recent with Clear Menu, Close Video (<kbd>⌘W</kbd> / <kbd>Ctrl+W</kbd>). Opening from the menu works while a video plays and replaces it.
   - **View:** Toggle Full Screen (<kbd>⌃⌘F</kbd> / <kbd>F11</kbd>), the same window fullscreen as the ⛶ button.
   - **Help:** Keyboard Shortcuts, User Guide, Report an Issue…, Release Notes, and About on Windows and Linux. macOS keeps its standard app, Edit and Window menus.
 - **Autoplay of the next episode** ([#42](https://github.com/knrerikh/saltplayer/issues/42)): five seconds before an episode ends, *Next episode in 5 s* appears with **Cancel** and **Play now**, and the next file of the series starts when the video ends. <kbd>Esc</kbd> cancels without leaving fullscreen. On by default; **Playback → Autoplay Next Episode** turns it off, and the choice is kept in `settings.json`.
