@@ -56,6 +56,9 @@ const StatusBar: React.FC<StatusBarProps> = ({ status, metadata, currentVideoFil
     return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
   };
 
+  // The file playing, not the whole torrent: a season is far larger than what is watched.
+  const size = currentVideoFile?.size ?? metadata?.totalSize ?? 0;
+
   // A local file has no torrent status: there is nothing to download.
   if (metadata && !status) {
     return (
@@ -68,7 +71,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ status, metadata, currentVideoFil
 
           <div className="status-item">
             <span className="status-label">Size:</span>
-            <span className="status-value">{formatSize(metadata.totalSize)}</span>
+            <span className="status-value">{formatSize(size)}</span>
           </div>
         </div>
       </div>
@@ -93,6 +96,11 @@ const StatusBar: React.FC<StatusBarProps> = ({ status, metadata, currentVideoFil
         <div className="status-item">
           <span className="status-label">Name:</span>
           <span className="status-value">{metadata.name}</span>
+        </div>
+
+        <div className="status-item">
+          <span className="status-label">Size:</span>
+          <span className="status-value">{formatSize(size)}</span>
         </div>
         
         <div className="status-item">

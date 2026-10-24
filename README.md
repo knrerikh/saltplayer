@@ -50,7 +50,7 @@ Requires macOS 10.15+, Windows 10+ or a 64-bit Linux distribution from the last 
 
 1. Paste a magnet link and press **Enter**, or drop a `.torrent` file onto the window (or click **Open File**). A video file from disk opens the same way. The **File** menu does the same at any time: **Open File…** (<kbd>⌘O</kbd> / <kbd>Ctrl+O</kbd>), **Open URL…** (<kbd>⌘U</kbd> / <kbd>Ctrl+U</kbd>) and **Open Recent**.
 2. Salt Player picks the main video file and starts playing after a short buffer. For a series, choose the episode from the list in the title bar.
-3. The status bar shows progress, download and upload speed, peers and downloaded size.
+3. The status bar shows the size of the file playing, its progress, download and upload speed, peers and the amount downloaded.
 
 | Action | Control |
 | --- | --- |

@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Local video files** ([#33](https://github.com/knrerikh/saltplayer/issues/33)): drop a video onto the window or choose it with **Open File** to play it from disk. It goes through the same streaming server as a torrent, so transcoding of AC3/DTS audio, audio track switching, embedded subtitles and seeking all work. The status bar shows the file's name and size.
 
 ### Fixed
+- **The status bar showed the size of the whole torrent** ([#55](https://github.com/knrerikh/saltplayer/issues/55)), e.g. 30 GB for a season, which read as if all of it was downloading. It now shows the size of the file playing.
 - **Switching episodes quickly could start the wrong stream.** A streaming server replaced before it had started listening still reported its URL, built from the new server's port and the old file's name. Only the current server reports now, and stopping before it starts no longer throws.
 - Audio tracks are no longer lost when ffprobe returns no stream list for a file.
 
