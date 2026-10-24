@@ -58,7 +58,7 @@ The **Help** menu links to this guide, the issue tracker and the latest release 
 
 ## Status bar
 
-The status bar at the bottom of the window shows the torrent name, progress, download and upload speed, connected peers and downloaded size. The download speed is green when it keeps up with the video's bitrate, yellow when it is slightly below, and red when buffering is likely. It is hidden in fullscreen.
+The status bar at the bottom of the window shows the torrent name, the size of the file playing (the episode, for a season), its progress, download and upload speed, connected peers and the amount downloaded. The download speed is green when it keeps up with the video's bitrate, yellow when it is slightly below, and red when buffering is likely. It is hidden in fullscreen.
 
 ## Privacy and storage
 
