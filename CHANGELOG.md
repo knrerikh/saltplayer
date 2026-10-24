@@ -8,13 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **File → Open URL… on the start screen showed a second URL field** ([#50](https://github.com/knrerikh/saltplayer/issues/50)) in a dialog over the one already there. It now focuses and selects the start screen's field; the dialog appears only while a video is on screen.
 - **The status bar showed the size of the whole torrent** ([#55](https://github.com/knrerikh/saltplayer/issues/55)), e.g. 30 GB for a season, which read as if all of it was downloading. It now shows the size of the file playing.
 
 ## [1.7.0] - 2026-10-24
 
 ### Added
 - **Application menu** ([#31](https://github.com/knrerikh/saltplayer/issues/31)) in place of Electron's default one:
-  - **File:** Open File… (<kbd>⌘O</kbd> / <kbd>Ctrl+O</kbd>), Open URL… (<kbd>⌘U</kbd> / <kbd>Ctrl+U</kbd>; it jumps to the start screen's field, or asks in a dialog while a video is on screen), Open Recent with Clear Menu, Close Video (<kbd>⌘W</kbd> / <kbd>Ctrl+W</kbd>). Opening from the menu works while a video plays and replaces it.
+  - **File:** Open File… (<kbd>⌘O</kbd> / <kbd>Ctrl+O</kbd>), Open URL… (<kbd>⌘U</kbd> / <kbd>Ctrl+U</kbd>), Open Recent with Clear Menu, Close Video (<kbd>⌘W</kbd> / <kbd>Ctrl+W</kbd>). Opening from the menu works while a video plays and replaces it.
   - **View:** Toggle Full Screen (<kbd>⌃⌘F</kbd> / <kbd>F11</kbd>), the same window fullscreen as the ⛶ button.
   - **Help:** Keyboard Shortcuts, User Guide, Report an Issue…, Release Notes, and About on Windows and Linux. macOS keeps its standard app, Edit and Window menus.
 - **Autoplay of the next episode** ([#42](https://github.com/knrerikh/saltplayer/issues/42)): five seconds before an episode ends, *Next episode in 5 s* appears with **Cancel** and **Play now**, and the next file of the series starts when the video ends. <kbd>Esc</kbd> cancels without leaving fullscreen. On by default; **Playback → Autoplay Next Episode** turns it off, and the choice is kept in `settings.json`.
