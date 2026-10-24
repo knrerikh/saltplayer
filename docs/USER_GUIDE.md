@@ -36,7 +36,11 @@ Subtitle tracks embedded in the file are listed in the subtitle menu. The select
 
 ### Series
 
-For a torrent with several video files, choose the episode from the list in the title bar, or use the previous / next buttons beside play. Only the episode you are watching is downloaded.
+For a torrent with several video files, choose the episode from the list in the title bar, or use the previous / next buttons beside play. Only the episode you are watching is downloaded, plus the first few megabytes of the next one during the last two minutes, so it starts without a long wait.
+
+When an episode is about to end, *Next episode in 5 s* appears in the corner and the next episode starts when the video ends. **Play now** switches at once; **Cancel** or <kbd>Esc</kbd> lets this episode end normally (in fullscreen, <kbd>Esc</kbd> cancels first and leaves fullscreen on the next press). The countdown follows the video, so pausing holds it. After the last episode, playback stops. Fullscreen stays on across the switch.
+
+Turn this off with **Playback → Autoplay Next Episode**. The choice is remembered.
 
 ## Keyboard shortcuts
 
@@ -47,7 +51,7 @@ For a torrent with several video files, choose the episode from the list in the 
 | Open URL… | <kbd>⌘U</kbd> | <kbd>Ctrl+U</kbd> |
 | Close Video | <kbd>⌘W</kbd> | <kbd>Ctrl+W</kbd> |
 | Toggle fullscreen | <kbd>⌃⌘F</kbd> | <kbd>F11</kbd> |
-| Close a menu or dialog, leave fullscreen | <kbd>Esc</kbd> | <kbd>Esc</kbd> |
+| Close a menu or dialog, cancel the next-episode countdown, leave fullscreen | <kbd>Esc</kbd> | <kbd>Esc</kbd> |
 | Quit | <kbd>⌘Q</kbd> | <kbd>Ctrl+Q</kbd> (Linux), <kbd>Alt+F4</kbd> (Windows) |
 
 The **Help** menu links to this guide, the issue tracker and the latest release notes.
@@ -61,7 +65,9 @@ The status bar at the bottom of the window shows the torrent name, progress, dow
 - No accounts, no telemetry.
 - Torrent pieces are stored in a temporary folder for the current session and deleted when you quit. Folders left behind by a crash are removed on the next launch.
 - One torrent plays at a time; no video data is kept.
-- The one thing remembered between launches is the **Open Recent** list: the names and sources (magnet links, torrent URLs, file paths) of the last 10 things you opened. It is stored in `recent-sources.json` in the app's data folder (`~/Library/Application Support/Salt Player` on macOS, `%APPDATA%\Salt Player` on Windows, `~/.config/Salt Player` on Linux). **File → Open Recent → Clear Menu** empties it, along with the system's recent documents for the app.
+- Two small files are kept between launches, in the app's data folder (`~/Library/Application Support/Salt Player` on macOS, `%APPDATA%\Salt Player` on Windows, `~/.config/Salt Player` on Linux):
+  - `recent-sources.json`, the **Open Recent** list: the names and sources (magnet links, torrent URLs, file paths) of the last 10 things you opened. **File → Open Recent → Clear Menu** empties it, along with the system's recent documents for the app.
+  - `settings.json`, your preferences, such as **Autoplay Next Episode**. It holds nothing about what you watched.
 
 ## Troubleshooting
 

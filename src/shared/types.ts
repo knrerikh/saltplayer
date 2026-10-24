@@ -56,6 +56,9 @@ export const IPC_CHANNELS = {
   ERROR: 'error',
   VIDEO_URL: 'video:url',
   TORRENT_SELECT_FILE: 'torrent:selectFile',
+  TORRENT_PREFETCH_FILE: 'torrent:prefetchFile',
+  SETTINGS_GET: 'settings:get',
+  SETTINGS_CHANGED: 'settings:changed',
   VIDEO_METADATA: 'video:metadata',
   SUBTITLES: 'subtitles:available',
   AUDIO_TRACKS: 'audio:available',
@@ -68,6 +71,16 @@ export const IPC_CHANNELS = {
 } as const;
 
 export type PlaybackControlAction = 'play' | 'pause' | 'stop';
+
+/** User preferences, stored by main in `settings.json` and changed from the app menu. */
+export interface AppSettings {
+  /** Play the next file of a series when an episode ends (Playback → Autoplay Next Episode). */
+  autoplayNext: boolean;
+}
+
+export const DEFAULT_SETTINGS: AppSettings = {
+  autoplayNext: true,
+};
 
 /** Menu items the page carries out itself: it owns the URL prompt and the player state. */
 export type MenuCommand = 'open-url' | 'close-video';

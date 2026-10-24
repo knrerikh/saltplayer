@@ -1,6 +1,5 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import type { TorrentMetadata } from '@/shared/types';
+import { JsonFile } from './json-file';
 
 /** A source opened before, as File → Open Recent lists it. */
 export interface RecentSource {
@@ -30,30 +29,23 @@ const isRecentSource = (value: unknown): value is RecentSource => {
 
 /**
  * The newest-first list behind Open Recent, kept in a JSON file so it survives a
- * restart. It is the app's only persistent state; failing to read or write it never
- * stops a video from opening.
+ * restart. Failing to read or write it never stops a video from opening.
  */
 export class RecentSources {
   private entries: RecentSource[] = [];
-  private saving: Promise<void> = Promise.resolve();
+  private readonly file: JsonFile;
   private readonly limit: number;
   private readonly onChange: (entries: readonly RecentSource[]) => void;
 
-  constructor(private readonly filePath: string, options: RecentSourcesOptions = {}) {
+  constructor(filePath: string, options: RecentSourcesOptions = {}) {
+    this.file = new JsonFile(filePath);
     this.limit = options.limit ?? RECENT_SOURCES_LIMIT;
     this.onChange = options.onChange ?? (() => {});
   }
 
   async load(): Promise<void> {
-    try {
-      const parsed: unknown = JSON.parse(await fs.promises.readFile(this.filePath, 'utf8'));
-      this.entries = Array.isArray(parsed) ? parsed.filter(isRecentSource).slice(0, this.limit) : [];
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        console.error('Could not read recent sources:', error);
-      }
-      this.entries = [];
-    }
+    const parsed = await this.file.read();
+    this.entries = Array.isArray(parsed) ? parsed.filter(isRecentSource).slice(0, this.limit) : [];
   }
 
   list(): readonly RecentSource[] {
@@ -73,20 +65,6 @@ export class RecentSources {
 
   private changed(): Promise<void> {
     this.onChange(this.entries);
-    const snapshot = JSON.stringify(this.entries, null, 2);
-    // Writes run one after another so an older snapshot never lands last.
-    this.saving = this.saving.then(() => this.write(snapshot));
-    return this.saving;
-  }
-
-  private async write(contents: string): Promise<void> {
-    const tempPath = `${this.filePath}.tmp`;
-    try {
-      await fs.promises.mkdir(path.dirname(this.filePath), { recursive: true });
-      await fs.promises.writeFile(tempPath, contents);
-      await fs.promises.rename(tempPath, this.filePath);
-    } catch (error) {
-      console.error('Could not save recent sources:', error);
-    }
+    return this.file.write(this.entries);
   }
 }

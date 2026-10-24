@@ -5,7 +5,7 @@ import StatusBar from './components/StatusBar';
 import TitlebarDragRegion from './components/TitlebarDragRegion';
 import OpenUrlDialog from './components/OpenUrlDialog';
 import { isVideoFile, compareFileNames } from '@/shared/video-files';
-import { TorrentStatus, TorrentMetadata, ErrorInfo, TorrentFile, SubtitleData, AudioData, MenuCommand } from '@/shared/types';
+import { TorrentStatus, TorrentMetadata, ErrorInfo, TorrentFile, SubtitleData, AudioData, MenuCommand, AppSettings, DEFAULT_SETTINGS } from '@/shared/types';
 
 /** How long the error banner stays up before auto-dismissing, unless hovered. */
 const ERROR_AUTO_DISMISS_MS = 5000;
@@ -18,6 +18,8 @@ declare global {
       openVideoFile: (filePath: string) => Promise<TorrentMetadata>;
       stopTorrent: () => Promise<void>;
       selectFile: (fileName: string) => Promise<void>;
+      prefetchFile: (fileName: string) => Promise<void>;
+      getSettings: () => Promise<AppSettings>;
       playbackControl: (action: 'play' | 'pause' | 'stop') => Promise<void>;
       playbackSeek: (time: number) => Promise<void>;
       selectAudioTrack: (streamIndex: number) => Promise<void>;
@@ -37,6 +39,7 @@ declare global {
       onMediaOpening: (callback: () => void) => void;
       onMediaOpened: (callback: (metadata: TorrentMetadata) => void) => void;
       onMenuCommand: (callback: (command: MenuCommand) => void) => void;
+      onSettingsChanged: (callback: (settings: AppSettings) => void) => void;
       removeAllListeners: (channel: string) => void;
     };
   }
@@ -53,6 +56,7 @@ const App: React.FC = () => {
   const [audioData, setAudioData] = useState<AudioData | null>(null);
   const [isWindowFullscreen, setIsWindowFullscreen] = useState(false);
   const [isOpenUrlVisible, setIsOpenUrlVisible] = useState(false);
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const errorDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearErrorDismissTimer = () => {
@@ -119,6 +123,11 @@ const App: React.FC = () => {
     window.electronAPI.onMediaOpening(beginOpening);
     window.electronAPI.onMediaOpened(setMetadata);
 
+    window.electronAPI.getSettings().then(setSettings, (err) => {
+      console.error('Error reading settings:', err);
+    });
+    window.electronAPI.onSettingsChanged(setSettings);
+
     window.electronAPI.onMenuCommand((command) => {
       if (command === 'open-url') setIsOpenUrlVisible(true);
       if (command === 'close-video') handleClose();
@@ -135,6 +144,7 @@ const App: React.FC = () => {
       window.electronAPI.removeAllListeners('media:opening');
       window.electronAPI.removeAllListeners('media:opened');
       window.electronAPI.removeAllListeners('menu:command');
+      window.electronAPI.removeAllListeners('settings:changed');
       clearErrorDismissTimer();
     };
   }, []);
@@ -251,6 +261,14 @@ const App: React.FC = () => {
     }
   };
 
+  const nextFile = currentIndex !== -1 ? videoFiles[currentIndex + 1] : undefined;
+
+  const handlePrefetchNext = (fileName: string) => {
+    window.electronAPI.prefetchFile(fileName).catch((err) => {
+      console.error('Error prefetching file:', err);
+    });
+  };
+
   const handleSelectAudioTrack = async (streamIndex: number) => {
     try {
       await window.electronAPI.selectAudioTrack(streamIndex);
@@ -287,7 +305,9 @@ const App: React.FC = () => {
         isBuffering={torrentStatus?.isBuffering || false}
         onClose={handleClose}
         onPrev={currentIndex > 0 ? handlePrev : undefined}
-        onNext={currentIndex !== -1 && currentIndex < videoFiles.length - 1 ? handleNext : undefined}
+        onNext={nextFile ? handleNext : undefined}
+        autoplayNext={settings.autoplayNext}
+        onPrefetchNext={nextFile ? () => handlePrefetchNext(nextFile.name) : undefined}
         title={currentIndex !== -1 ? videoFiles[currentIndex].name : undefined}
         videoFiles={videoFiles}
         onSelectFile={handleSelectFile}

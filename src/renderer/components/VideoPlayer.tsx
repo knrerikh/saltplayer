@@ -1,6 +1,8 @@
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { SubtitleData, SubtitleTrack, AudioData, AudioTrack } from '@/shared/types';
 import TitlebarDragRegion from './TitlebarDragRegion';
+import NextEpisodeOverlay from './NextEpisodeOverlay';
+import { useAutoplayNext } from '../hooks/useAutoplayNext';
 
 const LANGUAGE_NAMES: Record<string, string> = {
   eng: 'English', rus: 'Russian', spa: 'Spanish', fra: 'French', deu: 'German',
@@ -57,6 +59,10 @@ interface VideoPlayerProps {
   onClose?: () => void;
   onPrev?: () => void;
   onNext?: () => void;
+  /** Play the next episode when this one ends, after a countdown. */
+  autoplayNext?: boolean;
+  /** Fetch the start of the next episode; called shortly before this one ends. */
+  onPrefetchNext?: () => void;
   title?: string;
   videoFiles?: { name: string }[];
   onSelectFile?: (fileName: string) => void;
@@ -75,6 +81,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onClose,
   onPrev,
   onNext,
+  autoplayNext = false,
+  onPrefetchNext,
   title,
   videoFiles,
   onSelectFile,
@@ -105,6 +113,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const idleTimerRef = useRef<number | null>(null);
   const pointerOverControlsRef = useRef(false);
 
+  const autoplay = useAutoplayNext({
+    episode: title,
+    currentTime,
+    duration,
+    enabled: autoplayNext,
+    onNext,
+    onPrefetchNext,
+  });
+
   const isTranscode = useMemo(() => {
     return videoUrl?.includes('transcode=true') || false;
   }, [videoUrl]);
@@ -112,6 +129,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   // Reset time offset and subtitle index when video URL changes (but not for audio track switches)
   useEffect(() => {
     if (pendingAudioSwitchTime.current !== null) return;
+    // A new file: drop the old one's position so it is not taken for the new one's end.
+    setCurrentTime(0);
+    setDuration(serverDuration && Number.isFinite(serverDuration) ? serverDuration : 0);
     setTimeOffset(0);
     setSubtitlesEnabled(false);
     setCurrentSubtitleIndex(0);
@@ -447,6 +467,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             autoPlay
             controls={false}
             onClick={togglePlay}
+            onEnded={autoplay.playNext}
           >
             {subtitleData?.tracks && subtitleData.tracks.length > 0 && subtitlesEnabled && (
               <track
@@ -479,6 +500,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             <div className="icon-overlay">
               {overlayIcon === 'play' ? '▶' : '⏸'}
             </div>
+          )}
+
+          {autoplay.secondsLeft !== null && (
+            <NextEpisodeOverlay
+              secondsLeft={autoplay.secondsLeft}
+              onCancel={autoplay.cancel}
+              onPlayNow={autoplay.playNext}
+            />
           )}
 
           {playbackError && (

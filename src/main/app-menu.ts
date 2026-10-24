@@ -1,4 +1,5 @@
 import type { MenuItemConstructorOptions } from 'electron';
+import type { AppSettings } from '@/shared/types';
 import { VIDEO_EXTENSIONS } from '@/shared/video-files';
 import type { RecentSource } from './recent-sources';
 
@@ -25,6 +26,7 @@ export interface AppMenuActions {
   openRecent(source: string): void;
   clearRecent(): void;
   closeVideo(): void;
+  setAutoplayNext(enabled: boolean): void;
   openLink(url: string): void;
 }
 
@@ -32,6 +34,7 @@ interface AppMenuOptions {
   platform: NodeJS.Platform;
   appName: string;
   recents: readonly RecentSource[];
+  settings: AppSettings;
   actions: AppMenuActions;
   isDevelopment: boolean;
 }
@@ -42,12 +45,14 @@ const escapeMnemonics = (label: string) => label.replace(/&/g, '&&');
 /**
  * The application menu as a plain template, so it can be tested without Electron.
  * macOS keeps its standard app, Edit and Window menus (Edit makes ⌘C/⌘V work in the
- * magnet field); Windows and Linux get File, View and Help, with Quit and About in them.
+ * magnet field); Windows and Linux get File, View, Playback and Help, with Quit and
+ * About in them.
  */
 export function buildAppMenuTemplate({
   platform,
   appName,
   recents,
+  settings,
   actions,
   isDevelopment,
 }: AppMenuOptions): MenuItemConstructorOptions[] {
@@ -83,6 +88,19 @@ export function buildAppMenuTemplate({
     ],
   };
 
+  const playback: MenuItemConstructorOptions = {
+    label: 'Playback',
+    submenu: [
+      {
+        label: 'Autoplay Next Episode',
+        type: 'checkbox',
+        checked: settings.autoplayNext,
+        // Electron flips the checkbox before calling this.
+        click: (menuItem) => actions.setAutoplayNext(menuItem.checked),
+      },
+    ],
+  };
+
   const help: MenuItemConstructorOptions = {
     role: 'help',
     submenu: [
@@ -95,7 +113,7 @@ export function buildAppMenuTemplate({
     ],
   };
 
-  if (!isMac) return [file, view, help];
+  if (!isMac) return [file, view, playback, help];
 
   return [
     {
@@ -115,6 +133,7 @@ export function buildAppMenuTemplate({
     file,
     { role: 'editMenu' },
     view,
+    playback,
     { role: 'windowMenu' },
     help,
   ];

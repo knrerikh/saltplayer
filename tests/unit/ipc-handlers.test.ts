@@ -22,7 +22,7 @@ describe('window:setFullscreen handler', () => {
     handlers.clear();
     senderWindow.setFullScreen.mockClear();
     const { setupIPCHandlers } = await import('@/main/ipc-handlers');
-    setupIPCHandlers({} as any, {} as any, {} as any);
+    setupIPCHandlers({} as any, {} as any, {} as any, {} as any);
   });
 
   it.each([true, false])('sets the sending window fullscreen to %s', async (isFullscreen) => {
@@ -43,7 +43,7 @@ describe('app:openExternal handler (#19)', () => {
     handlers.clear();
     openExternal.mockClear();
     const { setupIPCHandlers } = await import('@/main/ipc-handlers');
-    setupIPCHandlers({} as any, {} as any, {} as any);
+    setupIPCHandlers({} as any, {} as any, {} as any, {} as any);
   });
 
   it('opens http(s) URLs', async () => {
@@ -70,7 +70,7 @@ describe('opening from the page goes through the opener (#33, #31)', () => {
     opener.loadTorrent.mockReset().mockResolvedValue(metadata);
     opener.openVideoFile.mockReset().mockResolvedValue(metadata);
     const { setupIPCHandlers } = await import('@/main/ipc-handlers');
-    setupIPCHandlers({} as any, {} as any, opener as any);
+    setupIPCHandlers({} as any, {} as any, opener as any, {} as any);
   });
 
   it('media:openFile opens the file and returns what it describes', async () => {
@@ -85,5 +85,27 @@ describe('opening from the page goes through the opener (#33, #31)', () => {
 
     expect(opener.loadTorrent).toHaveBeenCalledWith('magnet:?xt=urn:btih:aaa');
     expect(result).toBe(metadata);
+  });
+});
+
+describe('autoplay next episode (#42)', () => {
+  const torrentEngine = { prefetchFile: vi.fn() };
+  const settings = { get: vi.fn(() => ({ autoplayNext: false })) };
+
+  beforeEach(async () => {
+    handlers.clear();
+    torrentEngine.prefetchFile.mockReset().mockResolvedValue(undefined);
+    const { setupIPCHandlers } = await import('@/main/ipc-handlers');
+    setupIPCHandlers(torrentEngine as any, {} as any, {} as any, settings as any);
+  });
+
+  it('torrent:prefetchFile fetches the start of the named file', async () => {
+    await handlers.get(IPC_CHANNELS.TORRENT_PREFETCH_FILE)?.({}, 'S01E02.mkv');
+
+    expect(torrentEngine.prefetchFile).toHaveBeenCalledWith('S01E02.mkv');
+  });
+
+  it('settings:get returns the current settings', async () => {
+    expect(await handlers.get(IPC_CHANNELS.SETTINGS_GET)?.({})).toEqual({ autoplayNext: false });
   });
 });

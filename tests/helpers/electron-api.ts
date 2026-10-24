@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 import { act } from '@testing-library/react';
-import type { AudioData, MenuCommand, SubtitleData, TorrentMetadata } from '@/shared/types';
+import type { AppSettings, AudioData, MenuCommand, SubtitleData, TorrentMetadata } from '@/shared/types';
 
 /**
  * Installs a complete `window.electronAPI` mock for rendering `<App />` and returns
@@ -15,6 +15,7 @@ export function mockElectronAPI() {
     mediaOpening?: () => void;
     mediaOpened?: (metadata: TorrentMetadata) => void;
     menuCommand?: (command: MenuCommand) => void;
+    settingsChanged?: (settings: AppSettings) => void;
   } = {};
 
   const api = {
@@ -22,6 +23,10 @@ export function mockElectronAPI() {
     openVideoFile: vi.fn(),
     stopTorrent: vi.fn(),
     selectFile: vi.fn(),
+    prefetchFile: vi.fn().mockResolvedValue(undefined),
+    // Never settles unless a test says so: the page keeps its default settings and no
+    // state update lands outside act().
+    getSettings: vi.fn(() => new Promise<AppSettings>(() => {})),
     playbackControl: vi.fn(),
     playbackSeek: vi.fn(),
     selectAudioTrack: vi.fn(),
@@ -55,6 +60,9 @@ export function mockElectronAPI() {
     onMenuCommand: vi.fn((callback: (command: MenuCommand) => void) => {
       listeners.menuCommand = callback;
     }),
+    onSettingsChanged: vi.fn((callback: (settings: AppSettings) => void) => {
+      listeners.settingsChanged = callback;
+    }),
     removeAllListeners: vi.fn(),
   };
   (globalThis.window as any).electronAPI = api;
@@ -83,6 +91,9 @@ export function mockElectronAPI() {
     },
     sendMenuCommand(command: MenuCommand) {
       act(() => listeners.menuCommand?.(command));
+    },
+    changeSettings(settings: AppSettings) {
+      act(() => listeners.settingsChanged?.(settings));
     },
   };
 }

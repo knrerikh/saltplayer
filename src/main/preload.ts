@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { IPC_CHANNELS, TorrentStatus, TorrentMetadata, ErrorInfo, SubtitleData, AudioData, MenuCommand } from '@/shared/types';
+import { IPC_CHANNELS, TorrentStatus, TorrentMetadata, ErrorInfo, SubtitleData, AudioData, MenuCommand, AppSettings } from '@/shared/types';
 
 // Expose safe API to renderer process
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openVideoFile: (filePath: string) => ipcRenderer.invoke(IPC_CHANNELS.MEDIA_OPEN_FILE, filePath),
   stopTorrent: () => ipcRenderer.invoke(IPC_CHANNELS.TORRENT_STOP),
   selectFile: (fileName: string) => ipcRenderer.invoke(IPC_CHANNELS.TORRENT_SELECT_FILE, fileName),
+  prefetchFile: (fileName: string) => ipcRenderer.invoke(IPC_CHANNELS.TORRENT_PREFETCH_FILE, fileName),
+  getSettings: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET),
   
   // Playback control
   playbackControl: (action: 'play' | 'pause' | 'stop') => 
@@ -61,6 +63,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuCommand: (callback: (command: MenuCommand) => void) => {
     ipcRenderer.on(IPC_CHANNELS.MENU_COMMAND, (_, command) => callback(command));
   },
+  onSettingsChanged: (callback: (settings: AppSettings) => void) => {
+    ipcRenderer.on(IPC_CHANNELS.SETTINGS_CHANGED, (_, settings) => callback(settings));
+  },
   
   // Remove listeners
   removeAllListeners: (channel: string) => {
@@ -76,6 +81,8 @@ declare global {
       openVideoFile: (filePath: string) => Promise<TorrentMetadata>;
       stopTorrent: () => Promise<void>;
       selectFile: (fileName: string) => Promise<void>;
+      prefetchFile: (fileName: string) => Promise<void>;
+      getSettings: () => Promise<AppSettings>;
       playbackControl: (action: 'play' | 'pause' | 'stop') => Promise<void>;
       playbackSeek: (time: number) => Promise<void>;
       selectAudioTrack: (streamIndex: number) => Promise<void>;
@@ -95,6 +102,7 @@ declare global {
       onMediaOpening: (callback: () => void) => void;
       onMediaOpened: (callback: (metadata: TorrentMetadata) => void) => void;
       onMenuCommand: (callback: (command: MenuCommand) => void) => void;
+      onSettingsChanged: (callback: (settings: AppSettings) => void) => void;
       removeAllListeners: (channel: string) => void;
     };
   }
