@@ -22,7 +22,7 @@ describe('window:setFullscreen handler', () => {
     handlers.clear();
     senderWindow.setFullScreen.mockClear();
     const { setupIPCHandlers } = await import('@/main/ipc-handlers');
-    setupIPCHandlers({} as any, {} as any, {} as any, {} as any);
+    setupIPCHandlers({} as any, {} as any, {} as any, {} as any, {} as any);
   });
 
   it.each([true, false])('sets the sending window fullscreen to %s', async (isFullscreen) => {
@@ -43,7 +43,7 @@ describe('app:openExternal handler (#19)', () => {
     handlers.clear();
     openExternal.mockClear();
     const { setupIPCHandlers } = await import('@/main/ipc-handlers');
-    setupIPCHandlers({} as any, {} as any, {} as any, {} as any);
+    setupIPCHandlers({} as any, {} as any, {} as any, {} as any, {} as any);
   });
 
   it('opens http(s) URLs', async () => {
@@ -70,7 +70,7 @@ describe('opening from the page goes through the opener (#33, #31)', () => {
     opener.loadTorrent.mockReset().mockResolvedValue(metadata);
     opener.openVideoFile.mockReset().mockResolvedValue(metadata);
     const { setupIPCHandlers } = await import('@/main/ipc-handlers');
-    setupIPCHandlers({} as any, {} as any, opener as any, {} as any);
+    setupIPCHandlers({} as any, {} as any, opener as any, {} as any, {} as any);
   });
 
   it('media:openFile opens the file and returns what it describes', async () => {
@@ -96,7 +96,7 @@ describe('autoplay next episode (#42)', () => {
     handlers.clear();
     torrentEngine.prefetchFile.mockReset().mockResolvedValue(undefined);
     const { setupIPCHandlers } = await import('@/main/ipc-handlers');
-    setupIPCHandlers(torrentEngine as any, {} as any, {} as any, settings as any);
+    setupIPCHandlers(torrentEngine as any, {} as any, {} as any, settings as any, {} as any);
   });
 
   it('torrent:prefetchFile fetches the start of the named file', async () => {
@@ -107,5 +107,44 @@ describe('autoplay next episode (#42)', () => {
 
   it('settings:get returns the current settings', async () => {
     expect(await handlers.get(IPC_CHANNELS.SETTINGS_GET)?.({})).toEqual({ autoplayNext: false });
+  });
+});
+
+describe('playback:savePosition (#51)', () => {
+  const history = { record: vi.fn() };
+
+  beforeEach(async () => {
+    handlers.clear();
+    history.record.mockReset().mockResolvedValue(undefined);
+    const { setupIPCHandlers } = await import('@/main/ipc-handlers');
+    setupIPCHandlers({} as any, {} as any, {} as any, {} as any, history as any);
+  });
+
+  const save = (...args: unknown[]) => handlers.get(IPC_CHANNELS.PLAYBACK_SAVE_POSITION)?.({}, ...args);
+
+  it('records where a file was left', async () => {
+    const file = { infoHash: 'aaa', fileName: 'S01E02.mkv' };
+
+    await save(file, 600, 3000);
+
+    expect(history.record).toHaveBeenCalledWith(file, 600, 3000);
+  });
+
+  it('records only the fields it knows', async () => {
+    await save({ path: '/v/Movie.mkv', fileName: 'Movie.mkv', extra: 1 }, 600, 3000);
+
+    expect(history.record).toHaveBeenCalledWith({ path: '/v/Movie.mkv', fileName: 'Movie.mkv' }, 600, 3000);
+  });
+
+  it.each([
+    [{ infoHash: 'aaa', fileName: 'x.mkv' }, '600', 3000],
+    [{ infoHash: 'aaa', fileName: 'x.mkv' }, 600, NaN],
+    [{ infoHash: 'aaa' }, 600, 3000],
+    [{ infoHash: 42, fileName: 'x.mkv' }, 600, 3000],
+    [null, 600, 3000],
+  ])('ignores malformed input %#', async (file, position, duration) => {
+    await save(file, position, duration);
+
+    expect(history.record).not.toHaveBeenCalled();
   });
 });

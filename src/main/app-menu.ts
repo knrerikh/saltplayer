@@ -27,6 +27,7 @@ export interface AppMenuActions {
   clearRecent(): void;
   closeVideo(): void;
   setAutoplayNext(enabled: boolean): void;
+  setResumePlayback(enabled: boolean): void;
   openLink(url: string): void;
 }
 
@@ -97,6 +98,12 @@ export function buildAppMenuTemplate({
         checked: settings.autoplayNext,
         // Electron flips the checkbox before calling this.
         click: (menuItem) => actions.setAutoplayNext(menuItem.checked),
+      },
+      {
+        label: 'Resume Playback',
+        type: 'checkbox',
+        checked: settings.resumePlayback,
+        click: (menuItem) => actions.setResumePlayback(menuItem.checked),
       },
     ],
   };

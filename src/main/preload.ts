@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS, TorrentStatus, TorrentMetadata, ErrorInfo, SubtitleData, AudioData, MenuCommand, AppSettings } from '@/shared/types';
+import type { WatchedFile } from '@/shared/playback-key';
 
 // Expose safe API to renderer process
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -16,6 +17,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke(IPC_CHANNELS.PLAYBACK_CONTROL, action),
   playbackSeek: (time: number) => 
     ipcRenderer.invoke(IPC_CHANNELS.PLAYBACK_SEEK, time),
+  savePlaybackPosition: (file: WatchedFile, position: number, duration: number) =>
+    ipcRenderer.invoke(IPC_CHANNELS.PLAYBACK_SAVE_POSITION, file, position, duration),
   selectAudioTrack: (streamIndex: number) =>
     ipcRenderer.invoke(IPC_CHANNELS.AUDIO_SELECT, streamIndex),
   
@@ -35,8 +38,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onTorrentStatus: (callback: (status: TorrentStatus) => void) => {
     ipcRenderer.on(IPC_CHANNELS.TORRENT_STATUS, (_, status) => callback(status));
   },
-  onVideoUrl: (callback: (url: string) => void) => {
-    ipcRenderer.on(IPC_CHANNELS.VIDEO_URL, (_, url) => callback(url));
+  // `startAt`: where to resume a newly opened file, or null to start from the beginning
+  onVideoUrl: (callback: (url: string, startAt: number | null) => void) => {
+    ipcRenderer.on(IPC_CHANNELS.VIDEO_URL, (_, url, startAt) => callback(url, startAt ?? null));
   },
   onVideoMetadata: (callback: (metadata: { duration: number }) => void) => {
     ipcRenderer.on(IPC_CHANNELS.VIDEO_METADATA, (_, metadata) => callback(metadata));
@@ -85,6 +89,7 @@ declare global {
       getSettings: () => Promise<AppSettings>;
       playbackControl: (action: 'play' | 'pause' | 'stop') => Promise<void>;
       playbackSeek: (time: number) => Promise<void>;
+      savePlaybackPosition: (file: WatchedFile, position: number, duration: number) => Promise<void>;
       selectAudioTrack: (streamIndex: number) => Promise<void>;
       quit: () => Promise<void>;
       openExternal: (url: string) => Promise<boolean>;
@@ -93,7 +98,7 @@ declare global {
       endWindowDrag: () => Promise<void>;
       setWindowFullscreen: (isFullscreen: boolean) => Promise<void>;
       onTorrentStatus: (callback: (status: TorrentStatus) => void) => void;
-      onVideoUrl: (callback: (url: string) => void) => void;
+      onVideoUrl: (callback: (url: string, startAt: number | null) => void) => void;
       onVideoMetadata: (callback: (metadata: { duration: number }) => void) => void;
       onSubtitles: (callback: (data: SubtitleData) => void) => void;
       onAudioTracks: (callback: (data: AudioData) => void) => void;

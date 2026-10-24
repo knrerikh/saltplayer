@@ -5,12 +5,28 @@ import { StorageManager } from './storage';
 import { isSafeExternalUrl } from './external-url';
 import { MediaOpener } from './media-opener';
 import { Settings } from './settings';
+import { WatchHistory } from './watch-history';
+import type { WatchedFile } from '@/shared/playback-key';
+
+const optionalString = (value: unknown) => value === undefined || typeof value === 'string';
+
+/** The page says which file it played; take only well-formed fields. */
+function watchedFile(value: unknown): WatchedFile | null {
+  const { infoHash, path, fileName } = (value ?? {}) as Record<string, unknown>;
+  if (typeof fileName !== 'string' || !optionalString(infoHash) || !optionalString(path)) return null;
+  return {
+    ...(infoHash !== undefined && { infoHash: infoHash as string }),
+    ...(path !== undefined && { path: path as string }),
+    fileName,
+  };
+}
 
 export function setupIPCHandlers(
   torrentEngine: TorrentEngine,
   storageManager: StorageManager,
   opener: MediaOpener,
-  settings: Settings
+  settings: Settings,
+  watchHistory: WatchHistory
 ): void {
   // Re-registering would throw ("second handler for ..."), so drop any handlers
   // left over from a previous initializeApp() before wiring the new instances up.
@@ -23,6 +39,7 @@ export function setupIPCHandlers(
     IPC_CHANNELS.SETTINGS_GET,
     IPC_CHANNELS.PLAYBACK_CONTROL,
     IPC_CHANNELS.PLAYBACK_SEEK,
+    IPC_CHANNELS.PLAYBACK_SAVE_POSITION,
     IPC_CHANNELS.APP_QUIT,
     IPC_CHANNELS.AUDIO_SELECT,
     IPC_CHANNELS.APP_OPEN_EXTERNAL,
@@ -95,6 +112,16 @@ export function setupIPCHandlers(
       throw error;
     }
   });
+
+  // Where the page left a file, for resuming it later
+  ipcMain.handle(
+    IPC_CHANNELS.PLAYBACK_SAVE_POSITION,
+    (_, file: unknown, position: unknown, duration: unknown) => {
+      const watched = watchedFile(file);
+      if (!watched || !Number.isFinite(position) || !Number.isFinite(duration)) return;
+      return watchHistory.record(watched, position as number, duration as number);
+    }
+  );
 
   // Quit application
   ipcMain.handle(IPC_CHANNELS.APP_QUIT, async () => {

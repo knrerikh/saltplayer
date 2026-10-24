@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Resume playback** ([#51](https://github.com/knrerikh/saltplayer/issues/51)): a file opened again continues where it was left (5 s earlier), with *Resumed from …* and **Start over**; a season opens at the episode watched last, or the next one after a finished episode. Positions are kept in `watch-history.json` (the last 200 files); **Clear Menu** forgets them, and **Playback → Resume Playback** (on by default) turns resuming and recording off.
+
 ### Changed
 - **Bounded disk use** ([#54](https://github.com/knrerikh/saltplayer/issues/54)):
   - Only about five minutes of playback ahead of the player are downloaded, instead of the rest of the episode. Pausing stops the download once that is in.

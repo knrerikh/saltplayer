@@ -33,6 +33,7 @@ function setupElectronAPIMock() {
     getSettings: vi.fn(() => new Promise(() => {})),
     playbackControl: vi.fn(),
     playbackSeek: vi.fn(),
+    savePlaybackPosition: vi.fn(),
     selectAudioTrack: vi.fn(),
     quit: vi.fn(),
     openExternal: vi.fn(),

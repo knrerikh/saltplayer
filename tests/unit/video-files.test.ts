@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { VIDEO_EXTENSIONS, isVideoFile, pickMainVideoFile } from '@/shared/video-files';
+import { VIDEO_EXTENSIONS, isVideoFile, pickMainVideoFile, pickStartFile } from '@/shared/video-files';
 
 const MB = 1024 * 1024;
 const file = (name: string, sizeMb: number) => ({ name, length: sizeMb * MB });
@@ -51,5 +51,36 @@ describe('pickMainVideoFile (#20)', () => {
 
   it('falls back to the only video when every file is tiny', () => {
     expect(pick([file('clip.mp4', 0)])).toBe('clip.mp4');
+  });
+});
+
+describe('pickStartFile (#51)', () => {
+  const season = [
+    file('Show.S01E03.mkv', 900),
+    file('Show.S01E01.mkv', 900),
+    file('Show.S01E02.mkv', 900),
+    file('sample.mkv', 5),
+  ];
+  const start = (lastWatched: { fileName: string; finished: boolean } | null) =>
+    pickStartFile(season, (f) => f.length, lastWatched)?.name ?? null;
+
+  it('starts with the main file when nothing was watched', () => {
+    expect(start(null)).toBe('Show.S01E01.mkv');
+  });
+
+  it('continues the episode left unfinished', () => {
+    expect(start({ fileName: 'Show.S01E02.mkv', finished: false })).toBe('Show.S01E02.mkv');
+  });
+
+  it('moves on to the next episode after a finished one', () => {
+    expect(start({ fileName: 'Show.S01E02.mkv', finished: true })).toBe('Show.S01E03.mkv');
+  });
+
+  it('falls back to the main file after the last episode was finished', () => {
+    expect(start({ fileName: 'Show.S01E03.mkv', finished: true })).toBe('Show.S01E01.mkv');
+  });
+
+  it('falls back to the main file when the file watched is no longer there', () => {
+    expect(start({ fileName: 'Gone.mkv', finished: false })).toBe('Show.S01E01.mkv');
   });
 });

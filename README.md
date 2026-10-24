@@ -21,11 +21,12 @@
 - **Streams while it downloads.** Playback starts once the first pieces arrive; pieces are fetched in playback order, about five minutes ahead, and only for the episode you are watching. Pausing stops the download, and an episode you switch away from is removed from disk, so a 30 GB season never takes 30 GB.
 - **Plays what browsers can't.** AC3, E-AC3, DTS, TrueHD and Vorbis audio is transcoded to AAC on the fly with ffmpeg, so most MKV releases just work.
 - **Audio tracks and subtitles.** Switch between the audio tracks and embedded subtitle tracks of the file from the player controls.
+- **Picks up where you left off.** A file continues from where you stopped, a season from the episode you watched last; **Start over** is one click away.
 - **Series-friendly.** Multi-file torrents get an episode list and previous/next buttons, and the next episode starts by itself after a short countdown (Playback → Autoplay Next Episode). Its first megabytes are fetched ahead, so it starts without a long wait.
 - **Plays local files too.** Drop an MKV or MP4 from disk and get the same transcoding, track menus and subtitles.
 - **Stays out of the way.** Controls and cursor hide after 2.5 s without movement; the window has no chrome beyond a draggable title strip.
 - **A real desktop menu.** Open files and URLs, reopen recent torrents and files, close the video, toggle fullscreen; links to help and releases.
-- **Leaves nothing behind.** Pieces live in a per-session temp folder that is deleted on exit; folders left by a crash are removed on the next launch. The only things kept are your settings and the **Open Recent** list, which **Clear Menu** empties. No accounts, no telemetry.
+- **Leaves nothing behind.** Pieces live in a per-session temp folder that is deleted on exit; folders left by a crash are removed on the next launch. The only things kept are your settings, the **Open Recent** list and where you stopped each file; **Clear Menu** forgets the last two. No accounts, no telemetry.
 
 Salt Player is deliberately not a library manager, a torrent search engine or a download manager. It plays one torrent, now.
 

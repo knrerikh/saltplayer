@@ -2,6 +2,7 @@ import React from 'react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import App from '@/renderer/App';
+import { DEFAULT_SETTINGS } from '@/shared/types';
 import { mockElectronAPI } from '../helpers/electron-api';
 
 const SEASON = {
@@ -125,7 +126,7 @@ describe('Autoplay the next episode (#42)', () => {
   describe('when turned off in the Playback menu', () => {
     it('neither counts down nor switches', () => {
       renderSeason();
-      electron.changeSettings({ autoplayNext: false });
+      electron.changeSettings({ ...DEFAULT_SETTINGS, autoplayNext: false });
       playTo(DURATION - 3);
 
       fireEvent(video, new Event('ended'));
@@ -135,7 +136,7 @@ describe('Autoplay the next episode (#42)', () => {
     });
 
     it('takes the setting stored in main on start', async () => {
-      electron.api.getSettings.mockResolvedValue({ autoplayNext: false });
+      electron.api.getSettings.mockResolvedValue({ ...DEFAULT_SETTINGS, autoplayNext: false });
       renderSeason();
       await act(async () => {});
       playTo(DURATION - 3);

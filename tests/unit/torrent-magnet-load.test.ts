@@ -504,6 +504,33 @@ describe('TorrentEngine - magnet load contract', () => {
     expect(mocks.remove).not.toHaveBeenCalled();
   });
 
+  it('B.7b starts a season with the episode watched last (#51)', async () => {
+    const mod = await importTorrentModule();
+    const history = {
+      resumePosition: vi.fn(() => null),
+      lastWatched: vi.fn(() => ({ fileName: 'S01E02.mkv', finished: false })),
+    };
+    const engine = new mod.TorrentEngine(storageStub as any, history);
+    const startStreamingServer = ((engine as any).startStreamingServer = vi.fn());
+    (engine as any).startStatusUpdates = vi.fn();
+
+    const episodes = ['S01E01.mkv', 'S01E02.mkv', 'S01E03.mkv'].map((name, i) =>
+      createMockFile(name, 1024, i * 1024),
+    );
+    const readyTorrent = createMockTorrent({ ready: true, infoHash: 'feedface', files: episodes });
+    mocks.add.mockImplementation((_src: any, _opts: any, cb: any) => {
+      queueMicrotask(() => cb(readyTorrent));
+      return readyTorrent;
+    });
+
+    track(engine.load(MAGNET));
+    await waitForAdd();
+    await flush();
+
+    expect(history.lastWatched).toHaveBeenCalledWith('feedface');
+    expect(startStreamingServer).toHaveBeenCalledWith(episodes[1]);
+  });
+
   it('B.8 awaits removal of the previous torrent before calling client.add again', async () => {
     const mod = await importTorrentModule();
     const engine = createEngine(mod);

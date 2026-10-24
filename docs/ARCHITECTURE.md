@@ -32,6 +32,7 @@ Salt Player is an Electron app with a strict split between the main process (Nod
 | `src/main/app-menu.ts` | `buildAppMenuTemplate()`: the application menu as a plain template (File, View, Playback, Help; plus the app, Edit and Window menus on macOS) |
 | `src/main/media-opener.ts` | `MediaOpener`: opens torrents and video files, remembers each one that opened, and tells the page about opens it did not start |
 | `src/main/recent-sources.ts` | `RecentSources`: the Open Recent list, kept in `recent-sources.json` in `userData` |
+| `src/main/watch-history.ts` | `WatchHistory`: where each file was left (`watch-history.json` in `userData`), for resuming it and for starting a season with the episode watched last |
 | `src/main/settings.ts` | `Settings`: user preferences (`AppSettings`), kept in `settings.json` in `userData` |
 | `src/main/json-file.ts` | `JsonFile`: the atomic, serialised JSON read and write behind both files |
 | `src/main/ipc-handlers.ts` | Registers `ipcMain` handlers; a thin layer that delegates to `TorrentEngine` and the window |
@@ -41,6 +42,8 @@ Salt Player is an Electron app with a strict split between the main process (Nod
 | `src/renderer/App.tsx` | Root component: subscribes to main-process events, owns torrent, playlist, track and error state |
 | `src/renderer/components/` | `TorrentInput`, `VideoPlayer`, `StatusBar`, `TitlebarDragRegion`, `OpenUrlDialog`, `NextEpisodeOverlay` |
 | `src/renderer/hooks/useAutoplayNext.ts` | The next-episode countdown and the prefetch trigger |
+| `src/renderer/hooks/useSavePosition.ts` | Reports where playback is, for resuming later |
+| `src/shared/playback-key.ts` | `playbackKey()`: how main and the page name a file for resuming it |
 
 ## IPC
 
@@ -48,9 +51,9 @@ All channel names live in `IPC_CHANNELS` (`src/shared/types.ts`).
 
 | Direction | Channels |
 | --- | --- |
-| Renderer → main (`invoke`) | `torrent:load`, `media:openFile`, `torrent:stop`, `torrent:selectFile`, `torrent:prefetchFile`, `settings:get`, `playback:control`, `playback:seek`, `audio:selectTrack`, `app:quit`, `app:openExternal`, `window:dragStart`, `window:dragEnd`, `window:setFullscreen` |
+| Renderer → main (`invoke`) | `torrent:load`, `media:openFile`, `torrent:stop`, `torrent:selectFile`, `torrent:prefetchFile`, `settings:get`, `playback:control`, `playback:seek`, `playback:savePosition`, `audio:selectTrack`, `app:quit`, `app:openExternal`, `window:dragStart`, `window:dragEnd`, `window:setFullscreen` |
 | Renderer → main (`send`) | `window:dragMove` (pointer deltas, high frequency) |
-| Main → renderer (`send`) | `torrent:status` (every second), `video:url`, `video:metadata`, `subtitles:available`, `audio:available`, `error`, `window:fullscreen`, `media:opening`, `media:opened`, `menu:command`, `settings:changed` |
+| Main → renderer (`send`) | `torrent:status` (every second), `video:url` (with where to resume, or `null`), `video:metadata`, `subtitles:available`, `audio:available`, `error`, `window:fullscreen`, `media:opening`, `media:opened`, `menu:command`, `settings:changed` |
 
 ## Loading and playback
 
@@ -83,6 +86,15 @@ In direct mode the `<video>` element seeks with range requests. In transcode mod
 ### Audio tracks and subtitles
 
 When there is more than one audio track, the renderer offers a menu. Choosing a track calls `audio:selectTrack`, and main replies with a new transcode URL that maps only that stream (`-map 0:v:0 -map 0:<index>`); playback resumes from the current position. Subtitle tracks are listed with human-readable language names and attached as `<track>` elements pointing at `/subtitle/<index>.vtt`.
+
+### Resuming playback
+
+A file is named by `playbackKey()` (`src/shared/playback-key.ts`): `<infoHash>/<file name>` for a torrent file, the path for a file on disk. `WatchHistory` (`src/main/watch-history.ts`) keeps the newest 200 entries with the position, the duration, whether the file was watched to the end (past 95 %) and when.
+
+- **Saving.** `useSavePosition()` in `VideoPlayer` calls `playback:savePosition` every 10 s of playback, on pause, when the episode changes or the video closes, and before the page unloads. It saves nothing for a file that has not started playing, so opening a file never overwrites where it was left with 0.
+- **Choosing the episode.** `TorrentEngine.load()` starts with `pickStartFile()` (`src/shared/video-files.ts`): the episode of this torrent watched last if unfinished, the next one in playlist order if finished, otherwise the main file.
+- **Choosing the position.** Before sending `video:url`, the engine asks `resumePosition()` for the file being served: 5 s before where it was left, or `null` if it was finished, under 30 s, or never played. `VideoPlayer` starts there the same way it restarts after an audio track switch: a transcoded stream reloads with `startTime`, a direct one sets `currentTime`. `ResumeHint` shows *Resumed from …* for 6 s; **Start over** seeks to 0.
+- **Turning it off.** `AppSettings.resumePlayback` (**Playback → Resume Playback**, on by default) is read by `WatchHistory`: when off, nothing is recorded and both lookups return nothing. **Clear Menu** clears the history with the recent list.
 
 ### Autoplay of the next episode
 
@@ -119,7 +131,7 @@ The HTML Fullscreen API is deliberately not used. Chromium handles <kbd>Esc</kbd
 
 ## Storage and lifecycle
 
-- Two files in the app's `userData` folder are kept between launches: the recent list, `recent-sources.json` (**File → Open Recent → Clear Menu** empties it), and the preferences, `settings.json`. Both go through `JsonFile`: a missing or corrupt file reads as empty (defaults for settings, keeping only known keys of the right type), and writes are atomic (temp file, then rename) and serialised.
+- Three files in the app's `userData` folder are kept between launches: the recent list, `recent-sources.json`, and where each file was left, `watch-history.json` (**File → Open Recent → Clear Menu** empties both), and the preferences, `settings.json`. All go through `JsonFile`: a missing or corrupt file reads as empty (defaults for settings, keeping only known keys of the right type), and writes are atomic (temp file, then rename) and serialised.
 
 - `StorageManager.initialize()` deletes `saltplayer-*` folders left in the system temp directory by earlier sessions, then creates a fresh `saltplayer-<id>` folder for this one.
 - On quit (`before-quit`, or closing the last window on Windows and Linux), the engine stops the torrent and closes the HTTP server and ffmpeg processes, and the session folder is deleted.

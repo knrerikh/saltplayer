@@ -51,6 +51,7 @@ export const IPC_CHANNELS = {
   MENU_COMMAND: 'menu:command',
   PLAYBACK_CONTROL: 'playback:control',
   PLAYBACK_SEEK: 'playback:seek',
+  PLAYBACK_SAVE_POSITION: 'playback:savePosition',
   APP_QUIT: 'app:quit',
   APP_OPEN_EXTERNAL: 'app:openExternal',
   ERROR: 'error',
@@ -76,10 +77,13 @@ export type PlaybackControlAction = 'play' | 'pause' | 'stop';
 export interface AppSettings {
   /** Play the next file of a series when an episode ends (Playback → Autoplay Next Episode). */
   autoplayNext: boolean;
+  /** Continue a file where it was left, and a season with the episode watched last (Playback → Resume Playback). */
+  resumePlayback: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   autoplayNext: true,
+  resumePlayback: true,
 };
 
 /** Menu items the page carries out itself: it owns the URL prompt and the player state. */

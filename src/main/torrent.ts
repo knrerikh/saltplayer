@@ -1,7 +1,9 @@
 import { TorrentFile, TorrentMetadata, TorrentStatus, IPC_CHANNELS, SubtitleTrack, AudioTrack } from '@/shared/types';
 import { StorageManager } from './storage';
-import { pickMainVideoFile } from '@/shared/video-files';
-import { MediaSource, openLocalVideo } from './local-video';
+import { pickStartFile } from '@/shared/video-files';
+import { playbackKey } from '@/shared/playback-key';
+import { LocalVideo, MediaSource, openLocalVideo } from './local-video';
+import type { WatchHistory } from './watch-history';
 import {
   READ_CHUNK_BYTES,
   PieceRange,
@@ -115,7 +117,14 @@ export class TorrentEngine {
   private currentStreamUrl: string | null = null;
   private currentFilePathname: string | null = null;
 
-  constructor(storageManager: StorageManager) {
+  /**
+   * @param history Where files were left: a torrent starts with the episode watched
+   *   last, and a file from where it stopped.
+   */
+  constructor(
+    storageManager: StorageManager,
+    private readonly history?: Pick<WatchHistory, 'resumePosition' | 'lastWatched'>,
+  ) {
     this.storageManager = storageManager;
   }
 
@@ -324,7 +333,11 @@ export class TorrentEngine {
           console.log('Torrent ready:', torrent.name);
 
           // Select video file
-          const videoFile = pickMainVideoFile<MediaSource>(torrent.files, (file) => file.length);
+          const videoFile = pickStartFile<MediaSource>(
+            torrent.files,
+            (file) => file.length,
+            this.history?.lastWatched(torrent.infoHash) ?? null,
+          );
 
           if (!videoFile) {
             const error = new Error('No video file found in torrent');
@@ -820,7 +833,7 @@ export class TorrentEngine {
         streamUrl += '?transcode=true';
       }
 
-      this.sendVideoUrl(streamUrl);
+      this.sendVideoUrl(streamUrl, this.resumePositionOf(file));
     });
   }
 
@@ -1117,10 +1130,17 @@ export class TorrentEngine {
   /**
    * Send video URL to renderer
    */
-  private sendVideoUrl(url: string): void {
+  /** Where to start this file: from where it was left, or (null) from the beginning. */
+  private resumePositionOf(file: MediaSource): number | null {
+    const source = { infoHash: this.currentTorrent?.infoHash, path: (file as Partial<LocalVideo>).path };
+    return this.history?.resumePosition(playbackKey(source, file.name)) ?? null;
+  }
+
+  /** `startAt` is where to resume a newly opened file; a restarted stream passes none. */
+  private sendVideoUrl(url: string, startAt: number | null = null): void {
     const windows = BrowserWindow.getAllWindows();
     windows.forEach(window => {
-      window.webContents.send(IPC_CHANNELS.VIDEO_URL, url);
+      window.webContents.send(IPC_CHANNELS.VIDEO_URL, url, startAt);
     });
   }
 

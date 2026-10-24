@@ -148,7 +148,8 @@ describe('Playing a local video file (#33)', () => {
     await engine.stop();
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    expect(send).not.toHaveBeenCalledWith(IPC_CHANNELS.VIDEO_URL, expect.anything());
+    const sent = send.mock.calls.filter(([channel]) => channel === IPC_CHANNELS.VIDEO_URL);
+    expect(sent).toEqual([]);
   });
 
   it('sends only the URL of the file opened last when files are switched quickly', async () => {
@@ -163,8 +164,20 @@ describe('Playing a local video file (#33)', () => {
     await new Promise((resolve) => setTimeout(resolve, 200));
 
     const sent = send.mock.calls.filter(([channel]) => channel === IPC_CHANNELS.VIDEO_URL);
-    expect(sent).toEqual([[IPC_CHANNELS.VIDEO_URL, url]]);
+    expect(sent).toEqual([[IPC_CHANNELS.VIDEO_URL, url, null]]);
     expect(new URL(url).pathname).toBe('/Other.mp4');
+  }, PROBE_TIMEOUT_MS + 5_000);
+
+  it('sends where to resume the file along with its URL (#51)', async () => {
+    createMovie();
+    const history = { resumePosition: vi.fn(() => 595), lastWatched: vi.fn(() => null) };
+    engine = new TorrentEngine(new StorageManager(), history);
+
+    await engine.openLocalFile(moviePath);
+    const url = await sentVideoUrl(engine);
+
+    expect(history.resumePosition).toHaveBeenCalledWith(moviePath);
+    expect(send).toHaveBeenCalledWith(IPC_CHANNELS.VIDEO_URL, url, 595);
   }, PROBE_TIMEOUT_MS + 5_000);
 
   it('keeps playing the previous video when the file cannot be opened', async () => {
