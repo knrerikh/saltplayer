@@ -100,7 +100,7 @@ The setting, `AppSettings.autoplayNext` (on by default), lives in main. The page
 
 - **Open File…** shows the open dialog in main (videos and `.torrent`), so that path never comes from the page.
 - **Open Recent**, **Open File…** and macOS `open-file` (a file dropped on the Dock icon or picked from its recent documents) all go through `MediaOpener.open()`. It sends `media:opening`, and the page clears the current video and shows loading; then `media:opened` with the metadata, or `error`. `open-file` can arrive before the window exists, so the source waits until the page has loaded.
-- **Open URL…** and **Close Video** are `menu:command`s, carried out by the page: it owns the URL prompt (`OpenUrlDialog`) and the player state. With no window open (macOS), they just bring the window back.
+- **Open URL…** and **Close Video** are `menu:command`s, carried out by the page: it owns the URL field and the player state. On the start screen Open URL… focuses and selects the existing field; with a video on screen, or while that field is disabled during loading, it shows `OpenUrlDialog`. With no window open (macOS), they just bring the window back.
 - **View → Toggle Full Screen** is Electron's `togglefullscreen` role, the same window fullscreen as the ⛶ button.
 - **Help** links go through `isSafeExternalUrl` like `app:openExternal`. About is the native panel on macOS and Linux and a message box on Windows, filled by `app.setAboutPanelOptions`.
 

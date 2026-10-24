@@ -58,6 +58,7 @@ const App: React.FC = () => {
   const [isOpenUrlVisible, setIsOpenUrlVisible] = useState(false);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const errorDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startUrlFieldRef = useRef<HTMLInputElement>(null);
 
   const clearErrorDismissTimer = () => {
     if (errorDismissTimerRef.current !== null) {
@@ -129,7 +130,7 @@ const App: React.FC = () => {
     window.electronAPI.onSettingsChanged(setSettings);
 
     window.electronAPI.onMenuCommand((command) => {
-      if (command === 'open-url') setIsOpenUrlVisible(true);
+      if (command === 'open-url') askForUrl();
       if (command === 'close-video') handleClose();
     });
 
@@ -160,6 +161,17 @@ const App: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isWindowFullscreen]);
+
+  /** The start screen has a URL field already; the dialog is for when it is not usable. */
+  const askForUrl = () => {
+    const startField = startUrlFieldRef.current;
+    if (startField && !startField.disabled) {
+      startField.focus();
+      startField.select();
+    } else {
+      setIsOpenUrlVisible(true);
+    }
+  };
 
   const clearPlayback = () => {
     setVideoUrl(null);
@@ -295,7 +307,12 @@ const App: React.FC = () => {
       {!videoUrl && <TitlebarDragRegion />}
 
       {!videoUrl && (
-        <TorrentInput onLoad={handleLoadTorrent} onOpenFile={handleOpenFile} isLoading={isLoading} />
+        <TorrentInput
+          onLoad={handleLoadTorrent}
+          onOpenFile={handleOpenFile}
+          isLoading={isLoading}
+          urlFieldRef={startUrlFieldRef}
+        />
       )}
       
       <VideoPlayer 

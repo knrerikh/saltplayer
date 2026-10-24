@@ -24,9 +24,26 @@ describe('Application menu in the page (#31)', () => {
   const urlField = () => screen.getByPlaceholderText(/magnet link or \.torrent url/i);
 
   describe('File → Open URL…', () => {
-    it('asks for a URL, even while a video plays', () => {
+    function renderPlayer() {
       render(<App />);
       electron.playVideo(VIDEO_URL);
+    }
+
+    it('focuses the URL field of the start screen instead of a second one (#50)', () => {
+      render(<App />);
+      const startField = screen.getByPlaceholderText(/enter magnet link/i) as HTMLInputElement;
+      fireEvent.change(startField, { target: { value: 'magnet:?xt=urn:btih:old' } });
+
+      electron.sendMenuCommand('open-url');
+
+      expect(dialog()).not.toBeInTheDocument();
+      expect(startField).toHaveFocus();
+      expect(startField.selectionStart).toBe(0);
+      expect(startField.selectionEnd).toBe(startField.value.length);
+    });
+
+    it('asks for a URL while a video plays', () => {
+      renderPlayer();
 
       electron.sendMenuCommand('open-url');
 
@@ -34,8 +51,17 @@ describe('Application menu in the page (#31)', () => {
       expect(urlField()).toHaveFocus();
     });
 
-    it('loads what was typed and closes', async () => {
+    it('asks for a URL while the start screen is busy loading', () => {
       render(<App />);
+      electron.startOpeningFromMain();
+
+      electron.sendMenuCommand('open-url');
+
+      expect(dialog()).toBeInTheDocument();
+    });
+
+    it('loads what was typed and closes', async () => {
+      renderPlayer();
       electron.sendMenuCommand('open-url');
 
       fireEvent.change(urlField(), { target: { value: '  magnet:?xt=urn:btih:aaa  ' } });
@@ -47,7 +73,7 @@ describe('Application menu in the page (#31)', () => {
     });
 
     it('does not submit an empty URL', () => {
-      render(<App />);
+      renderPlayer();
       electron.sendMenuCommand('open-url');
 
       fireEvent.submit(urlField());
@@ -57,7 +83,7 @@ describe('Application menu in the page (#31)', () => {
     });
 
     it('closes on Cancel', () => {
-      render(<App />);
+      renderPlayer();
       electron.sendMenuCommand('open-url');
 
       fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -66,7 +92,7 @@ describe('Application menu in the page (#31)', () => {
     });
 
     it('closes on Esc without leaving fullscreen', () => {
-      render(<App />);
+      renderPlayer();
       electron.setWindowFullscreen(true);
       electron.sendMenuCommand('open-url');
 

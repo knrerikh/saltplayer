@@ -2,7 +2,7 @@
 
 ## Opening a video
 
-- **Magnet link:** paste it into the input field and press <kbd>Enter</kbd> or click **Load**. While a video plays, use **File → Open URL…** (<kbd>⌘U</kbd> / <kbd>Ctrl+U</kbd>).
+- **Magnet link:** paste it into the input field and press <kbd>Enter</kbd> or click **Load**. **File → Open URL…** (<kbd>⌘U</kbd> / <kbd>Ctrl+U</kbd>) jumps to that field, or, while a video plays, asks for the link in a small dialog.
 - **Torrent file:** drop a `.torrent` file onto the window, click **Open File**, or choose **File → Open File…** (<kbd>⌘O</kbd> / <kbd>Ctrl+O</kbd>).
 - **Video file from disk:** drop it onto the window, click **Open File**, or choose **File → Open File…**. It plays at once, with the same audio transcoding, track menus and subtitles as a torrent; the status bar shows its name and size. If you drop several files, the first video or `.torrent` among them is opened.
 
