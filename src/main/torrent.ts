@@ -35,6 +35,12 @@ const resolvedFfprobePath = ffprobePath?.path
 if (resolvedFfmpegPath) ffmpeg.setFfmpegPath(resolvedFfmpegPath);
 if (resolvedFfprobePath) ffmpeg.setFfprobePath(resolvedFfprobePath);
 
+/** The `startTime` of a request in seconds; 0 when it is missing, negative or not a finite number. */
+function parseStartTime(raw: string | null): number {
+  const seconds = Number(raw || '0');
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
+}
+
 // Write startup diagnostics so architecture/path issues are visible in the crash log
 try {
   const logDir = path.join(os.homedir(), 'Library', 'Logs', 'saltplayer');
@@ -663,12 +669,12 @@ export class TorrentEngine {
       try {
         const reqUrl = new URL(req.url ?? '/', `http://${STREAM_HOST}`);
         const isTranscode = reqUrl.searchParams.get('transcode') === 'true';
-        const startTime = Number(reqUrl.searchParams.get('startTime') || '0');
+        const startTime = parseStartTime(reqUrl.searchParams.get('startTime'));
 
         const subtitleMatch = reqUrl.pathname.match(/^\/subtitle\/(\d+)\.vtt$/);
         if (subtitleMatch) {
           const streamIndex = parseInt(subtitleMatch[1], 10);
-          await this.serveSubtitle(streamIndex, res, file);
+          await this.serveSubtitle(streamIndex, res, file, startTime);
           return;
         }
 
@@ -861,7 +867,11 @@ export class TorrentEngine {
     return 'application/octet-stream';
   }
 
-  private async serveSubtitle(streamIndex: number, res: http.ServerResponse, file: MediaSource): Promise<void> {
+  /**
+   * Extracts one subtitle stream as WebVTT. With `startTime` it starts there, so cue times
+   * count from the same zero as the transcoded stream restarted at that offset.
+   */
+  private async serveSubtitle(streamIndex: number, res: http.ServerResponse, file: MediaSource, startTime = 0): Promise<void> {
     const rawFileUrl = internalUrl(`http://${STREAM_HOST}:${this.serverPort}/${encodeURIComponent(file.name)}`);
     
     res.writeHead(200, {
@@ -869,7 +879,13 @@ export class TorrentEngine {
       'Cache-Control': 'no-cache',
     });
 
-    const command = ffmpeg(rawFileUrl)
+    const command = ffmpeg(rawFileUrl);
+
+    if (startTime > 0) {
+      command.seekInput(startTime);
+    }
+
+    command
       .outputOptions([`-map 0:${streamIndex}`])
       .format('webvtt');
 
