@@ -18,6 +18,14 @@ const STYLE = `
   button:disabled { background: #3a3a3a; color: #b0b0b0; }
   .skip { width: 56px; height: 56px; border-radius: 50%; font-size: 16px; font-variant-numeric: tabular-nums; }
   #toggle { width: 120px; height: 120px; border-radius: 50%; font-size: 48px; }
+  #volume-row { display: flex; align-items: center; gap: 12px; width: 100%; max-width: 480px; }
+  #volume { flex: 1; min-width: 0; height: 44px; margin: 0; accent-color: #4a9eff; }
+  #options { display: flex; align-items: center; justify-content: center; gap: 12px; }
+  .option { min-width: 56px; height: 56px; padding: 0 20px; border-radius: 28px; font-size: 16px; }
+  .option[aria-pressed='true'] { background: #3a3a3a; }
+  #close { background: #c0392b; }
+  #close:active { background: #a93226; }
+  #close:disabled { background: #3a3a3a; }
   #connection { font-size: 14px; color: #b0b0b0; }
   #connection[data-state='connected'] { color: #4aff4a; }
   #connection[data-state='off'] { color: #ff4a4a; }
@@ -30,9 +38,15 @@ const SCRIPT = `
   const time = document.getElementById('time');
   const toggle = document.getElementById('toggle');
   const timeline = document.getElementById('timeline');
+  const volume = document.getElementById('volume');
+  const mute = document.getElementById('mute');
+  const fullscreen = document.getElementById('fullscreen');
+  const close = document.getElementById('close');
   const skips = document.querySelectorAll('.skip');
   let duration = 0;
   let dragging = false;
+  let volumeDragging = false;
+  let muted = false;
   const connection = document.getElementById('connection');
 
   const clock = (seconds) => {
@@ -75,6 +89,14 @@ const SCRIPT = `
     toggle.textContent = state.isPlaying ? '\\u23F8' : '\\u25B6';
     toggle.setAttribute('aria-label', state.isPlaying ? 'Pause' : 'Play');
     toggle.disabled = !state.hasVideo;
+    muted = state.muted;
+    if (!volumeDragging) volume.value = String(Math.round(state.volume * 100));
+    mute.textContent = muted ? '\\u{1F507}' : '\\u{1F50A}';
+    mute.setAttribute('aria-label', muted ? 'Unmute' : 'Mute');
+    fullscreen.setAttribute('aria-pressed', String(state.isFullscreen));
+    fullscreen.textContent = state.isFullscreen ? 'Exit fullscreen' : 'Fullscreen';
+    fullscreen.disabled = !state.hasVideo;
+    close.disabled = !state.hasVideo;
   };
 
   toggle.addEventListener('click', () => send({ type: 'toggle-play' }));
@@ -88,6 +110,17 @@ const SCRIPT = `
   timeline.addEventListener('change', () => {
     dragging = false;
     send({ type: 'seek-to', time: Number(timeline.value) });
+  });
+
+  volume.addEventListener('input', () => { volumeDragging = true; });
+  volume.addEventListener('change', () => {
+    volumeDragging = false;
+    send({ type: 'set-volume', volume: Number(volume.value) / 100 });
+  });
+  mute.addEventListener('click', () => send({ type: 'set-muted', muted: !muted }));
+  fullscreen.addEventListener('click', () => send({ type: 'toggle-fullscreen' }));
+  close.addEventListener('click', () => {
+    if (confirm('Close the video?')) send({ type: 'close-video' });
   });
 
   const events = new EventSource('/api/events?t=' + encodeURIComponent(token));
@@ -121,6 +154,14 @@ export function remotePage(nonce: string): string {
   <button id="toggle" type="button" aria-label="Play" disabled>▶</button>
   <button class="skip" type="button" data-seconds="10" aria-label="Forward 10 seconds" disabled>+10</button>
   <button class="skip" type="button" data-seconds="30" aria-label="Forward 30 seconds" disabled>+30</button>
+</div>
+<div id="volume-row">
+  <button id="mute" class="option" type="button" aria-label="Mute">🔊</button>
+  <input id="volume" type="range" min="0" max="100" step="1" value="100" aria-label="Volume">
+</div>
+<div id="options">
+  <button id="fullscreen" class="option" type="button" aria-pressed="false" disabled>Fullscreen</button>
+  <button id="close" class="option" type="button" disabled>Close video</button>
 </div>
 <div id="connection" data-state="reconnecting">Reconnecting…</div>
 <script nonce="${nonce}">${SCRIPT}</script>

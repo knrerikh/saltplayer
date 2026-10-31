@@ -4,7 +4,7 @@ import * as net from 'net';
 import { RemoteControlServer } from '@/main/remote-control/remote-server';
 import type { RemoteState } from '@/shared/remote';
 
-const state: RemoteState = { hasVideo: true, title: 'a.mkv', isPlaying: true, currentTime: 5, duration: 60 };
+const state: RemoteState = { hasVideo: true, title: 'a.mkv', isPlaying: true, currentTime: 5, duration: 60, volume: 1, muted: false, isFullscreen: false };
 
 interface Reply {
   status: number;
@@ -265,6 +265,10 @@ describe('RemoteControlServer (#64)', () => {
     it.each([
       ['seek-to', { type: 'seek-to', time: 42 }],
       ['seek-by', { type: 'seek-by', seconds: -10 }],
+      ['set-volume', { type: 'set-volume', volume: 0.4 }],
+      ['set-muted', { type: 'set-muted', muted: true }],
+      ['toggle-fullscreen', { type: 'toggle-fullscreen' }],
+      ['close-video', { type: 'close-video' }],
     ])('passes a valid %s on exactly as parsed', async (_, body) => {
       const { port, token, onCommand } = await started();
 
@@ -279,6 +283,9 @@ describe('RemoteControlServer (#64)', () => {
       ['a seek-to with a negative time', JSON.stringify({ type: 'seek-to', time: -5 })],
       ['a seek-by of zero', JSON.stringify({ type: 'seek-by', seconds: 0 })],
       ['a seek-by over an hour', JSON.stringify({ type: 'seek-by', seconds: 7200 })],
+      ['a set-volume over 1', JSON.stringify({ type: 'set-volume', volume: 1.5 })],
+      ['a set-volume below 0', JSON.stringify({ type: 'set-volume', volume: -0.1 })],
+      ['a set-muted without a boolean', JSON.stringify({ type: 'set-muted', muted: 'yes' })],
       ['an unknown command', JSON.stringify({ type: 'format-disk' })],
       ['a non-object', '42'],
     ])('400 for %s', async (_, body) => {

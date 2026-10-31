@@ -153,7 +153,7 @@ describe('playback:savePosition (#51)', () => {
 
 describe('remote control (#64)', () => {
   const remote = { status: { enabled: false }, setEnabled: vi.fn(), broadcast: vi.fn() };
-  const state = { hasVideo: true, title: 'a.mkv', isPlaying: true, currentTime: 5, duration: 60 };
+  const state = { hasVideo: true, title: 'a.mkv', isPlaying: true, currentTime: 5, duration: 60, volume: 1, muted: false, isFullscreen: false };
 
   beforeEach(async () => {
     handlers.clear();

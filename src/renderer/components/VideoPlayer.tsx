@@ -109,6 +109,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [volume, setVolume] = useState(1);
+    const [muted, setMuted] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
   const [isBuffering, setIsBuffering] = useState(false);
   const [timeOffset, setTimeOffset] = useState(0);
@@ -328,8 +329,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         window.electronAPI.playbackSeek(resumeAt);
       }
 
-      video.muted = false;
-      video.volume = 1;
+      video.muted = muted;
+      video.volume = volume;
 
       video.play().catch(err => {
         console.warn('Auto-play failed:', err);
@@ -380,6 +381,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     window.electronAPI.playbackSeek(time);
   };
 
+  const changeVolume = (vol: number) => {
+    setVolume(vol);
+    if (videoRef.current) videoRef.current.volume = vol;
+  };
+
+  const changeMuted = (value: boolean) => {
+    setMuted(value);
+    if (videoRef.current) videoRef.current.muted = value;
+  };
+
   useRemoteControl({
     enabled: remoteEnabled,
     hasVideo: videoUrl !== null,
@@ -387,8 +398,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     isPlaying,
     currentTime,
     duration,
+    volume,
+    muted,
+    isFullscreen,
     togglePlay,
     seekTo,
+    setVolume: changeVolume,
+    setMuted: changeMuted,
+    toggleFullscreen: onToggleFullscreen,
+    close: onClose,
   });
 
   // Auto-hide the controls (and the cursor) while the pointer sits still during
@@ -470,14 +488,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (!Number.isFinite(time)) return;
 
     seekTo(time);
-  };
-
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const vol = parseFloat(e.target.value);
-    setVolume(vol);
-    if (videoRef.current) {
-      videoRef.current.volume = vol;
-    }
   };
 
   const formatTime = (seconds: number): string => {
@@ -658,6 +668,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 {formatTime(currentTime)} / {formatTime(duration)}
               </div>
               
+              <button
+                type="button"
+                className="control-button"
+                onClick={(e) => { e.stopPropagation(); changeMuted(!muted); }}
+                title={muted ? 'Unmute' : 'Mute'}
+                aria-label={muted ? 'Unmute' : 'Mute'}
+              >
+                {muted || volume === 0 ? '🔇' : '🔊'}
+              </button>
+
               {audioData && audioData.tracks.length > 1 && onSelectAudioTrack ? (
                 <div className="volume-group" ref={audioControlRef}>
                   <div className="volume-slider-pill">
@@ -668,7 +688,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                       max="1"
                       step="0.05"
                       value={volume}
-                      onChange={handleVolumeChange}
+                      onChange={(e) => changeVolume(parseFloat(e.target.value))}
                       onClick={(e) => e.stopPropagation()}
                     />
                   </div>
@@ -710,7 +730,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                   max="1"
                   step="0.05"
                   value={volume}
-                  onChange={handleVolumeChange}
+                  onChange={(e) => changeVolume(parseFloat(e.target.value))}
                 />
               )}
 
