@@ -13,11 +13,14 @@ const STYLE = `
   #timeline { width: 100%; max-width: 480px; height: 44px; margin: 0; accent-color: #4a9eff; }
   #timeline:disabled { opacity: 0.4; }
   #controls { display: flex; align-items: center; justify-content: center; gap: 12px; }
-  button { border: 0; background: #4a9eff; color: #fff; line-height: 1; }
+  button { display: flex; align-items: center; justify-content: center; border: 0; background: #4a9eff; color: #fff; line-height: 1; }
   button:active { background: #3a8eef; }
   button:disabled { background: #3a3a3a; color: #b0b0b0; }
   .skip, .step { width: 56px; height: 56px; border-radius: 50%; font-size: 16px; font-variant-numeric: tabular-nums; }
-  #toggle { width: 120px; height: 120px; border-radius: 50%; font-size: 48px; }
+  #toggle { width: 120px; height: 120px; border-radius: 50%; }
+  .icon { width: 24px; height: 24px; fill: currentColor; }
+  .icon[hidden] { display: none; }
+  #toggle .icon { width: 56px; height: 56px; }
   #episodes { display: flex; align-items: center; gap: 12px; width: 100%; max-width: 480px; }
   #episodes[hidden] { display: none; }
   #episode-list {
@@ -68,6 +71,11 @@ const SCRIPT = `
     return (h > 0 ? h + ':' : '') + mm + ':' + ss;
   };
 
+  // Each icon button holds all its states as inline SVGs; only the one named here is visible.
+  const showIcon = (button, name) => {
+    button.querySelectorAll('.icon').forEach((icon) => icon.toggleAttribute('hidden', icon.dataset.icon !== name));
+  };
+
   const showConnection = (state, text) => {
     connection.dataset.state = state;
     connection.textContent = text;
@@ -112,12 +120,12 @@ const SCRIPT = `
       timeline.value = String(state.currentTime);
       showTime(state.currentTime);
     }
-    toggle.textContent = state.isPlaying ? '\\u23F8' : '\\u25B6';
+    showIcon(toggle, state.isPlaying ? 'pause' : 'play');
     toggle.setAttribute('aria-label', state.isPlaying ? 'Pause' : 'Play');
     toggle.disabled = !state.hasVideo;
     muted = state.muted;
     if (!volumeDragging) volume.value = String(Math.round(state.volume * 100));
-    mute.textContent = muted ? '\\u{1F507}' : '\\u{1F50A}';
+    showIcon(mute, muted ? 'muted' : 'audible');
     mute.setAttribute('aria-label', muted ? 'Unmute' : 'Mute');
     fullscreen.setAttribute('aria-pressed', String(state.isFullscreen));
     fullscreen.textContent = state.isFullscreen ? 'Exit fullscreen' : 'Fullscreen';
@@ -189,17 +197,27 @@ export function remotePage(nonce: string): string {
 <div id="controls">
   <button class="skip" type="button" data-seconds="-30" aria-label="Back 30 seconds" disabled>−30</button>
   <button class="skip" type="button" data-seconds="-10" aria-label="Back 10 seconds" disabled>−10</button>
-  <button id="toggle" type="button" aria-label="Play" disabled>▶</button>
+  <button id="toggle" type="button" aria-label="Play" disabled>
+    <svg class="icon" data-icon="play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+    <svg class="icon" data-icon="pause" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
+  </button>
   <button class="skip" type="button" data-seconds="10" aria-label="Forward 10 seconds" disabled>+10</button>
   <button class="skip" type="button" data-seconds="30" aria-label="Forward 30 seconds" disabled>+30</button>
 </div>
 <div id="episodes" hidden>
-  <button id="previous" class="step" type="button" aria-label="Previous episode" disabled>⏮</button>
+  <button id="previous" class="step" type="button" aria-label="Previous episode" disabled>
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h2v12H6zM9.5 12l8.5 6V6z"/></svg>
+  </button>
   <select id="episode-list" aria-label="Episode" disabled></select>
-  <button id="next" class="step" type="button" aria-label="Next episode" disabled>⏭</button>
+  <button id="next" class="step" type="button" aria-label="Next episode" disabled>
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg>
+  </button>
 </div>
 <div id="volume-row">
-  <button id="mute" class="option" type="button" aria-label="Mute">🔊</button>
+  <button id="mute" class="option" type="button" aria-label="Mute">
+    <svg class="icon" data-icon="audible" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9H3z"/><path d="M16.5 12A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>
+    <svg class="icon" data-icon="muted" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M3 9v6h4l5 5V4L7 9H3z"/><path d="M16.3 9.7l1.4-1.4 2.3 2.3 2.3-2.3 1.4 1.4-2.3 2.3 2.3 2.3-1.4 1.4-2.3-2.3-2.3 2.3-1.4-1.4 2.3-2.3-2.3-2.3z"/></svg>
+  </button>
   <input id="volume" type="range" min="0" max="100" step="1" value="100" aria-label="Volume">
 </div>
 <div id="options">
