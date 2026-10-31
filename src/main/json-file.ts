@@ -9,7 +9,11 @@ import * as path from 'path';
 export class JsonFile {
   private writing: Promise<void> = Promise.resolve();
 
-  constructor(private readonly filePath: string) {}
+  /** `mode` is the file's permission bits (e.g. 0o600 for a secret); by default the system's umask decides. */
+  constructor(
+    private readonly filePath: string,
+    private readonly options: { mode?: number } = {},
+  ) {}
 
   async read(): Promise<unknown> {
     try {
@@ -32,7 +36,10 @@ export class JsonFile {
     const tempPath = `${this.filePath}.tmp`;
     try {
       await fs.promises.mkdir(path.dirname(this.filePath), { recursive: true });
-      await fs.promises.writeFile(tempPath, contents);
+      const { mode } = this.options;
+      await fs.promises.writeFile(tempPath, contents, { mode });
+      // writeFile only applies the mode to a file it creates, not to a leftover temp file.
+      if (mode !== undefined) await fs.promises.chmod(tempPath, mode);
       await fs.promises.rename(tempPath, this.filePath);
     } catch (error) {
       console.error(`Could not save ${this.filePath}:`, error);

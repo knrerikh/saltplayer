@@ -1,4 +1,4 @@
-import { networkInterfaces, type NetworkInterfaceInfo } from 'os';
+import { hostname as osHostname, networkInterfaces, type NetworkInterfaceInfo } from 'os';
 
 /** Wi-Fi and Ethernet; everything else (VPNs, bridges, containers) is rarely what a phone can reach. */
 const PHYSICAL_INTERFACE = /^(en|eth|wl)/;
@@ -19,4 +19,17 @@ export function localAddresses(
   );
   // Array#sort is stable, so each group keeps the interface order.
   return found.sort((a, b) => Number(b.physical) - Number(a.physical)).map(({ address }) => address);
+}
+
+/** One DNS label as the machine's name: letters, digits and inner hyphens. */
+const HOST_LABEL = /^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/;
+
+/**
+ * The name other devices on the network can resolve this machine by (Bonjour / mDNS),
+ * `<hostname>.local`, or null when the hostname is not a plain label ("Konstantin's MacBook").
+ * Any domain part of the hostname is dropped.
+ */
+export function localHostName(hostname: string = osHostname()): string | null {
+  const label = hostname.split('.')[0];
+  return HOST_LABEL.test(label) ? `${label}.local` : null;
 }

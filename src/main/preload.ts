@@ -33,6 +33,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Remote control (a phone on the local network)
   setRemoteEnabled: (enabled: boolean) => ipcRenderer.invoke(IPC_CHANNELS.REMOTE_SET_ENABLED, enabled),
+  resetRemoteLink: () => ipcRenderer.invoke(IPC_CHANNELS.REMOTE_RESET_LINK),
+  getRemoteStatus: () => ipcRenderer.invoke(IPC_CHANNELS.REMOTE_GET_STATUS),
+  setRemoteAtLaunch: (remoteAtLaunch: boolean) => ipcRenderer.invoke(IPC_CHANNELS.REMOTE_SET_AT_LAUNCH, remoteAtLaunch),
   sendRemoteState: (state: RemoteState) => ipcRenderer.send(IPC_CHANNELS.REMOTE_STATE, state),
 
   // App control
@@ -109,6 +112,9 @@ declare global {
       endWindowDrag: () => Promise<void>;
       setWindowFullscreen: (isFullscreen: boolean) => Promise<void>;
       setRemoteEnabled: (enabled: boolean) => Promise<RemoteStatus>;
+      resetRemoteLink: () => Promise<RemoteStatus>;
+      getRemoteStatus: () => Promise<RemoteStatus>;
+      setRemoteAtLaunch: (remoteAtLaunch: boolean) => Promise<void>;
       sendRemoteState: (state: RemoteState) => void;
       onTorrentStatus: (callback: (status: TorrentStatus) => void) => void;
       onVideoUrl: (callback: (url: string, startAt: number | null) => void) => void;

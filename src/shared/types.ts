@@ -70,6 +70,9 @@ export const IPC_CHANNELS = {
   WINDOW_FULLSCREEN: 'window:fullscreen',
   WINDOW_SET_FULLSCREEN: 'window:setFullscreen',
   REMOTE_SET_ENABLED: 'remote:setEnabled',
+  REMOTE_RESET_LINK: 'remote:resetLink',
+  REMOTE_GET_STATUS: 'remote:getStatus',
+  REMOTE_SET_AT_LAUNCH: 'remote:setAtLaunch',
   REMOTE_STATUS: 'remote:status',
   REMOTE_COMMAND: 'remote:command',
   REMOTE_STATE: 'remote:state',
@@ -83,11 +86,14 @@ export interface AppSettings {
   autoplayNext: boolean;
   /** Continue a file where it was left, and a season with the episode watched last (Playback → Resume Playback). */
   resumePlayback: boolean;
+  /** Turn the phone remote on when the app opens, with the stored link (Remote Control dialog). */
+  remoteAtLaunch: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   autoplayNext: true,
   resumePlayback: true,
+  remoteAtLaunch: false,
 };
 
 /** Menu items the page carries out itself: it owns the URL prompt and the player state. */

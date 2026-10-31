@@ -61,9 +61,12 @@ Things to know:
 
 - **Same network.** The phone and the computer must be on the same local network. It does not work over the internet or from a guest network that isolates devices.
 - **Firewall prompt.** The first time, macOS or Windows may ask whether Salt Player may accept incoming network connections. Allow it, or the phone cannot connect.
-- **A new link each time.** The link contains a random token that changes every time the remote is turned on, so an old link or bookmark stops working. Anyone who has the current link and is on your network can pause, play, seek, switch episodes, change the volume, toggle fullscreen and close the video until you turn it off.
-- **Off by default.** Remote control is off at every launch and the choice is not saved. While it is on, the status bar shows *Remote on*; click it to reopen the dialog.
-- **Turning it off.** Use the switch in the dialog, or quit Salt Player. The phone then shows *Remote control is off* and the link no longer opens.
+- **A link that keeps working.** Scan the code once and keep the link as a bookmark on the phone. It keeps working when you turn the remote off and on and after Salt Player restarts, for 30 days; the dialog shows *Link valid until* the date. After that, turn the remote on and scan the new code. Anyone who has the link and is on your network can pause, play, seek, switch episodes, change the volume, toggle fullscreen and close the video while the remote is on, so do not share it or post a screenshot of the code.
+- **Reset link.** The **Reset link** button in the dialog replaces the link at once, after asking for confirmation. Phones that use the old link stop working and show *This link has expired or was reset — scan the new code*. Use it if the link or its QR code may have leaked.
+- **A link by the computer's name.** When the computer has a plain name (for example `Mac-Mini`), the first link uses it, as `http://Mac-Mini.local:8642/…`. It is the one to bookmark: unlike the numeric addresses, it survives the router giving the computer a new address. It needs a phone that resolves `.local` names (iPhone and most Android phones do on the same Wi-Fi); if it does not open, use one of the numeric links below it.
+- **The port.** The remote uses port 8642 every time, so a saved link stays valid. If another program holds that port, Salt Player picks a free one and the dialog warns that saved links will not work this time: scan the new code, or close the other program and turn the remote off and on to get back to 8642.
+- **Off by default.** The remote is off when Salt Player opens unless you tick **Start remote control when Salt Player opens** in the dialog; then the bookmark works as soon as the app is open. While it is on, the status bar shows *Remote on*; click it to reopen the dialog.
+- **Turning it off.** Use the switch in the dialog, or quit Salt Player. The phone then cannot reach the computer and keeps trying to reconnect, and the link opens again when you turn the remote back on.
 
 The remote can only play, pause, seek, switch to another episode of the same torrent, change the volume, mute, toggle fullscreen and close the video. It cannot open or read files, or reach anything else on your computer.
 
@@ -90,11 +93,12 @@ The status bar at the bottom of the window shows the torrent name, the size of t
 - No accounts, no telemetry.
 - Torrent pieces are stored in a temporary folder for the current session and deleted when you quit; an episode you switch away from is deleted from it at once. Folders left behind by a crash are removed on the next launch. Finder may show the files there at their full size: they are sparse, and only the downloaded parts take up space.
 - One torrent plays at a time; no video data is kept.
-- The phone remote opens a port on your local network only while it is on, and shares only what is playing (title and time). Nothing goes to the internet.
-- Three small files are kept between launches, in the app's data folder (`~/Library/Application Support/saltplayer` on macOS, `%APPDATA%\saltplayer` on Windows, `~/.config/saltplayer` on Linux):
+- The phone remote opens a port on your local network only while it is on (it is off at launch unless you chose otherwise), and shares only what is playing (title and time). Nothing goes to the internet.
+- A few small files are kept between launches, in the app's data folder (`~/Library/Application Support/saltplayer` on macOS, `%APPDATA%\saltplayer` on Windows, `~/.config/saltplayer` on Linux):
   - `recent-sources.json`, the **Open Recent** list: the names and sources (magnet links, torrent URLs, file paths) of the last 10 things you opened. **File → Open Recent → Clear Menu** empties it, along with the system's recent documents for the app.
   - `watch-history.json`, where you stopped each file (the last 200): the torrent's info hash or the file's path, the file name and the position. It is a watch history: **Clear Menu** forgets it together with the recent list, and **Playback → Resume Playback** off stops recording it.
   - `settings.json`, your preferences, such as **Autoplay Next Episode**. It holds nothing about what you watched.
+  - `remote-control.json`, the secret in the phone remote's link and when it was made. Delete it, or press **Reset link**, to get a new link.
 
 ## Troubleshooting
 

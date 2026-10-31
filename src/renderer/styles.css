@@ -312,6 +312,10 @@ body {
   line-height: 1.5;
 }
 
+.remote-warning {
+  color: var(--text-primary);
+}
+
 .remote-qr {
   align-self: center;
   width: 200px;

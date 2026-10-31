@@ -50,6 +50,9 @@ export function setupIPCHandlers(
     IPC_CHANNELS.WINDOW_DRAG_END,
     IPC_CHANNELS.WINDOW_SET_FULLSCREEN,
     IPC_CHANNELS.REMOTE_SET_ENABLED,
+    IPC_CHANNELS.REMOTE_RESET_LINK,
+    IPC_CHANNELS.REMOTE_GET_STATUS,
+    IPC_CHANNELS.REMOTE_SET_AT_LAUNCH,
   ]) {
     ipcMain.removeHandler(channel);
   }
@@ -132,6 +135,15 @@ export function setupIPCHandlers(
   ipcMain.handle(IPC_CHANNELS.REMOTE_SET_ENABLED, (_, enabled: unknown) =>
     typeof enabled === 'boolean' ? remote.setEnabled(enabled) : remote.status
   );
+
+  ipcMain.handle(IPC_CHANNELS.REMOTE_RESET_LINK, () => remote.resetLink());
+
+  // The remote may already be on when the page loads (Start at launch)
+  ipcMain.handle(IPC_CHANNELS.REMOTE_GET_STATUS, () => remote.status);
+
+  ipcMain.handle(IPC_CHANNELS.REMOTE_SET_AT_LAUNCH, (_, remoteAtLaunch: unknown) => {
+    if (typeof remoteAtLaunch === 'boolean') return settings.set({ remoteAtLaunch });
+  });
 
   ipcMain.on(IPC_CHANNELS.REMOTE_STATE, (_, state: unknown) => {
     const parsed = parseRemoteState(state);
