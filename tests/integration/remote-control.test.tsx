@@ -193,6 +193,10 @@ describe('Remote control (#64)', () => {
         volume: 1,
         muted: false,
         isFullscreen: false,
+        episodes: [],
+        episodeIndex: -1,
+        hasPrevious: false,
+        hasNext: false,
       });
 
       act(() => {

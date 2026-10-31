@@ -407,6 +407,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setMuted: changeMuted,
     toggleFullscreen: onToggleFullscreen,
     close: onClose,
+    videoFiles,
+    onPrev,
+    onNext,
+    onSelectFile,
   });
 
   // Auto-hide the controls (and the cursor) while the pointer sits still during

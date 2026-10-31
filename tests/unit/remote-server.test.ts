@@ -4,7 +4,10 @@ import * as net from 'net';
 import { RemoteControlServer } from '@/main/remote-control/remote-server';
 import type { RemoteState } from '@/shared/remote';
 
-const state: RemoteState = { hasVideo: true, title: 'a.mkv', isPlaying: true, currentTime: 5, duration: 60, volume: 1, muted: false, isFullscreen: false };
+const state: RemoteState = {
+  hasVideo: true, title: 'a.mkv', isPlaying: true, currentTime: 5, duration: 60, volume: 1, muted: false, isFullscreen: false,
+  episodes: [], episodeIndex: -1, hasPrevious: false, hasNext: false,
+};
 
 interface Reply {
   status: number;
@@ -269,6 +272,10 @@ describe('RemoteControlServer (#64)', () => {
       ['set-muted', { type: 'set-muted', muted: true }],
       ['toggle-fullscreen', { type: 'toggle-fullscreen' }],
       ['close-video', { type: 'close-video' }],
+      ['previous-episode', { type: 'previous-episode' }],
+      ['next-episode', { type: 'next-episode' }],
+      ['select-episode', { type: 'select-episode', name: 'S01E02.mkv' }],
+      ['select-episode with a long name', { type: 'select-episode', name: 'é'.repeat(1024) }],
     ])('passes a valid %s on exactly as parsed', async (_, body) => {
       const { port, token, onCommand } = await started();
 
@@ -286,6 +293,9 @@ describe('RemoteControlServer (#64)', () => {
       ['a set-volume over 1', JSON.stringify({ type: 'set-volume', volume: 1.5 })],
       ['a set-volume below 0', JSON.stringify({ type: 'set-volume', volume: -0.1 })],
       ['a set-muted without a boolean', JSON.stringify({ type: 'set-muted', muted: 'yes' })],
+      ['a select-episode without a name', JSON.stringify({ type: 'select-episode' })],
+      ['a select-episode with an empty name', JSON.stringify({ type: 'select-episode', name: '' })],
+      ['a select-episode with a name over 1024 characters', JSON.stringify({ type: 'select-episode', name: 'x'.repeat(1025) })],
       ['an unknown command', JSON.stringify({ type: 'format-disk' })],
       ['a non-object', '42'],
     ])('400 for %s', async (_, body) => {
@@ -295,10 +305,10 @@ describe('RemoteControlServer (#64)', () => {
       expect(onCommand).not.toHaveBeenCalled();
     });
 
-    it('rejects a body over 1 KB', async () => {
+    it('rejects a body over 8 KB', async () => {
       const { port, token, onCommand } = await started();
 
-      const reply = await command(port, token, { body: JSON.stringify({ type: 'toggle-play', pad: 'x'.repeat(2000) }) });
+      const reply = await command(port, token, { body: JSON.stringify({ type: 'toggle-play', pad: 'x'.repeat(10_000) }) });
 
       expect([400, 413]).toContain(reply.status);
       expect(onCommand).not.toHaveBeenCalled();
