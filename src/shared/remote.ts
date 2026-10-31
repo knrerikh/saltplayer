@@ -17,6 +17,9 @@ export type RemoteCommand =
   /** A file name from the playlist the phone was shown, never a path. */
   | { type: 'select-episode'; name: string };
 
+/** The port a phone is sent to, fixed so a firewall rule or a bookmark keeps working. */
+export const REMOTE_PORT = 8642;
+
 /** The longest jump the remote may ask for. */
 export const MAX_SEEK_BY_SECONDS = 3600;
 
@@ -50,14 +53,18 @@ export interface RemoteState {
 /** Remote control as the dialog shows it. */
 export interface RemoteStatus {
   enabled: boolean;
-  /** One pairing link per local network address, best first. */
+  /** One pairing link per local network address, best first; by the machine's `.local` name first when there is one. */
   urls: string[];
   /** The first link as a QR code image (data URL). */
   qrDataUrl: string | null;
   port: number | null;
+  /** When the link stops working (epoch ms); null while the remote is off. */
+  expiresAt: number | null;
+  /** The usual port was busy, so a saved link or bookmark does not match this time. */
+  portChanged: boolean;
 }
 
-export const REMOTE_DISABLED: RemoteStatus = { enabled: false, urls: [], qrDataUrl: null, port: null };
+export const REMOTE_DISABLED: RemoteStatus = { enabled: false, urls: [], qrDataUrl: null, port: null, expiresAt: null, portChanged: false };
 
 /** The remote is untrusted input: anything but a known, well-formed command is rejected. */
 export function parseRemoteCommand(value: unknown): RemoteCommand | null {

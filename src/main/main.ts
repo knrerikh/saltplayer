@@ -11,7 +11,8 @@ import { WatchHistory } from './watch-history';
 import { MediaOpener } from './media-opener';
 import { buildAppMenuTemplate, OPEN_FILE_FILTERS, REPOSITORY_URL } from './app-menu';
 import { isSafeExternalUrl } from './external-url';
-import { RemoteControl } from './remote-control/remote-control';
+import { RemoteControl, startRemoteAtLaunch } from './remote-control/remote-control';
+import { RemoteTokenStore } from './remote-control/token-store';
 import { DEFAULT_SETTINGS, IPC_CHANNELS, type AppSettings, type MenuCommand } from '@/shared/types';
 
 // Allow Chromium to play audio/video without user interaction (same as WebTorrent Desktop)
@@ -126,14 +127,18 @@ async function doInitializeApp(): Promise<void> {
     send: sendToPage,
   });
 
-  // Off until the user turns it on from Playback → Remote Control…, every launch.
+  // Off until the user turns it on from Playback → Remote Control…, or has it start with the app.
   remoteControl = new RemoteControl({
     onCommand: (command) => sendToPage(IPC_CHANNELS.REMOTE_COMMAND, command),
     onStatus: (status) => sendToPage(IPC_CHANNELS.REMOTE_STATUS, status),
+    tokens: new RemoteTokenStore(path.join(app.getPath('userData'), 'remote-control.json')),
   });
 
   // Setup IPC handlers
   setupIPCHandlers(torrentEngine, storageManager, mediaOpener, appSettings, watchHistory, remoteControl);
+
+  // The page asks for the status when it loads, so it does not matter that this finishes first.
+  void startRemoteAtLaunch(remoteControl, appSettings.get());
 
   app.setAboutPanelOptions({
     applicationName: 'Salt Player',

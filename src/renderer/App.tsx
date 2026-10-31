@@ -34,6 +34,9 @@ declare global {
       endWindowDrag: () => Promise<void>;
       setWindowFullscreen: (isFullscreen: boolean) => Promise<void>;
       setRemoteEnabled: (enabled: boolean) => Promise<RemoteStatus>;
+      resetRemoteLink: () => Promise<RemoteStatus>;
+      getRemoteStatus: () => Promise<RemoteStatus>;
+      setRemoteAtLaunch: (remoteAtLaunch: boolean) => Promise<void>;
       sendRemoteState: (state: RemoteState) => void;
       onTorrentStatus: (callback: (status: TorrentStatus) => void) => void;
       onVideoUrl: (callback: (url: string, startAt: number | null) => void) => void;
@@ -141,6 +144,9 @@ const App: React.FC = () => {
     });
     window.electronAPI.onSettingsChanged(setSettings);
     window.electronAPI.onRemoteStatus(setRemoteStatus);
+    window.electronAPI.getRemoteStatus().then(setRemoteStatus, (err) => {
+      console.error('Error reading the remote control status:', err);
+    });
 
     window.electronAPI.onMenuCommand((command) => {
       if (command === 'open-url') askForUrl();
@@ -227,17 +233,22 @@ const App: React.FC = () => {
         : window.electronAPI.loadTorrent(filePath)
     );
 
-  const handleSetRemoteEnabled = async (enabled: boolean) => {
+  const handleRemoteChange = async (change: () => Promise<RemoteStatus | void>, fallback: string) => {
     try {
-      setRemoteStatus(await window.electronAPI.setRemoteEnabled(enabled));
+      const status = await change();
+      if (status) setRemoteStatus(status);
     } catch (err: any) {
-      setError({
-        code: 'REMOTE_ERROR',
-        message: err.message || 'Failed to change remote control',
-      });
+      setError({ code: 'REMOTE_ERROR', message: err.message || fallback });
       scheduleErrorDismiss();
     }
   };
+
+  const handleSetRemoteEnabled = (enabled: boolean) =>
+    handleRemoteChange(() => window.electronAPI.setRemoteEnabled(enabled), 'Failed to change remote control');
+  const handleResetRemoteLink = () =>
+    handleRemoteChange(() => window.electronAPI.resetRemoteLink(), 'Failed to reset the remote control link');
+  const handleSetRemoteAtLaunch = (remoteAtLaunch: boolean) =>
+    handleRemoteChange(() => window.electronAPI.setRemoteAtLaunch(remoteAtLaunch), 'Failed to save the setting');
 
   const handleClose = async () => {
     try {
@@ -399,7 +410,10 @@ const App: React.FC = () => {
       {isRemoteDialogVisible && (
         <RemoteControlDialog
           status={remoteStatus}
+          remoteAtLaunch={settings.remoteAtLaunch}
           onSetEnabled={handleSetRemoteEnabled}
+          onResetLink={handleResetRemoteLink}
+          onSetAtLaunch={handleSetRemoteAtLaunch}
           onClose={() => setIsRemoteDialogVisible(false)}
         />
       )}

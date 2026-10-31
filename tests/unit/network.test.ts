@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { NetworkInterfaceInfo } from 'os';
-import { localAddresses } from '@/main/remote-control/network';
+import { localAddresses, localHostName } from '@/main/remote-control/network';
 
 const v4 = (address: string, internal = false): NetworkInterfaceInfo => ({
   address,
@@ -54,5 +54,31 @@ describe('localAddresses (#64)', () => {
 
   it('ignores an interface without addresses', () => {
     expect(localAddresses({ en0: undefined })).toEqual([]);
+  });
+});
+
+describe('localHostName (#74)', () => {
+  it.each([
+    ['Mac-Mini', 'Mac-Mini.local'],
+    ['Mac-Mini.local', 'Mac-Mini.local'],
+    ['name.lan', 'name.local'],
+    ['host.example.com', 'host.local'],
+    ['a1', 'a1.local'],
+  ])('%s is reached as %s', (hostname, expected) => {
+    expect(localHostName(hostname)).toBe(expected);
+  });
+
+  it.each([
+    ['Konstantin’s MacBook'],
+    ['Konstantin’s MacBook.local'],
+    ['my_host'],
+    ['-bad'],
+    ['bad-'],
+    ['.local'],
+    [''],
+    ['a'.repeat(64)],
+    ['bücher'],
+  ])('%j has no usable local name', (hostname) => {
+    expect(localHostName(hostname)).toBeNull();
   });
 });

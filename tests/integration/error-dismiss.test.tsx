@@ -31,6 +31,7 @@ function setupElectronAPIMock() {
     selectFile: vi.fn(),
     prefetchFile: vi.fn(),
     getSettings: vi.fn(() => new Promise(() => {})),
+    getRemoteStatus: vi.fn(() => new Promise(() => {})),
     playbackControl: vi.fn(),
     playbackSeek: vi.fn(),
     savePlaybackPosition: vi.fn(),
