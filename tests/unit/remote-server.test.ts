@@ -263,7 +263,22 @@ describe('RemoteControlServer (#64)', () => {
     });
 
     it.each([
+      ['seek-to', { type: 'seek-to', time: 42 }],
+      ['seek-by', { type: 'seek-by', seconds: -10 }],
+    ])('passes a valid %s on exactly as parsed', async (_, body) => {
+      const { port, token, onCommand } = await started();
+
+      const reply = await command(port, token, { body: JSON.stringify({ ...body, extra: 1 }) });
+
+      expect(reply.status).toBe(204);
+      expect(onCommand).toHaveBeenCalledWith(body);
+    });
+
+    it.each([
       ['not JSON', '{nope'],
+      ['a seek-to with a negative time', JSON.stringify({ type: 'seek-to', time: -5 })],
+      ['a seek-by of zero', JSON.stringify({ type: 'seek-by', seconds: 0 })],
+      ['a seek-by over an hour', JSON.stringify({ type: 'seek-by', seconds: 7200 })],
       ['an unknown command', JSON.stringify({ type: 'format-disk' })],
       ['a non-object', '42'],
     ])('400 for %s', async (_, body) => {

@@ -50,21 +50,21 @@ Turn this off with **Playback → Autoplay Next Episode**. The choice is remembe
 
 ## Remote control
 
-You can play and pause from a phone on the same Wi-Fi network.
+You can play, pause and seek from a phone on the same Wi-Fi network.
 
 1. Choose **Playback → Remote Control…** and turn the switch on.
 2. Scan the QR code with the phone's camera, or type the link into its browser. The link is also selectable, with a **Copy** button.
-3. The phone shows the title, the time and a large play/pause button, and follows the player live. *Reconnecting…* appears if the connection drops, and it recovers by itself.
+3. The phone shows the title, a timeline with the current time and duration, **−30**, **−10**, **+10** and **+30** buttons around a large play/pause button, and follows the player live. The buttons jump back or forward by that many seconds. Drag the timeline to move playback: the time under your finger shows where you would land, and playback moves when you let go. The seek buttons and the timeline are off until a video with a known length is playing. *Reconnecting…* appears if the connection drops, and it recovers by itself.
 
 Things to know:
 
 - **Same network.** The phone and the computer must be on the same local network. It does not work over the internet or from a guest network that isolates devices.
 - **Firewall prompt.** The first time, macOS or Windows may ask whether Salt Player may accept incoming network connections. Allow it, or the phone cannot connect.
-- **A new link each time.** The link contains a random token that changes every time the remote is turned on, so an old link or bookmark stops working. Anyone who has the current link and is on your network can pause and play until you turn it off.
+- **A new link each time.** The link contains a random token that changes every time the remote is turned on, so an old link or bookmark stops working. Anyone who has the current link and is on your network can pause, play and seek until you turn it off.
 - **Off by default.** Remote control is off at every launch and the choice is not saved. While it is on, the status bar shows *Remote on*; click it to reopen the dialog.
 - **Turning it off.** Use the switch in the dialog, or quit Salt Player. The phone then shows *Remote control is off* and the link no longer opens.
 
-The remote can only play and pause. It cannot open or read files, or reach anything else on your computer.
+The remote can only play, pause and seek. It cannot open or read files, or reach anything else on your computer.
 
 ## Keyboard shortcuts
 

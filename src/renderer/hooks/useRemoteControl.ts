@@ -9,12 +9,15 @@ interface RemoteControlOptions extends Omit<RemoteState, 'title'> {
   enabled: boolean;
   title: string | undefined;
   togglePlay: () => void;
+  /** Moves playback to a time in seconds, like a click on the progress bar. */
+  seekTo: (time: number) => void;
 }
 
 /**
  * Connects the player to the phone: a command from it runs the same action as the key or
  * button, and while the remote is on the player's state is sent to it. A change of what
- * is playing or whether it plays goes out at once; the time at most once a second.
+ * is playing or whether it plays goes out at once, and so does the time after a seek;
+ * otherwise the time goes out at most once a second.
  */
 export function useRemoteControl({
   enabled,
@@ -24,20 +27,14 @@ export function useRemoteControl({
   currentTime,
   duration,
   togglePlay,
+  seekTo,
 }: RemoteControlOptions) {
-  const latestRef = useRef({ hasVideo, title: title ?? null, isPlaying, currentTime, duration, togglePlay });
+  const latestRef = useRef({ enabled, hasVideo, title: title ?? null, isPlaying, currentTime, duration, togglePlay, seekTo });
   useEffect(() => {
-    latestRef.current = { hasVideo, title: title ?? null, isPlaying, currentTime, duration, togglePlay };
+    latestRef.current = { enabled, hasVideo, title: title ?? null, isPlaying, currentTime, duration, togglePlay, seekTo };
   });
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const lastSentAtRef = useRef(0);
-
-  useEffect(() => {
-    window.electronAPI.onRemoteCommand((command) => {
-      if (command.type === 'toggle-play') latestRef.current.togglePlay();
-    });
-    return () => window.electronAPI.removeAllListeners('remote:command');
-  }, []);
 
   const send = useCallback(() => {
     clearTimeout(timerRef.current);
@@ -46,6 +43,24 @@ export function useRemoteControl({
     const { hasVideo, title, isPlaying, currentTime, duration } = latestRef.current;
     window.electronAPI.sendRemoteState({ hasVideo, title, isPlaying, currentTime, duration });
   }, []);
+
+  useEffect(() => {
+    window.electronAPI.onRemoteCommand((command) => {
+      const latest = latestRef.current;
+      if (command.type === 'toggle-play') {
+        latest.togglePlay();
+        return;
+      }
+      if (!latest.hasVideo || !(latest.duration > 0)) return;
+      const target = command.type === 'seek-by' ? latest.currentTime + command.seconds : command.time;
+      const time = Math.min(Math.max(target, 0), latest.duration);
+      latest.seekTo(time);
+      // The player's own time catches up with the next timeupdate; the phone should not wait for it.
+      latestRef.current = { ...latest, currentTime: time };
+      if (latest.enabled) send();
+    });
+    return () => window.electronAPI.removeAllListeners('remote:command');
+  }, [send]);
 
   useEffect(() => {
     if (enabled) send();

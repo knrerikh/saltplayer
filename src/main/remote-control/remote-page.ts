@@ -10,12 +10,14 @@ const STYLE = `
   }
   h1 { margin: 0; max-width: 100%; font-size: 20px; font-weight: 500; text-align: center; overflow-wrap: anywhere; }
   #time { font-size: 28px; font-variant-numeric: tabular-nums; color: #b0b0b0; }
-  #toggle {
-    width: 160px; height: 160px; border: 0; border-radius: 50%;
-    background: #4a9eff; color: #fff; font-size: 64px; line-height: 1;
-  }
-  #toggle:active { background: #3a8eef; }
-  #toggle:disabled { background: #3a3a3a; color: #b0b0b0; }
+  #timeline { width: 100%; max-width: 480px; height: 44px; margin: 0; accent-color: #4a9eff; }
+  #timeline:disabled { opacity: 0.4; }
+  #controls { display: flex; align-items: center; justify-content: center; gap: 12px; }
+  button { border: 0; background: #4a9eff; color: #fff; line-height: 1; }
+  button:active { background: #3a8eef; }
+  button:disabled { background: #3a3a3a; color: #b0b0b0; }
+  .skip { width: 56px; height: 56px; border-radius: 50%; font-size: 16px; font-variant-numeric: tabular-nums; }
+  #toggle { width: 120px; height: 120px; border-radius: 50%; font-size: 48px; }
   #connection { font-size: 14px; color: #b0b0b0; }
   #connection[data-state='connected'] { color: #4aff4a; }
   #connection[data-state='off'] { color: #ff4a4a; }
@@ -27,6 +29,10 @@ const SCRIPT = `
   const title = document.getElementById('title');
   const time = document.getElementById('time');
   const toggle = document.getElementById('toggle');
+  const timeline = document.getElementById('timeline');
+  const skips = document.querySelectorAll('.skip');
+  let duration = 0;
+  let dragging = false;
   const connection = document.getElementById('connection');
 
   const clock = (seconds) => {
@@ -42,20 +48,46 @@ const SCRIPT = `
     connection.textContent = text;
   };
 
+  const showTime = (seconds) => {
+    time.textContent = clock(seconds) + ' / ' + clock(duration);
+  };
+
+  const send = (command) => {
+    fetch('/api/command', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(command),
+    }).catch(() => showConnection('reconnecting', 'Reconnecting\\u2026'));
+  };
+
   const render = (state) => {
     title.textContent = state.hasVideo ? (state.title || 'Playing') : 'Nothing is playing';
-    time.textContent = clock(state.currentTime) + ' / ' + clock(state.duration);
+    duration = state.duration;
+    const canSeek = state.hasVideo && duration > 0;
+    timeline.disabled = !canSeek;
+    skips.forEach((button) => { button.disabled = !canSeek; });
+    timeline.max = String(duration);
+    // The thumb stays under the finger; the next state after the release moves it.
+    if (!dragging) {
+      timeline.value = String(state.currentTime);
+      showTime(state.currentTime);
+    }
     toggle.textContent = state.isPlaying ? '\\u23F8' : '\\u25B6';
     toggle.setAttribute('aria-label', state.isPlaying ? 'Pause' : 'Play');
     toggle.disabled = !state.hasVideo;
   };
 
-  toggle.addEventListener('click', () => {
-    fetch('/api/command', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'toggle-play' }),
-    }).catch(() => showConnection('reconnecting', 'Reconnecting\\u2026'));
+  toggle.addEventListener('click', () => send({ type: 'toggle-play' }));
+  skips.forEach((button) => {
+    button.addEventListener('click', () => send({ type: 'seek-by', seconds: Number(button.dataset.seconds) }));
+  });
+  timeline.addEventListener('input', () => {
+    dragging = true;
+    showTime(Number(timeline.value));
+  });
+  timeline.addEventListener('change', () => {
+    dragging = false;
+    send({ type: 'seek-to', time: Number(timeline.value) });
   });
 
   const events = new EventSource('/api/events?t=' + encodeURIComponent(token));
@@ -82,7 +114,14 @@ export function remotePage(nonce: string): string {
 <body>
 <h1 id="title">Nothing is playing</h1>
 <div id="time">0:00 / 0:00</div>
-<button id="toggle" type="button" aria-label="Play" disabled>▶</button>
+<input id="timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Position" disabled>
+<div id="controls">
+  <button class="skip" type="button" data-seconds="-30" aria-label="Back 30 seconds" disabled>−30</button>
+  <button class="skip" type="button" data-seconds="-10" aria-label="Back 10 seconds" disabled>−10</button>
+  <button id="toggle" type="button" aria-label="Play" disabled>▶</button>
+  <button class="skip" type="button" data-seconds="10" aria-label="Forward 10 seconds" disabled>+10</button>
+  <button class="skip" type="button" data-seconds="30" aria-label="Forward 30 seconds" disabled>+30</button>
+</div>
 <div id="connection" data-state="reconnecting">Reconnecting…</div>
 <script nonce="${nonce}">${SCRIPT}</script>
 </body>
