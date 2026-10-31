@@ -27,15 +27,15 @@ function reach(status: RemoteStatus, token: string, path = '/'): Promise<number>
   });
 }
 
-const isListening = (port: number) =>
-  new Promise<boolean>((resolve) => {
-    const socket = net.connect(port, '127.0.0.1');
-    socket.once('connect', () => {
-      socket.destroy();
-      resolve(true);
-    });
-    socket.once('error', () => resolve(false));
-  });
+/**
+ * Whether our server answers with the remote page. Not "something accepts connections on
+ * the port": the port may be a random one that the system hands to another test file once ours is closed.
+ */
+const servesRemote = (status: RemoteStatus) =>
+  reach(status, tokenOf(status.urls[0])).then(
+    (code) => code === 200,
+    () => false,
+  );
 
 describe('RemoteControl (#64)', () => {
   const created: RemoteControl[] = [];
@@ -253,7 +253,7 @@ describe('RemoteControl (#64)', () => {
       expect(tokenOf(reset.urls[0])).not.toBe(tokenOf(on.urls[0]));
       expect(off.enabled).toBe(false);
       expect(remote.status.enabled).toBe(false);
-      expect(await isListening(on.port!)).toBe(false);
+      expect(await servesRemote(on)).toBe(false);
     });
   });
 
@@ -271,7 +271,7 @@ describe('RemoteControl (#64)', () => {
 
       expect(second).toBe(first);
       expect(onStatus).toHaveBeenCalledTimes(1);
-      expect(await isListening(first.port!)).toBe(true);
+      expect(await servesRemote(first)).toBe(true);
     });
 
     it('on and off issued together end off with the port closed', async () => {
@@ -281,7 +281,7 @@ describe('RemoteControl (#64)', () => {
 
       expect(off.enabled).toBe(false);
       expect(remote.status.enabled).toBe(false);
-      expect(await isListening(on.port!)).toBe(false);
+      expect(await servesRemote(on)).toBe(false);
     });
   });
 });

@@ -40,6 +40,16 @@ function request(port: number, { method = 'GET', path = '/', headers = {}, body 
   });
 }
 
+/**
+ * Whether our server answers with the remote page. A closed port is not proof that it is
+ * ours that is closed: the system may hand the same random port to another test file.
+ */
+const serves = (port: number, token: string) =>
+  request(port, { path: `/?t=${token}` }).then(
+    (reply) => reply.status === 200 && reply.body.includes('Salt Player Remote'),
+    () => false,
+  );
+
 const command = (port: number, token: string, overrides: RequestOptions = {}) =>
   request(port, {
     method: 'POST',
@@ -121,7 +131,7 @@ describe('RemoteControlServer (#64)', () => {
       await server.stop();
 
       expect(server.isRunning).toBe(false);
-      await expect(request(port, { path: `/?t=${token}` })).rejects.toMatchObject({ code: 'ECONNREFUSED' });
+      expect(await serves(port, token)).toBe(false);
     });
 
     it('two start() calls at once share one server', async () => {
@@ -133,7 +143,7 @@ describe('RemoteControlServer (#64)', () => {
       expect(second).toEqual(first);
       expect((await request(first.port, { path: `/?t=${TOKEN}` })).status).toBe(200);
       await server.stop();
-      await expect(request(first.port, { path: `/?t=${TOKEN}` })).rejects.toMatchObject({ code: 'ECONNREFUSED' });
+      expect(await serves(first.port, TOKEN)).toBe(false);
     });
 
     it('stop() during a start leaves nothing listening', async () => {
@@ -145,7 +155,7 @@ describe('RemoteControlServer (#64)', () => {
       const { port } = await starting;
 
       expect(server.isRunning).toBe(false);
-      await expect(request(port, { path: `/?t=${TOKEN}` })).rejects.toMatchObject({ code: 'ECONNREFUSED' });
+      expect(await serves(port, TOKEN)).toBe(false);
     });
 
     it('stop() is harmless when not running', async () => {
