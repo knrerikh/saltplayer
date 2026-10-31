@@ -9,7 +9,7 @@ import { remotePage } from './remote-page';
 /** The port a phone is sent to, fixed so a firewall rule or a bookmark keeps working. */
 export const REMOTE_PORT = 8642;
 
-const MAX_BODY_BYTES = 1024;
+const MAX_BODY_BYTES = 8 * 1024;
 const MAX_EVENT_CLIENTS = 8;
 const PING_INTERVAL_MS = 25_000;
 const RATE_WINDOW_MS = 10_000;

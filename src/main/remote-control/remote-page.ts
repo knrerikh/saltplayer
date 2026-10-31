@@ -16,8 +16,15 @@ const STYLE = `
   button { border: 0; background: #4a9eff; color: #fff; line-height: 1; }
   button:active { background: #3a8eef; }
   button:disabled { background: #3a3a3a; color: #b0b0b0; }
-  .skip { width: 56px; height: 56px; border-radius: 50%; font-size: 16px; font-variant-numeric: tabular-nums; }
+  .skip, .step { width: 56px; height: 56px; border-radius: 50%; font-size: 16px; font-variant-numeric: tabular-nums; }
   #toggle { width: 120px; height: 120px; border-radius: 50%; font-size: 48px; }
+  #episodes { display: flex; align-items: center; gap: 12px; width: 100%; max-width: 480px; }
+  #episodes[hidden] { display: none; }
+  #episode-list {
+    flex: 1; min-width: 0; height: 56px; padding: 0 12px; border: 0; border-radius: 28px;
+    background: #3a3a3a; color: #fff; font-size: 16px; text-overflow: ellipsis;
+  }
+  #episode-list:disabled { opacity: 0.4; }
   #volume-row { display: flex; align-items: center; gap: 12px; width: 100%; max-width: 480px; }
   #volume { flex: 1; min-width: 0; height: 44px; margin: 0; accent-color: #4a9eff; }
   #options { display: flex; align-items: center; justify-content: center; gap: 12px; }
@@ -42,6 +49,10 @@ const SCRIPT = `
   const mute = document.getElementById('mute');
   const fullscreen = document.getElementById('fullscreen');
   const close = document.getElementById('close');
+  const episodes = document.getElementById('episodes');
+  const episodeList = document.getElementById('episode-list');
+  const previous = document.getElementById('previous');
+  const next = document.getElementById('next');
   const skips = document.querySelectorAll('.skip');
   let duration = 0;
   let dragging = false;
@@ -74,6 +85,21 @@ const SCRIPT = `
     }).catch(() => showConnection('reconnecting', 'Reconnecting\\u2026'));
   };
 
+  const showEpisodes = (state) => {
+    episodes.hidden = state.episodes.length === 0;
+    if (episodeList.length !== state.episodes.length || state.episodes.some((name, i) => episodeList.options[i].textContent !== name)) {
+      episodeList.replaceChildren(...state.episodes.map((name) => {
+        const option = document.createElement('option');
+        option.textContent = name;
+        return option;
+      }));
+    }
+    episodeList.selectedIndex = state.episodeIndex;
+    episodeList.disabled = !state.hasVideo;
+    previous.disabled = !state.hasVideo || !state.hasPrevious;
+    next.disabled = !state.hasVideo || !state.hasNext;
+  };
+
   const render = (state) => {
     title.textContent = state.hasVideo ? (state.title || 'Playing') : 'Nothing is playing';
     duration = state.duration;
@@ -97,6 +123,7 @@ const SCRIPT = `
     fullscreen.textContent = state.isFullscreen ? 'Exit fullscreen' : 'Fullscreen';
     fullscreen.disabled = !state.hasVideo;
     close.disabled = !state.hasVideo;
+    showEpisodes(state);
   };
 
   toggle.addEventListener('click', () => send({ type: 'toggle-play' }));
@@ -116,6 +143,11 @@ const SCRIPT = `
   volume.addEventListener('change', () => {
     volumeDragging = false;
     send({ type: 'set-volume', volume: Number(volume.value) / 100 });
+  });
+  previous.addEventListener('click', () => send({ type: 'previous-episode' }));
+  next.addEventListener('click', () => send({ type: 'next-episode' }));
+  episodeList.addEventListener('change', () => {
+    send({ type: 'select-episode', name: episodeList.options[episodeList.selectedIndex].textContent });
   });
   mute.addEventListener('click', () => send({ type: 'set-muted', muted: !muted }));
   fullscreen.addEventListener('click', () => send({ type: 'toggle-fullscreen' }));
@@ -154,6 +186,11 @@ export function remotePage(nonce: string): string {
   <button id="toggle" type="button" aria-label="Play" disabled>▶</button>
   <button class="skip" type="button" data-seconds="10" aria-label="Forward 10 seconds" disabled>+10</button>
   <button class="skip" type="button" data-seconds="30" aria-label="Forward 30 seconds" disabled>+30</button>
+</div>
+<div id="episodes" hidden>
+  <button id="previous" class="step" type="button" aria-label="Previous episode" disabled>⏮</button>
+  <select id="episode-list" aria-label="Episode" disabled></select>
+  <button id="next" class="step" type="button" aria-label="Next episode" disabled>⏭</button>
 </div>
 <div id="volume-row">
   <button id="mute" class="option" type="button" aria-label="Mute">🔊</button>
