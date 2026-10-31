@@ -672,71 +672,69 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 {formatTime(currentTime)} / {formatTime(duration)}
               </div>
               
-              <button
-                type="button"
-                className="control-button"
-                onClick={(e) => { e.stopPropagation(); changeMuted(!muted); }}
-                title={muted ? 'Unmute' : 'Mute'}
-                aria-label={muted ? 'Unmute' : 'Mute'}
-              >
-                {muted || volume === 0 ? '🔇' : '🔊'}
-              </button>
-
-              {audioData && audioData.tracks.length > 1 && onSelectAudioTrack ? (
-                <div className="volume-group" ref={audioControlRef}>
-                  <div className="volume-slider-pill">
-                    <input
-                      type="range"
-                      className="volume-control"
-                      min="0"
-                      max="1"
-                      step="0.05"
-                      value={volume}
-                      onChange={(e) => changeVolume(parseFloat(e.target.value))}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </div>
+              <div className="volume-group" ref={audioControlRef}>
+                <div className="volume-slider-pill">
                   <button
                     type="button"
-                    className="volume-track-arrow"
-                    onClick={(e) => { e.stopPropagation(); setAudioMenuOpen((open) => !open); }}
-                    title="Audio track"
-                    aria-expanded={audioMenuOpen}
+                    className="mute-button"
+                    onClick={(e) => { e.stopPropagation(); changeMuted(!muted); }}
+                    title={muted ? 'Unmute' : 'Mute'}
+                    aria-label={muted ? 'Unmute' : 'Mute'}
                   >
-                    ▼
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+                      <path d="M3 9v6h4l5 5V4L7 9H3z" />
+                      {muted || volume === 0 ? (
+                        <path d="M16.3 9.7l1.4-1.4 2.3 2.3 2.3-2.3 1.4 1.4-2.3 2.3 2.3 2.3-1.4 1.4-2.3-2.3-2.3 2.3-1.4-1.4 2.3-2.3-2.3-2.3z" />
+                      ) : (
+                        <path d="M16.5 12A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z" />
+                      )}
+                    </svg>
                   </button>
-                  {audioMenuOpen && (
-                    <div className="audio-menu" role="menu">
-                      {audioData.tracks.map((track, index) => (
-                        <button
-                          key={track.index}
-                          type="button"
-                          role="menuitem"
-                          className={`audio-menu-item${index === selectedAudioTrackIndex ? ' active' : ''}`}
-                          onClick={() => {
-                            setSelectedAudioTrackIndex(index);
-                            pendingAudioSwitchTime.current = currentTime;
-                            onSelectAudioTrack(track.index);
-                            setAudioMenuOpen(false);
-                          }}
-                        >
-                          {getAudioDisplayName(track)}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <input
+                    type="range"
+                    className="volume-control"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={volume}
+                    onChange={(e) => changeVolume(parseFloat(e.target.value))}
+                    onClick={(e) => e.stopPropagation()}
+                  />
                 </div>
-              ) : (
-                <input
-                  type="range"
-                  className="volume-control"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={volume}
-                  onChange={(e) => changeVolume(parseFloat(e.target.value))}
-                />
-              )}
+                {audioData && audioData.tracks.length > 1 && onSelectAudioTrack && (
+                  <>
+                    <button
+                      type="button"
+                      className="volume-track-arrow"
+                      onClick={(e) => { e.stopPropagation(); setAudioMenuOpen((open) => !open); }}
+                      title="Audio track"
+                      aria-expanded={audioMenuOpen}
+                    >
+                      ▼
+                    </button>
+                    {audioMenuOpen && (
+                      <div className="audio-menu" role="menu">
+                        {audioData.tracks.map((track, index) => (
+                          <button
+                            key={track.index}
+                            type="button"
+                            role="menuitem"
+                            className={`audio-menu-item${index === selectedAudioTrackIndex ? ' active' : ''}`}
+                            onClick={() => {
+                              setSelectedAudioTrackIndex(index);
+                              pendingAudioSwitchTime.current = currentTime;
+                              onSelectAudioTrack(track.index);
+                              setAudioMenuOpen(false);
+                            }}
+                          >
+                            {getAudioDisplayName(track)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
 
               {subtitleData?.hasEmbeddedSubtitles && (
                 <div className="subtitle-control" ref={subtitleControlRef}>
