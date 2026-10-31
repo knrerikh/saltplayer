@@ -78,7 +78,7 @@ All channel names live in `IPC_CHANNELS` (`src/shared/types.ts`).
 | --- | --- |
 | `/<file>` | The file itself, with HTTP range support |
 | `/<file>?transcode=true[&startTime=<s>][&audioTrack=<index>]` | Matroska stream from ffmpeg: video copied, audio transcoded to stereo AAC (or copied when the selected track is already playable). The input is the server's own raw URL, so ffmpeg can read the container index and `seekInput` accurately. |
-| `/subtitle/<index>.vtt` | The embedded subtitle stream `<index>`, converted to WebVTT by ffmpeg on request |
+| `/subtitle/<index>.vtt[?startTime=<s>]` | The embedded subtitle stream `<index>`, converted to WebVTT by ffmpeg on request. With `startTime` (finite, above 0; anything else is ignored) ffmpeg seeks the input, so cue times start at 0 like the transcoded stream restarted at that offset |
 
 ### Local files
 
@@ -88,11 +88,11 @@ The streaming server plays a `MediaSource`: a name, a length and `createReadStre
 
 ### Seeking
 
-In direct mode the `<video>` element seeks with range requests. In transcode mode the renderer reloads the URL with `startTime`, restarting ffmpeg at that offset. In both modes `playback:seek` moves the piece window to the byte offset that corresponds to the new time.
+In direct mode the `<video>` element seeks with range requests. In transcode mode the renderer reloads the URL with `startTime`, restarting ffmpeg at that offset; the subtitle `<track>` is requested with the same `startTime` (a new element per URL, so Chromium loads the new cues), because the restarted stream's clock starts at 0. In both modes `playback:seek` moves the piece window to the byte offset that corresponds to the new time.
 
 ### Audio tracks and subtitles
 
-When there is more than one audio track, the renderer offers a menu. Choosing a track calls `audio:selectTrack`, and main replies with a new transcode URL that maps only that stream (`-map 0:v:0 -map 0:<index>`); playback resumes from the current position. Subtitle tracks are listed with human-readable language names and attached as `<track>` elements pointing at `/subtitle/<index>.vtt`.
+When there is more than one audio track, the renderer offers a menu. Choosing a track calls `audio:selectTrack`, and main replies with a new transcode URL that maps only that stream (`-map 0:v:0 -map 0:<index>`); playback resumes from the current position. Subtitle tracks are listed with human-readable language names and attached as `<track>` elements pointing at `/subtitle/<index>.vtt` (with `?startTime=` in transcode mode, see above).
 
 ### Resuming playback
 

@@ -144,6 +144,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     return videoUrl?.includes('transcode=true') || false;
   }, [videoUrl]);
 
+  // The subtitle track starts where the restarted stream does: its cue times are
+  // relative to the stream's own clock, which timeOffset converts to film time.
+  const subtitleUrl = useMemo(() => {
+    const trackUrl = subtitleData?.tracks[currentSubtitleIndex]?.url;
+    if (!trackUrl || !isTranscode || timeOffset <= 0) return trackUrl;
+    const url = new URL(trackUrl);
+    url.searchParams.set('startTime', Math.floor(timeOffset).toString());
+    return url.toString();
+  }, [subtitleData?.tracks, currentSubtitleIndex, isTranscode, timeOffset]);
+
   // Reset time offset and subtitle index when video URL changes (but not for audio track switches)
   useEffect(() => {
     if (pendingAudioSwitchTime.current !== null) return;
@@ -528,8 +538,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           >
             {subtitleData?.tracks && subtitleData.tracks.length > 0 && subtitlesEnabled && (
               <track
+                // A new element per URL: Chromium does not reload cues when src changes.
+                key={subtitleUrl}
                 kind="subtitles"
-                src={subtitleData.tracks[currentSubtitleIndex]?.url}
+                src={subtitleUrl}
                 srcLang={subtitleData.tracks[currentSubtitleIndex]?.language}
                 default
               />
