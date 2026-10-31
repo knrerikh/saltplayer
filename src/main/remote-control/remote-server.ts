@@ -1,13 +1,10 @@
 import * as crypto from 'crypto';
 import * as http from 'http';
 import type { AddressInfo } from 'net';
-import { parseRemoteCommand, type RemoteCommand, type RemoteState } from '@/shared/remote';
-import { localAddresses } from './network';
+import { parseRemoteCommand, REMOTE_PORT, type RemoteCommand, type RemoteState } from '@/shared/remote';
+import { localAddresses, localHostName } from './network';
 import { RateLimiter } from './rate-limiter';
 import { remotePage } from './remote-page';
-
-/** The port a phone is sent to, fixed so a firewall rule or a bookmark keeps working. */
-export const REMOTE_PORT = 8642;
 
 const MAX_BODY_BYTES = 8 * 1024;
 const MAX_EVENT_CLIENTS = 8;
@@ -21,23 +18,35 @@ export interface RemoteControlServerOptions {
   onCommand(command: RemoteCommand): void;
   /** Local network addresses the server may be reached at; the Host header must be one of them. */
   addresses?: () => string[];
+  /** The machine's `.local` name, which the Host header may also carry; null if it has none. */
+  localName?: () => string | null;
+  /** Epoch ms; injectable for tests. */
+  now?: () => number;
+}
+
+/** What lets a phone in: the token from the link, and until when. */
+export interface RemoteCredentials {
+  token: string;
+  /** Epoch ms; from then on the token is refused even if it matches. */
+  expiresAt: number;
 }
 
 /**
  * The remote control: a page for a phone on the local network, commands from it, and
  * the player's state pushed back as Server-Sent Events. It is separate from the
  * streaming server, which listens on loopback only, and exists only between start() and
- * stop(). A phone is let in by a random token in the link, new on every start; see
- * docs/ARCHITECTURE.md for the threat model.
+ * stop(). A phone is let in by a random token in the link, which the caller issues and
+ * keeps for 30 days; see docs/ARCHITECTURE.md for the threat model.
  */
 export class RemoteControlServer {
   private server: http.Server | null = null;
-  private token = '';
+  private credentials: RemoteCredentials = { token: '', expiresAt: 0 };
   private port = 0;
+  private portChanged = false;
   private lastState: RemoteState | null = null;
   private readonly eventClients = new Set<http.ServerResponse>();
   private readonly rateLimiter = new RateLimiter(RATE_LIMIT, RATE_WINDOW_MS);
-  private starting: Promise<{ port: number; token: string }> | null = null;
+  private starting: Promise<{ port: number; portChanged: boolean }> | null = null;
   private pingTimer: NodeJS.Timeout | null = null;
 
   constructor(private readonly options: RemoteControlServerOptions) {}
@@ -46,19 +55,24 @@ export class RemoteControlServer {
     return this.server !== null;
   }
 
-  /** Starts listening on all interfaces; calling it while running or starting returns the same port and token. */
-  start(): Promise<{ port: number; token: string }> {
-    if (this.server) return Promise.resolve({ port: this.port, token: this.token });
-    this.starting ??= this.listen().finally(() => {
+  /**
+   * Starts listening on all interfaces and lets in `credentials`. `portChanged` says the
+   * preferred port was taken, so links made for it do not match. Calling it while running
+   * or starting changes nothing and returns the same port; use setCredentials() to swap the token.
+   */
+  start(credentials: RemoteCredentials): Promise<{ port: number; portChanged: boolean }> {
+    if (this.server) return Promise.resolve({ port: this.port, portChanged: this.portChanged });
+    this.starting ??= this.listen(credentials).finally(() => {
       this.starting = null;
     });
     return this.starting;
   }
 
-  private async listen(): Promise<{ port: number; token: string }> {
+  private async listen(credentials: RemoteCredentials): Promise<{ port: number; portChanged: boolean }> {
     const server = http.createServer((req, res) => this.handle(req, res));
+    const preferred = this.options.port ?? REMOTE_PORT;
     try {
-      await listenOn(server, this.options.port ?? REMOTE_PORT).catch((error: NodeJS.ErrnoException) => {
+      await listenOn(server, preferred).catch((error: NodeJS.ErrnoException) => {
         if (error.code !== 'EADDRINUSE') throw error;
         return listenOn(server, 0);
       });
@@ -69,13 +83,25 @@ export class RemoteControlServer {
 
     this.server = server;
     this.port = (server.address() as AddressInfo).port;
-    this.token = crypto.randomBytes(16).toString('base64url');
+    this.portChanged = this.port !== preferred && preferred !== 0;
+    this.credentials = credentials;
     this.pingTimer = setInterval(() => this.writeToClients(': ping\n\n'), PING_INTERVAL_MS);
     this.pingTimer.unref();
-    return { port: this.port, token: this.token };
+    return { port: this.port, portChanged: this.portChanged };
   }
 
-  /** Ends every stream and closes the port, after a start still under way. The next start() issues a new token. */
+  /** Switches to a new token and ends every stream, so phones that hold the old one reconnect and get 401. */
+  setCredentials(credentials: RemoteCredentials): void {
+    this.credentials = credentials;
+    this.endEventStreams();
+  }
+
+  private endEventStreams(): void {
+    for (const client of this.eventClients) client.end();
+    this.eventClients.clear();
+  }
+
+  /** Ends every stream and closes the port, after a start still under way. */
   async stop(): Promise<void> {
     await this.starting?.catch(() => undefined);
     const server = this.server;
@@ -83,8 +109,7 @@ export class RemoteControlServer {
     this.server = null;
     if (this.pingTimer) clearInterval(this.pingTimer);
     this.pingTimer = null;
-    for (const client of this.eventClients) client.end();
-    this.eventClients.clear();
+    this.endEventStreams();
     this.rateLimiter.clear();
     this.lastState = null;
     await new Promise<void>((resolve) => {
@@ -132,17 +157,22 @@ export class RemoteControlServer {
     else this.sendPage(res);
   }
 
-  /** A name that is not ours means the request came through a DNS entry pointed at us (rebinding). */
+  /**
+   * A name that is not ours means the request came through a DNS entry pointed at us (rebinding).
+   * Host names are case-insensitive, and a phone may type the `.local` name in any case.
+   */
   private isKnownHost(host: string | undefined): boolean {
-    const names = [...(this.options.addresses ?? localAddresses)(), 'localhost', '127.0.0.1'];
-    return names.some((name) => host === `${name}:${this.port}`);
+    const localName = (this.options.localName ?? localHostName)();
+    const names = [...(this.options.addresses ?? localAddresses)(), 'localhost', '127.0.0.1', ...(localName ? [localName] : [])];
+    return host !== undefined && names.some((name) => host.toLowerCase() === `${name.toLowerCase()}:${this.port}`);
   }
 
   private isToken(given: string | null | undefined): boolean {
     if (!given) return false;
-    const actual = Buffer.from(this.token);
+    const actual = Buffer.from(this.credentials.token);
     const candidate = Buffer.from(given);
-    return candidate.length === actual.length && crypto.timingSafeEqual(candidate, actual);
+    const matches = candidate.length === actual.length && crypto.timingSafeEqual(candidate, actual);
+    return matches && (this.options.now ?? Date.now)() < this.credentials.expiresAt;
   }
 
   private sendPage(res: http.ServerResponse): void {

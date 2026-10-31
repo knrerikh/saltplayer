@@ -160,9 +160,15 @@ const SCRIPT = `
   events.addEventListener('state', (event) => render(JSON.parse(event.data)));
   events.addEventListener('error', () => {
     // The browser retries by itself while the stream is only interrupted; a closed one
-    // means the server refused it or was turned off.
-    if (events.readyState === EventSource.CLOSED) showConnection('off', 'Remote control is off');
-    else showConnection('reconnecting', 'Reconnecting\\u2026');
+    // means the server refused it. Only the server can tell why: it answers 401 when the
+    // link expired or was reset, and does not answer when the remote is off.
+    if (events.readyState !== EventSource.CLOSED) return showConnection('reconnecting', 'Reconnecting\\u2026');
+    fetch('/?t=' + encodeURIComponent(token), { cache: 'no-store' }).then(
+      (response) => showConnection('off', response.status === 401
+        ? 'This link has expired or was reset \\u2014 scan the new code'
+        : 'Remote control is off'),
+      () => showConnection('off', 'Remote control is off'),
+    );
   });
 `;
 

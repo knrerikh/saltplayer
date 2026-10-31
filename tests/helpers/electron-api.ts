@@ -68,6 +68,10 @@ export function mockElectronAPI() {
       listeners.settingsChanged = callback;
     }),
     setRemoteEnabled: vi.fn(),
+    resetRemoteLink: vi.fn(),
+    // Like getSettings: never settles unless a test says so.
+    getRemoteStatus: vi.fn(() => new Promise<RemoteStatus>(() => {})),
+    setRemoteAtLaunch: vi.fn().mockResolvedValue(undefined),
     sendRemoteState: vi.fn(),
     onRemoteStatus: vi.fn((callback: (status: RemoteStatus) => void) => {
       listeners.remoteStatus = callback;

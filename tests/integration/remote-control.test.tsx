@@ -12,8 +12,10 @@ const ON: RemoteStatus = {
   urls: ['http://192.168.1.5:8642/?t=secret'],
   qrDataUrl: 'data:image/png;base64,AAAA',
   port: 8642,
+  expiresAt: new Date(2026, 10, 30, 12).getTime(),
+  portChanged: false,
 };
-const OFF: RemoteStatus = { enabled: false, urls: [], qrDataUrl: null, port: null };
+const OFF: RemoteStatus = { enabled: false, urls: [], qrDataUrl: null, port: null, expiresAt: null, portChanged: false };
 
 describe('Remote control (#64)', () => {
   let electron: ReturnType<typeof mockElectronAPI>;
@@ -89,6 +91,122 @@ describe('Remote control (#64)', () => {
       openDialog();
 
       expect(screen.getByText(/No local network found/)).toBeInTheDocument();
+    });
+
+    it('shows the remote that main started at launch', async () => {
+      electron.api.getRemoteStatus.mockResolvedValue(ON);
+      render(<App />);
+      await waitFor(() => expect(screen.getByText('Remote on')).toBeInTheDocument());
+      openDialog();
+
+      expect(screen.getByRole('switch')).toBeChecked();
+    });
+
+    it('shows when the link stops working (#74)', () => {
+      render(<App />);
+      electron.pushRemoteStatus(ON);
+      openDialog();
+
+      expect(screen.getByText(/Link valid until/)).toHaveTextContent(new Date(ON.expiresAt!).toLocaleDateString());
+    });
+
+    it('does not show an expiry while the remote is off', () => {
+      render(<App />);
+      openDialog();
+
+      expect(screen.queryByText(/Link valid until/)).toBeNull();
+    });
+
+    it('warns that saved links do not work when the usual port was busy (#74)', () => {
+      render(<App />);
+      electron.pushRemoteStatus({ ...ON, portChanged: true });
+      openDialog();
+
+      expect(screen.getByText(/saved links will not work this time/)).toBeInTheDocument();
+    });
+
+    it('has no port warning when the usual port was free', () => {
+      render(<App />);
+      electron.pushRemoteStatus(ON);
+      openDialog();
+
+      expect(screen.queryByText(/saved links will not work/)).toBeNull();
+    });
+
+    describe('Reset link (#74)', () => {
+      const RESET: RemoteStatus = { ...ON, urls: ['http://192.168.1.5:8642/?t=fresh'] };
+
+      it('asks first, because open remotes stop working', () => {
+        render(<App />);
+        electron.pushRemoteStatus(ON);
+        openDialog();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Reset link' }));
+
+        expect(screen.getByText(/stop working/)).toBeInTheDocument();
+        expect(electron.api.resetRemoteLink).not.toHaveBeenCalled();
+      });
+
+      it('issues the new link once confirmed, and shows it', async () => {
+        electron.api.resetRemoteLink.mockResolvedValue(RESET);
+        render(<App />);
+        electron.pushRemoteStatus(ON);
+        openDialog();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Reset link' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Reset and show new code' }));
+
+        expect(electron.api.resetRemoteLink).toHaveBeenCalledTimes(1);
+        expect(await screen.findByDisplayValue(RESET.urls[0])).toBeInTheDocument();
+        expect(screen.queryByDisplayValue(ON.urls[0])).toBeNull();
+        expect(screen.queryByText(/stop working/)).toBeNull();
+      });
+
+      it('does nothing when cancelled', () => {
+        render(<App />);
+        electron.pushRemoteStatus(ON);
+        openDialog();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Reset link' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+        expect(electron.api.resetRemoteLink).not.toHaveBeenCalled();
+        expect(screen.getByRole('button', { name: 'Reset link' })).toBeInTheDocument();
+      });
+
+      it('is not offered while the remote is off', () => {
+        render(<App />);
+        openDialog();
+
+        expect(screen.queryByRole('button', { name: 'Reset link' })).toBeNull();
+      });
+    });
+
+    describe('Start at launch (#74)', () => {
+      const SETTINGS = { autoplayNext: true, resumePlayback: true, remoteAtLaunch: false };
+
+      it('is off by default and is turned on with the checkbox', () => {
+        render(<App />);
+        openDialog();
+        const checkbox = screen.getByRole('checkbox', { name: 'Start remote control when Salt Player opens' });
+        expect(checkbox).not.toBeChecked();
+
+        fireEvent.click(checkbox);
+
+        expect(electron.api.setRemoteAtLaunch).toHaveBeenCalledWith(true);
+      });
+
+      it('follows the setting main reports, and turns it off', () => {
+        render(<App />);
+        electron.changeSettings({ ...SETTINGS, remoteAtLaunch: true });
+        openDialog();
+        const checkbox = screen.getByRole('checkbox', { name: 'Start remote control when Salt Player opens' });
+        expect(checkbox).toBeChecked();
+
+        fireEvent.click(checkbox);
+
+        expect(electron.api.setRemoteAtLaunch).toHaveBeenCalledWith(false);
+      });
     });
 
     it('shows an error when the remote cannot be started', async () => {

@@ -27,6 +27,18 @@ describe('Settings (#42)', () => {
     expect(settings.get()).toEqual(DEFAULT_SETTINGS);
   });
 
+  it('keeps the remote off at launch by default, and remembers turning it on (#74)', async () => {
+    const first = new Settings(filePath);
+    await first.load();
+    expect(first.get().remoteAtLaunch).toBe(false);
+
+    await first.set({ remoteAtLaunch: true });
+    const second = new Settings(filePath);
+    await second.load();
+
+    expect(second.get().remoteAtLaunch).toBe(true);
+  });
+
   it('survives a restart', async () => {
     const first = new Settings(filePath);
     await first.set({ autoplayNext: false });

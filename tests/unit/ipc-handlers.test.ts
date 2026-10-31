@@ -190,3 +190,36 @@ describe('remote control (#64)', () => {
     expect(remote.broadcast).not.toHaveBeenCalled();
   });
 });
+
+describe('remote control link and launch setting (#74)', () => {
+  const remote = { resetLink: vi.fn(), status: { enabled: true }, setEnabled: vi.fn() };
+  const settings = { set: vi.fn() };
+
+  beforeEach(async () => {
+    handlers.clear();
+    remote.resetLink.mockReset().mockResolvedValue({ enabled: true, urls: ['new'] });
+    settings.set.mockReset().mockResolvedValue(undefined);
+    const { setupIPCHandlers } = await import('@/main/ipc-handlers');
+    setupIPCHandlers({} as any, {} as any, {} as any, settings as any, {} as any, remote as any);
+  });
+
+  it('remote:resetLink returns the status with the new link', async () => {
+    expect(await handlers.get(IPC_CHANNELS.REMOTE_RESET_LINK)?.({})).toEqual({ enabled: true, urls: ['new'] });
+  });
+
+  it('remote:getStatus returns the current status', () => {
+    expect(handlers.get(IPC_CHANNELS.REMOTE_GET_STATUS)?.({})).toBe(remote.status);
+  });
+
+  it('remote:setAtLaunch saves the setting', async () => {
+    await handlers.get(IPC_CHANNELS.REMOTE_SET_AT_LAUNCH)?.({}, true);
+
+    expect(settings.set).toHaveBeenCalledWith({ remoteAtLaunch: true });
+  });
+
+  it.each([['yes'], [1], [undefined]])('remote:setAtLaunch ignores %j', async (value) => {
+    await handlers.get(IPC_CHANNELS.REMOTE_SET_AT_LAUNCH)?.({}, value);
+
+    expect(settings.set).not.toHaveBeenCalled();
+  });
+});

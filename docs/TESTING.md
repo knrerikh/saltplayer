@@ -40,12 +40,14 @@ npx vitest run -t "seek"                    # tests whose name matches
 | `tests/unit/external-url.test.ts` | The URL scheme allow-list for opening links outside the app |
 | `tests/integration/escape-fullscreen.test.tsx` | The ⛶ button toggles window fullscreen; <kbd>Esc</kbd> leaves it, but closes an open subtitle or audio menu first |
 | `tests/integration/error-dismiss.test.tsx` | Error banner close button, hover pause and auto-dismiss timers |
-| `tests/unit/remote-server.test.ts` | The phone remote's server over real HTTP on loopback: off until started, token, `Host` and `Origin` checks, rate limit, commands, event stream, security headers and CSP nonce, token rotation, port fallback |
-| `tests/unit/remote-control.test.ts` | `RemoteControl`: pairing links, QR code, turning on and off, overlapping calls |
+| `tests/unit/remote-server.test.ts` | The phone remote's server over real HTTP on loopback: off until started, token, `Host` and `Origin` checks, rate limit, commands, event stream, security headers and CSP nonce, token expiry and swapping, `.local` Host, port fallback |
+| `tests/unit/remote-control.test.ts` | `RemoteControl`: pairing links, QR code, the same link across off/on and restarts, 30-day expiry, Reset link, the `.local` link, port-changed flag, overlapping calls; `startRemoteAtLaunch()` |
+| `tests/unit/remote-token-store.test.ts` | `RemoteTokenStore`: reuse, new token when missing, corrupt, malformed, future or 30 days old (injected clock), reset |
+| `tests/unit/remote-page.test.ts` | The phone page's script: *Reconnecting…*, *link expired or was reset* (401) and *Remote control is off* |
 | `tests/unit/rate-limiter.test.ts` | Fixed-window request limit per key, and expired windows being forgotten |
 | `tests/unit/remote.test.ts` | Parsing of remote commands and player state, which are untrusted input |
 | `tests/unit/network.test.ts` | Which local addresses are offered to the phone, and in what order |
-| `tests/integration/remote-control.test.tsx` | The remote control dialog, *Remote on* in the status bar, a phone's play/pause command, and the state sent to the phone |
+| `tests/integration/remote-control.test.tsx` | The remote control dialog, *Remote on* in the status bar, a phone's play/pause command, and the state sent to the phone, the link's expiry, Reset link, the port warning and the start-at-launch checkbox |
 
 `tests/helpers/electron-api.ts` provides `mockElectronAPI()`, a complete `electronAPI` mock for rendering `<App />` with helpers that deliver main-process events. `tests/setup.ts` installs a default mocked `window.electronAPI` and a `File` subclass with a `path` property for drag-and-drop tests. Main-process tests mock `electron` and, where needed, `webtorrent` with `vi.mock`; no test goes beyond the loopback interface.
 

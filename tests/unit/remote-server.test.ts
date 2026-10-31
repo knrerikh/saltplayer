@@ -84,15 +84,22 @@ function listen(port: number, token: string) {
   );
 }
 
+const TOKEN = 'AAAAAAAAAAAAAAAAAAAAAA';
+const DAY = 24 * 60 * 60 * 1000;
+const credentials = (token = TOKEN, expiresAt = Date.now() + DAY) => ({ token, expiresAt });
+
 describe('RemoteControlServer (#64)', () => {
   const running: RemoteControlServer[] = [];
 
-  async function started(options: Partial<ConstructorParameters<typeof RemoteControlServer>[0]> = {}) {
+  async function started(
+    options: Partial<ConstructorParameters<typeof RemoteControlServer>[0]> = {},
+    given = credentials(),
+  ) {
     const onCommand = vi.fn();
     const server = new RemoteControlServer({ port: 0, onCommand, ...options });
     running.push(server);
-    const { port, token } = await server.start();
-    return { server, port, token, onCommand };
+    const { port, portChanged } = await server.start(given);
+    return { server, port, portChanged, token: given.token, onCommand };
   }
 
   afterEach(async () => {
@@ -117,41 +124,41 @@ describe('RemoteControlServer (#64)', () => {
       await expect(request(port, { path: `/?t=${token}` })).rejects.toMatchObject({ code: 'ECONNREFUSED' });
     });
 
-    it('two start() calls at once share one server and one token', async () => {
+    it('two start() calls at once share one server', async () => {
       const server = new RemoteControlServer({ port: 0, onCommand: vi.fn() });
       running.push(server);
 
-      const [first, second] = await Promise.all([server.start(), server.start()]);
+      const [first, second] = await Promise.all([server.start(credentials()), server.start(credentials('B'.repeat(22)))]);
 
       expect(second).toEqual(first);
+      expect((await request(first.port, { path: `/?t=${TOKEN}` })).status).toBe(200);
       await server.stop();
-      await expect(request(first.port, { path: `/?t=${first.token}` })).rejects.toMatchObject({ code: 'ECONNREFUSED' });
+      await expect(request(first.port, { path: `/?t=${TOKEN}` })).rejects.toMatchObject({ code: 'ECONNREFUSED' });
     });
 
     it('stop() during a start leaves nothing listening', async () => {
       const server = new RemoteControlServer({ port: 0, onCommand: vi.fn() });
       running.push(server);
 
-      const starting = server.start();
+      const starting = server.start(credentials());
       await server.stop();
-      const { port, token } = await starting;
+      const { port } = await starting;
 
       expect(server.isRunning).toBe(false);
-      await expect(request(port, { path: `/?t=${token}` })).rejects.toMatchObject({ code: 'ECONNREFUSED' });
+      await expect(request(port, { path: `/?t=${TOKEN}` })).rejects.toMatchObject({ code: 'ECONNREFUSED' });
     });
 
     it('stop() is harmless when not running', async () => {
       await expect(new RemoteControlServer({ port: 0, onCommand: vi.fn() }).stop()).resolves.toBeUndefined();
     });
 
-    it('starts with a new token every time', async () => {
-      const { server, token } = await started();
-
+    it('accepts the token it is given, also after a restart', async () => {
+      const { server } = await started();
       await server.stop();
-      const restarted = await server.start();
 
-      expect(restarted.token).not.toBe(token);
-      expect(restarted.token).toMatch(/^[A-Za-z0-9_-]{22}$/);
+      const { port } = await server.start(credentials());
+
+      expect((await request(port, { path: `/?t=${TOKEN}` })).status).toBe(200);
     });
 
     it('falls back to a free port when the preferred one is taken', async () => {
@@ -159,9 +166,10 @@ describe('RemoteControlServer (#64)', () => {
       await new Promise<void>((resolve) => blocker.listen(0, '0.0.0.0', resolve));
       const busyPort = (blocker.address() as net.AddressInfo).port;
       try {
-        const { port, token } = await started({ port: busyPort });
+        const { port, token, portChanged } = await started({ port: busyPort });
 
         expect(port).not.toBe(busyPort);
+        expect(portChanged).toBe(true);
         expect((await request(port, { path: `/?t=${token}` })).status).toBe(200);
       } finally {
         await new Promise((resolve) => blocker.close(resolve));
@@ -170,6 +178,30 @@ describe('RemoteControlServer (#64)', () => {
   });
 
   describe('token', () => {
+    it('401 once the token has expired, with the right token', async () => {
+      let clock = 1_000;
+      const { port, token } = await started({ now: () => clock }, credentials(TOKEN, 2_000));
+      expect((await request(port, { path: `/?t=${token}` })).status).toBe(200);
+
+      clock = 2_000;
+
+      expect((await request(port, { path: `/?t=${token}` })).status).toBe(401);
+      expect((await command(port, token)).status).toBe(401);
+    });
+
+    it('setCredentials() swaps the token and ends open streams', async () => {
+      const { server, port, token } = await started();
+      const stream = await listen(port, token);
+      await stream.waitFor('retry:');
+      const ended = new Promise<void>((resolve) => stream.response.on('end', resolve));
+
+      server.setCredentials(credentials('C'.repeat(22)));
+      await ended;
+
+      expect((await request(port, { path: `/?t=${token}` })).status).toBe(401);
+      expect((await request(port, { path: `/?t=${'C'.repeat(22)}` })).status).toBe(200);
+    });
+
     it.each([
       ['page', { path: '/' }],
       ['events', { path: '/api/events' }],
@@ -219,6 +251,24 @@ describe('RemoteControlServer (#64)', () => {
       const reply = await request(port, { path: `/?t=${token}`, headers: { Host: `192.168.1.5:${port}` } });
 
       expect(reply.status).toBe(200);
+    });
+
+    it.each(['Mac-Mini.local', 'mac-mini.LOCAL', 'MAC-MINI.local'])('accepts the machine\'s .local name as Host in any case (%s)', async (host) => {
+      const { port, token } = await started({ localName: () => 'Mac-Mini.local' });
+
+      const reply = await request(port, { path: `/?t=${token}`, headers: { Host: `${host}:${port}` } });
+
+      expect(reply.status).toBe(200);
+    });
+
+    it('403 for the .local name on another port, a foreign .local name, or without a machine name', async () => {
+      const { port, token } = await started({ localName: () => 'Mac-Mini.local' });
+      const noName = await started({ localName: () => null });
+
+      expect((await request(port, { path: `/?t=${token}`, headers: { Host: 'Mac-Mini.local:1' } })).status).toBe(403);
+      expect((await request(port, { path: `/?t=${token}`, headers: { Host: `other.local:${port}` } })).status).toBe(403);
+      expect((await request(port, { path: `/?t=${token}`, headers: { Host: `Mac-Mini.local.evil.example:${port}` } })).status).toBe(403);
+      expect((await request(noName.port, { path: `/?t=${token}`, headers: { Host: `Mac-Mini.local:${noName.port}` } })).status).toBe(403);
     });
 
     it('403 for a command without an Origin', async () => {
