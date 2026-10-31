@@ -53,6 +53,10 @@ function setupElectronAPIMock() {
     onMediaOpened: vi.fn(),
     onMenuCommand: vi.fn(),
     onSettingsChanged: vi.fn(),
+    setRemoteEnabled: vi.fn(),
+    sendRemoteState: vi.fn(),
+    onRemoteStatus: vi.fn(),
+    onRemoteCommand: vi.fn(),
     removeAllListeners: vi.fn(),
   };
 

@@ -11,6 +11,7 @@ const actions = (): AppMenuActions => ({
   closeVideo: vi.fn(),
   setAutoplayNext: vi.fn(),
   setResumePlayback: vi.fn(),
+  openRemoteControl: vi.fn(),
   openLink: vi.fn(),
 });
 
@@ -136,6 +137,19 @@ describe('buildAppMenuTemplate (#31)', () => {
       (item?.click as (menuItem: { checked: boolean }) => void)({ checked });
 
       expect(menuActions.setResumePlayback).toHaveBeenCalledWith(checked);
+    });
+  });
+
+  describe('Playback → Remote Control… (#64)', () => {
+    it('is the last item, after a separator, and opens the remote control dialog', () => {
+      const menuActions = actions();
+      const playback = submenuOf(topLevel(build({ actions: menuActions }), 'Playback'));
+
+      expect(playback.at(-2)?.type).toBe('separator');
+      expect(playback.at(-1)?.label).toBe('Remote Control…');
+      click(playback.at(-1));
+
+      expect(menuActions.openRemoteControl).toHaveBeenCalled();
     });
   });
 

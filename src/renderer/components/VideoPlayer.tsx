@@ -5,6 +5,7 @@ import NextEpisodeOverlay from './NextEpisodeOverlay';
 import ResumeHint from './ResumeHint';
 import { useAutoplayNext } from '../hooks/useAutoplayNext';
 import { useSavePosition } from '../hooks/useSavePosition';
+import { useRemoteControl } from '../hooks/useRemoteControl';
 
 const LANGUAGE_NAMES: Record<string, string> = {
   eng: 'English', rus: 'Russian', spa: 'Spanish', fra: 'French', deu: 'German',
@@ -78,6 +79,8 @@ interface VideoPlayerProps {
   /** Whether the window is fullscreen; the player does not manage fullscreen itself. */
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
+  /** Whether a phone remote is on: the player then reports its state to it. */
+  remoteEnabled?: boolean;
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({ 
@@ -99,6 +102,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onSelectAudioTrack,
   isFullscreen = false,
   onToggleFullscreen,
+  remoteEnabled = false,
   }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -354,6 +358,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setTimeout(() => setOverlayIcon(null), 800);
     }
   }, []);
+
+  useRemoteControl({
+    enabled: remoteEnabled,
+    hasVideo: videoUrl !== null,
+    title,
+    isPlaying,
+    currentTime,
+    duration,
+    togglePlay,
+  });
 
   // Auto-hide the controls (and the cursor) while the pointer sits still during
   // playback. Kept visible while paused, while a menu is open, and while the

@@ -35,14 +35,21 @@ Salt Player is an Electron app with a strict split between the main process (Nod
 | `src/main/watch-history.ts` | `WatchHistory`: where each file was left (`watch-history.json` in `userData`), for resuming it and for starting a season with the episode watched last |
 | `src/main/settings.ts` | `Settings`: user preferences (`AppSettings`), kept in `settings.json` in `userData` |
 | `src/main/json-file.ts` | `JsonFile`: the atomic, serialised JSON read and write behind both files |
+| `src/main/remote-control/remote-server.ts` | `RemoteControlServer`: the phone remote's HTTP server (page, Server-Sent Events, commands) and its request checks |
+| `src/main/remote-control/remote-control.ts` | `RemoteControl`: turns that server on and off and builds the status (pairing links, QR code) |
+| `src/main/remote-control/remote-page.ts` | `remotePage()`: the remote as one self-contained HTML page |
+| `src/main/remote-control/rate-limiter.ts` | `RateLimiter`: fixed-window request counts per remote address; expired windows are dropped |
+| `src/main/remote-control/network.ts` | `localAddresses()`: private IPv4 addresses of this machine, Wi-Fi and Ethernet first |
 | `src/main/ipc-handlers.ts` | Registers `ipcMain` handlers; a thin layer that delegates to `TorrentEngine` and the window |
 | `src/main/preload.ts` | Exposes `window.electronAPI` through `contextBridge`, the only crossing point between processes |
 | `src/shared/types.ts` | `IPC_CHANNELS` and the types shared by both processes |
+| `src/shared/remote.ts` | `RemoteCommand`, `RemoteState`, `RemoteStatus` and the parsers for what the phone and the page send |
 | `src/shared/video-files.ts` | Video extensions, playlist ordering and the choice of the file to play first |
 | `src/renderer/App.tsx` | Root component: subscribes to main-process events, owns torrent, playlist, track and error state |
-| `src/renderer/components/` | `TorrentInput`, `VideoPlayer`, `StatusBar`, `TitlebarDragRegion`, `OpenUrlDialog`, `NextEpisodeOverlay` |
+| `src/renderer/components/` | `TorrentInput`, `VideoPlayer`, `StatusBar`, `TitlebarDragRegion`, `OpenUrlDialog`, `NextEpisodeOverlay`, `RemoteControlDialog` |
 | `src/renderer/hooks/useAutoplayNext.ts` | The next-episode countdown and the prefetch trigger |
 | `src/renderer/hooks/useSavePosition.ts` | Reports where playback is, for resuming later |
+| `src/renderer/hooks/useRemoteControl.ts` | Carries out the phone's commands and reports the player's state to it |
 | `src/shared/playback-key.ts` | `playbackKey()`: how main and the page name a file for resuming it |
 
 ## IPC
@@ -51,9 +58,9 @@ All channel names live in `IPC_CHANNELS` (`src/shared/types.ts`).
 
 | Direction | Channels |
 | --- | --- |
-| Renderer → main (`invoke`) | `torrent:load`, `media:openFile`, `torrent:stop`, `torrent:selectFile`, `torrent:prefetchFile`, `settings:get`, `playback:control`, `playback:seek`, `playback:savePosition`, `audio:selectTrack`, `app:quit`, `app:openExternal`, `window:dragStart`, `window:dragEnd`, `window:setFullscreen` |
-| Renderer → main (`send`) | `window:dragMove` (pointer deltas, high frequency) |
-| Main → renderer (`send`) | `torrent:status` (every second), `video:url` (with where to resume, or `null`), `video:metadata`, `subtitles:available`, `audio:available`, `error`, `window:fullscreen`, `media:opening`, `media:opened`, `menu:command`, `settings:changed` |
+| Renderer → main (`invoke`) | `torrent:load`, `media:openFile`, `torrent:stop`, `torrent:selectFile`, `torrent:prefetchFile`, `settings:get`, `playback:control`, `playback:seek`, `playback:savePosition`, `audio:selectTrack`, `app:quit`, `app:openExternal`, `window:dragStart`, `window:dragEnd`, `window:setFullscreen`, `remote:setEnabled` (returns the remote's status) |
+| Renderer → main (`send`) | `window:dragMove` (pointer deltas, high frequency), `remote:state` (player state for the phone, at most once a second for the time) |
+| Main → renderer (`send`) | `torrent:status` (every second), `video:url` (with where to resume, or `null`), `video:metadata`, `subtitles:available`, `audio:available`, `error`, `window:fullscreen`, `media:opening`, `media:opened`, `menu:command`, `settings:changed`, `remote:status`, `remote:command` |
 
 ## Loading and playback
 
@@ -129,13 +136,32 @@ All fullscreen is window fullscreen. The player's ⛶ button calls `window:setFu
 
 The HTML Fullscreen API is deliberately not used. Chromium handles <kbd>Esc</kbd> for it before the page sees the key, so an open menu could not take precedence. macOS does not bind <kbd>Esc</kbd> to window fullscreen either, so `App` handles it and calls `window:setFullscreen(false)`. Open subtitle and audio menus handle <kbd>Esc</kbd> first on `document` and mark the event as handled; one press closes the menu, the next leaves fullscreen.
 
+### Remote control
+
+A phone on the local network can control playback. `RemoteControlServer` (`src/main/remote-control/remote-server.ts`) is separate from the streaming server, which stays on loopback. It does not exist until **Playback → Remote Control…** turns it on (`remote:setEnabled`), is never started on launch and is not remembered; quitting, and closing the last window on macOS, stop it.
+
+- **Pairing.** `start()` listens on all interfaces, on port 8642 or, if that is taken, a random one, and issues a 128-bit token (`crypto.randomBytes(16)`, new on every start). `RemoteControl` turns it into one link `http://<address>:<port>/?t=<token>` per private IPv4 address of the machine (`localAddresses()`) and a QR code of the first (`qrcode`); the dialog shows them from the `RemoteStatus` that `remote:setEnabled` returns and `remote:status` pushes.
+- **Routes.** `GET /` is the page, `GET /api/events` a Server-Sent Events stream (the last state on connect, then every `broadcast()`, a `: ping` every 25 s, at most 8 clients) and `POST /api/command` takes a JSON body of at most 1 KB with the token as a bearer token. Anything else is 404.
+- **Commands** are parsed by `parseRemoteCommand()` (`src/shared/remote.ts`), which rejects anything unknown, then sent to the page as `remote:command`. `useRemoteControl` runs `toggle-play` through the same function as <kbd>Space</kbd> and a click. A new command is a new member of `RemoteCommand`, its handling in that hook and, on the phone, a control in `remote-page.ts`.
+- **State** goes the other way: while the remote is on, the player sends `remote:state` when the video, its title or play/pause changes, and the time at most once a second. Main validates it (`parseRemoteState()`), keeps the latest and broadcasts it.
+- **The page** is one string of HTML with inline CSS and script and no external requests. Titles come from torrents and are untrusted, so the script only ever assigns `textContent`.
+
+Threat model. The server is reachable by anyone on the same network, and by any web page the user opens, which can make the browser send requests to a LAN address. So every request is checked, in this order:
+
+1. **Rate limit** per remote address (fixed window, 120 requests per 10 s): 429. It makes guessing the token impractical on top of its 128 bits.
+2. **`Host`** must be `<one of this machine's addresses | localhost | 127.0.0.1>:<port>`: 403. A DNS-rebinding page reaches us under its own name, which is not on the list.
+3. **`Origin`** on `POST` must be present and equal `http://<Host>`: 403. A page of another origin cannot send commands from the user's browser. Only the page we serve passes.
+4. **Token**, compared with `crypto.timingSafeEqual`: 401.
+
+Every response has `Cache-Control: no-store`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY` and `X-Content-Type-Options: nosniff`; the page also gets a CSP with a per-response nonce (`default-src 'none'`, scripts and styles only with the nonce, `connect-src 'self'`). The link is in the URL, so `no-referrer` keeps it out of anything the page might link to. Traffic is plain HTTP: someone who can observe the local network can read the link and the title. That is why the token changes on every start and the remote is off by default. What the remote can do is bounded by `RemoteCommand`: it never reaches files, the streaming server, `shell.openExternal` or IPC beyond the commands the page chooses to run.
+
 ## Storage and lifecycle
 
 - Three files in the app's `userData` folder are kept between launches: the recent list, `recent-sources.json`, and where each file was left, `watch-history.json` (**File → Open Recent → Clear Menu** empties both), and the preferences, `settings.json`. All go through `JsonFile`: a missing or corrupt file reads as empty (defaults for settings, keeping only known keys of the right type), and writes are atomic (temp file, then rename) and serialised.
 
 - `StorageManager.initialize()` deletes `saltplayer-*` folders left in the system temp directory by earlier sessions, then creates a fresh `saltplayer-<id>` folder for this one.
 - On quit (`before-quit`, or closing the last window on Windows and Linux), the engine stops the torrent and closes the HTTP server and ffmpeg processes, and the session folder is deleted.
-- On macOS, closing the window only stops the torrent; the app keeps running with its storage intact, so it is ready when the window is reopened.
+- On macOS, closing the window only stops the torrent (and the remote); the app keeps running with its storage intact, so it is ready when the window is reopened.
 
 ## Resilience
 
@@ -149,4 +175,5 @@ The HTML Fullscreen API is deliberately not used. Chromium handles <kbd>Esc</kbd
 - `contextIsolation` is enabled and `nodeIntegration` is disabled; the renderer only sees the functions in `preload.ts`.
 - The streaming server listens on loopback only (`127.0.0.1`), so other machines on the network cannot reach it, and it serves only the selected file and its subtitle tracks.
 - `media:openFile` takes a path from the renderer (a drop or the file picker) and accepts only an absolute path to a regular file with a recognised video extension. It adds no new reach: the page is loaded from `file://` and could already point a `<video>` at a local file.
+- The phone remote is off until turned on and listens on the local network only while on; see *Remote control* above for its checks. It exposes no files and no video.
 - `app:openExternal` hands only `http:` and `https:` URLs to `shell.openExternal` (`isSafeExternalUrl`, `src/main/external-url.ts`); `file:`, `smb:`, custom protocol handlers and anything unparsable are refused.

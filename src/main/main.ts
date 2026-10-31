@@ -11,6 +11,7 @@ import { WatchHistory } from './watch-history';
 import { MediaOpener } from './media-opener';
 import { buildAppMenuTemplate, OPEN_FILE_FILTERS, REPOSITORY_URL } from './app-menu';
 import { isSafeExternalUrl } from './external-url';
+import { RemoteControl } from './remote-control/remote-control';
 import { DEFAULT_SETTINGS, IPC_CHANNELS, type AppSettings, type MenuCommand } from '@/shared/types';
 
 // Allow Chromium to play audio/video without user interaction (same as WebTorrent Desktop)
@@ -23,6 +24,7 @@ let recentSources: RecentSources | null = null;
 let settings: Settings | null = null;
 let watchHistory: WatchHistory | null = null;
 let mediaOpener: MediaOpener | null = null;
+let remoteControl: RemoteControl | null = null;
 /** A source to open once the page has loaded: Finder and the Dock can hand one over before that. */
 let pendingSource: string | null = null;
 
@@ -124,8 +126,14 @@ async function doInitializeApp(): Promise<void> {
     send: sendToPage,
   });
 
+  // Off until the user turns it on from Playback → Remote Control…, every launch.
+  remoteControl = new RemoteControl({
+    onCommand: (command) => sendToPage(IPC_CHANNELS.REMOTE_COMMAND, command),
+    onStatus: (status) => sendToPage(IPC_CHANNELS.REMOTE_STATUS, status),
+  });
+
   // Setup IPC handlers
-  setupIPCHandlers(torrentEngine, storageManager, mediaOpener, appSettings, watchHistory);
+  setupIPCHandlers(torrentEngine, storageManager, mediaOpener, appSettings, watchHistory, remoteControl);
 
   app.setAboutPanelOptions({
     applicationName: 'Salt Player',
@@ -217,6 +225,7 @@ function updateAppMenu(): void {
         app.clearRecentDocuments();
       },
       closeVideo: () => sendMenuCommand('close-video'),
+      openRemoteControl: () => sendMenuCommand('remote-control'),
       setAutoplayNext: (autoplayNext) => void settings?.set({ autoplayNext }),
       setResumePlayback: (resumePlayback) => void settings?.set({ resumePlayback }),
       openLink: (url) => {
@@ -229,6 +238,9 @@ function updateAppMenu(): void {
 
 async function cleanupApp(): Promise<void> {
   console.log('Cleaning up application...');
+
+  await remoteControl?.setEnabled(false);
+  remoteControl = null;
 
   // Stop torrent engine
   if (torrentEngine) {
@@ -273,8 +285,10 @@ app.on('window-all-closed', async () => {
     // (tearing them down left the IPC handlers holding a cleaned-up
     // StorageManager — "Storage manager not initialized" on the next load).
     // The torrent itself must still stop: otherwise its HTTP server, status
-    // interval and download keep running with no UI attached.
+    // interval and download keep running with no UI attached. So must the remote,
+    // which would be steering a page that is gone.
     try {
+      await remoteControl?.setEnabled(false);
       await torrentEngine?.stop();
     } catch (error) {
       console.error('Error stopping torrent on window close:', error);

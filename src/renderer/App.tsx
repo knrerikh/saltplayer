@@ -4,8 +4,10 @@ import VideoPlayer from './components/VideoPlayer';
 import StatusBar from './components/StatusBar';
 import TitlebarDragRegion from './components/TitlebarDragRegion';
 import OpenUrlDialog from './components/OpenUrlDialog';
+import RemoteControlDialog from './components/RemoteControlDialog';
 import { isVideoFile, compareFileNames } from '@/shared/video-files';
 import type { WatchedFile } from '@/shared/playback-key';
+import { REMOTE_DISABLED, type RemoteCommand, type RemoteState, type RemoteStatus } from '@/shared/remote';
 import { TorrentStatus, TorrentMetadata, ErrorInfo, TorrentFile, SubtitleData, AudioData, MenuCommand, AppSettings, DEFAULT_SETTINGS } from '@/shared/types';
 
 /** How long the error banner stays up before auto-dismissing, unless hovered. */
@@ -31,6 +33,8 @@ declare global {
       moveWindowBy: (dx: number, dy: number) => void;
       endWindowDrag: () => Promise<void>;
       setWindowFullscreen: (isFullscreen: boolean) => Promise<void>;
+      setRemoteEnabled: (enabled: boolean) => Promise<RemoteStatus>;
+      sendRemoteState: (state: RemoteState) => void;
       onTorrentStatus: (callback: (status: TorrentStatus) => void) => void;
       onVideoUrl: (callback: (url: string, startAt: number | null) => void) => void;
       onVideoMetadata: (callback: (metadata: { duration: number }) => void) => void;
@@ -42,6 +46,8 @@ declare global {
       onMediaOpened: (callback: (metadata: TorrentMetadata) => void) => void;
       onMenuCommand: (callback: (command: MenuCommand) => void) => void;
       onSettingsChanged: (callback: (settings: AppSettings) => void) => void;
+      onRemoteStatus: (callback: (status: RemoteStatus) => void) => void;
+      onRemoteCommand: (callback: (command: RemoteCommand) => void) => void;
       removeAllListeners: (channel: string) => void;
     };
   }
@@ -59,6 +65,8 @@ const App: React.FC = () => {
   const [audioData, setAudioData] = useState<AudioData | null>(null);
   const [isWindowFullscreen, setIsWindowFullscreen] = useState(false);
   const [isOpenUrlVisible, setIsOpenUrlVisible] = useState(false);
+  const [isRemoteDialogVisible, setIsRemoteDialogVisible] = useState(false);
+  const [remoteStatus, setRemoteStatus] = useState<RemoteStatus>(REMOTE_DISABLED);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const errorDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startUrlFieldRef = useRef<HTMLInputElement>(null);
@@ -132,10 +140,12 @@ const App: React.FC = () => {
       console.error('Error reading settings:', err);
     });
     window.electronAPI.onSettingsChanged(setSettings);
+    window.electronAPI.onRemoteStatus(setRemoteStatus);
 
     window.electronAPI.onMenuCommand((command) => {
       if (command === 'open-url') askForUrl();
       if (command === 'close-video') handleClose();
+      if (command === 'remote-control') setIsRemoteDialogVisible(true);
     });
 
     return () => {
@@ -150,6 +160,7 @@ const App: React.FC = () => {
       window.electronAPI.removeAllListeners('media:opened');
       window.electronAPI.removeAllListeners('menu:command');
       window.electronAPI.removeAllListeners('settings:changed');
+      window.electronAPI.removeAllListeners('remote:status');
       clearErrorDismissTimer();
     };
   }, []);
@@ -215,6 +226,18 @@ const App: React.FC = () => {
         ? window.electronAPI.openVideoFile(filePath)
         : window.electronAPI.loadTorrent(filePath)
     );
+
+  const handleSetRemoteEnabled = async (enabled: boolean) => {
+    try {
+      setRemoteStatus(await window.electronAPI.setRemoteEnabled(enabled));
+    } catch (err: any) {
+      setError({
+        code: 'REMOTE_ERROR',
+        message: err.message || 'Failed to change remote control',
+      });
+      scheduleErrorDismiss();
+    }
+  };
 
   const handleClose = async () => {
     try {
@@ -349,6 +372,7 @@ const App: React.FC = () => {
         onSelectAudioTrack={handleSelectAudioTrack}
         isFullscreen={isWindowFullscreen}
         onToggleFullscreen={() => window.electronAPI.setWindowFullscreen(!isWindowFullscreen)}
+        remoteEnabled={remoteStatus.enabled}
       />
       
       {!isWindowFullscreen && (
@@ -357,6 +381,8 @@ const App: React.FC = () => {
           metadata={metadata}
           currentVideoFile={currentIndex !== -1 ? videoFiles[currentIndex] : null}
           videoDuration={serverDuration}
+          remoteEnabled={remoteStatus.enabled}
+          onOpenRemoteControl={() => setIsRemoteDialogVisible(true)}
         />
       )}
       
@@ -367,6 +393,14 @@ const App: React.FC = () => {
             handleLoadTorrent(source);
           }}
           onCancel={() => setIsOpenUrlVisible(false)}
+        />
+      )}
+
+      {isRemoteDialogVisible && (
+        <RemoteControlDialog
+          status={remoteStatus}
+          onSetEnabled={handleSetRemoteEnabled}
+          onClose={() => setIsRemoteDialogVisible(false)}
         />
       )}
 

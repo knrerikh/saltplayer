@@ -28,6 +28,7 @@ export interface AppMenuActions {
   closeVideo(): void;
   setAutoplayNext(enabled: boolean): void;
   setResumePlayback(enabled: boolean): void;
+  openRemoteControl(): void;
   openLink(url: string): void;
 }
 
@@ -105,6 +106,8 @@ export function buildAppMenuTemplate({
         checked: settings.resumePlayback,
         click: (menuItem) => actions.setResumePlayback(menuItem.checked),
       },
+      separator,
+      { label: 'Remote Control…', click: actions.openRemoteControl },
     ],
   };
 
