@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Remote control: seek** ([#65](https://github.com/knrerikh/saltplayer/issues/65), part of [#41](https://github.com/knrerikh/saltplayer/issues/41)): the phone page gets **−30 / −10 / +10 / +30 s** buttons and a timeline with the current time and duration; dragging it shows the time under the finger and seeks on release. Seeks run the same path as the progress bar, including transcoded streams.
 - **Remote control from a phone** ([#64](https://github.com/knrerikh/saltplayer/issues/64), part of [#41](https://github.com/knrerikh/saltplayer/issues/41)): **Playback → Remote Control…** shows a link and QR code; opened on a phone on the same network it shows what is playing (title, time) and plays or pauses it, updating live. Off until you turn it on and never saved; the link carries a new random token each time. *Remote on* appears in the status bar while it is running.
 - **Resume playback** ([#51](https://github.com/knrerikh/saltplayer/issues/51)): a file opened again continues where it was left (10 s earlier), with *Resumed from …* and **Start over**; a season opens at the episode watched last, or the next one after a finished episode. Positions are kept in `watch-history.json` (the last 200 files); **Clear Menu** forgets them, and **Playback → Resume Playback** (on by default) turns resuming and recording off.
 

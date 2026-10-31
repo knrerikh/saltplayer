@@ -359,6 +359,27 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, []);
 
+  /** A transcoded stream restarts at `time`; a direct one just moves there. */
+  const seekTo = (time: number) => {
+    if (!videoRef.current) return;
+
+    if (isTranscode && videoUrl) {
+      const url = new URL(videoUrl);
+      url.searchParams.set('startTime', Math.floor(time).toString());
+      
+      setIsBuffering(true);
+      setTimeOffset(time);
+      
+      // Update src manually to trigger reload with new start time
+      videoRef.current.src = url.toString();
+      videoRef.current.play().catch(console.error);
+    } else {
+      videoRef.current.currentTime = time;
+    }
+
+    window.electronAPI.playbackSeek(time);
+  };
+
   useRemoteControl({
     enabled: remoteEnabled,
     hasVideo: videoUrl !== null,
@@ -367,6 +388,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     currentTime,
     duration,
     togglePlay,
+    seekTo,
   });
 
   // Auto-hide the controls (and the cursor) while the pointer sits still during
@@ -448,27 +470,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (!Number.isFinite(time)) return;
 
     seekTo(time);
-  };
-
-  /** A transcoded stream restarts at `time`; a direct one just moves there. */
-  const seekTo = (time: number) => {
-    if (!videoRef.current) return;
-
-    if (isTranscode && videoUrl) {
-      const url = new URL(videoUrl);
-      url.searchParams.set('startTime', Math.floor(time).toString());
-      
-      setIsBuffering(true);
-      setTimeOffset(time);
-      
-      // Update src manually to trigger reload with new start time
-      videoRef.current.src = url.toString();
-      videoRef.current.play().catch(console.error);
-    } else {
-      videoRef.current.currentTime = time;
-    }
-
-    window.electronAPI.playbackSeek(time);
   };
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -1,5 +1,13 @@
 /** A command the remote page sends; the player carries it out like the matching key or button. */
-export type RemoteCommand = { type: 'toggle-play' };
+export type RemoteCommand =
+  | { type: 'toggle-play' }
+  /** Relative jump in seconds, negative to go back. */
+  | { type: 'seek-by'; seconds: number }
+  /** Absolute position in seconds. */
+  | { type: 'seek-to'; time: number };
+
+/** The longest jump the remote may ask for. */
+export const MAX_SEEK_BY_SECONDS = 3600;
 
 /** What the remote page shows; the player pushes it whenever it changes. */
 export interface RemoteState {
@@ -27,8 +35,19 @@ export const REMOTE_DISABLED: RemoteStatus = { enabled: false, urls: [], qrDataU
 /** The remote is untrusted input: anything but a known, well-formed command is rejected. */
 export function parseRemoteCommand(value: unknown): RemoteCommand | null {
   if (typeof value !== 'object' || value === null) return null;
-  const { type } = value as Record<string, unknown>;
-  return type === 'toggle-play' ? { type } : null;
+  const { type, seconds, time } = value as Record<string, unknown>;
+  switch (type) {
+    case 'toggle-play':
+      return { type };
+    case 'seek-by':
+      return typeof seconds === 'number' && Number.isFinite(seconds) && seconds !== 0 && Math.abs(seconds) <= MAX_SEEK_BY_SECONDS
+        ? { type, seconds }
+        : null;
+    case 'seek-to':
+      return typeof time === 'number' && Number.isFinite(time) && time >= 0 ? { type, time } : null;
+    default:
+      return null;
+  }
 }
 
 /** The page is untrusted too: take a state only if every field has the right type. */
