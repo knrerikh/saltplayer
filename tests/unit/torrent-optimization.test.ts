@@ -240,7 +240,7 @@ describe('TorrentEngine - Optimization', () => {
       (torrentEngine as any).currentTorrent = mockTorrent;
       
       // Mock server methods
-      (torrentEngine as any).server = { close: vi.fn() };
+      (torrentEngine as any).server = { close: vi.fn(), closeAllConnections: vi.fn() };
       (torrentEngine as any).startStreamingServer = vi.fn();
 
       // Select second episode

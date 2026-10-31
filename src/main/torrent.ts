@@ -108,7 +108,8 @@ export class TorrentEngine {
   private readAheadRange: PieceRange | null = null;
   private lastKnownDurationSec = 0;
   private storageManager: StorageManager;
-  private server: any = null;
+  private server: http.Server | null = null;
+  private probes = new Set<ReturnType<typeof spawnChild>>();
   private serverPort: number | null = null;
   private statusInterval: NodeJS.Timeout | null = null;
   private subtitleTracks: SubtitleTrack[] = [];
@@ -488,7 +489,7 @@ export class TorrentEngine {
 
       let proc: ReturnType<typeof spawnChild>;
       try {
-        proc = spawnChild(ffprobeBin, [
+        proc = this.spawnProbe(ffprobeBin, [
           '-v', 'quiet',
           '-probesize', '5000000',       // stop reading after 5 MB — enough for any container header
           '-analyzeduration', '5000000', // 5 s of analysis max
@@ -568,7 +569,7 @@ export class TorrentEngine {
 
       let proc: ReturnType<typeof spawnChild>;
       try {
-        proc = spawnChild(ffprobeBin, [
+        proc = this.spawnProbe(ffprobeBin, [
           '-v', 'quiet',
           '-print_format', 'json',
           '-show_streams',
@@ -594,7 +595,7 @@ export class TorrentEngine {
 
       proc.on('close', () => {
         clearTimeout(timeoutId);
-        if (settled) return;
+        if (settled || proc.killed) return;
 
         try {
           const data = JSON.parse(stdout);
@@ -629,13 +630,26 @@ export class TorrentEngine {
     });
   }
 
+  private spawnProbe(bin: string, args: string[]): ReturnType<typeof spawnChild> {
+    const proc = spawnChild(bin, args);
+    this.probes.add(proc);
+    proc.once('close', () => this.probes.delete(proc));
+    return proc;
+  }
+
+  /** Ends the server's open responses too, which closes their read streams and the file. */
+  private closeServer(): void {
+    this.server?.close();
+    this.server?.closeAllConnections();
+    this.server = null;
+    this.probes.forEach(probe => probe.kill());
+  }
+
   /**
    * Start HTTP streaming server
    */
   private startStreamingServer(file: MediaSource): void {
-    if (this.server) {
-      this.server.close();
-    }
+    this.closeServer();
     const encodedName = encodeURIComponent(file.name);
     const pathname = `/${encodedName}`;
     const totalSize: number = typeof file.length === 'number' ? file.length : Number(file.length);
@@ -1036,11 +1050,8 @@ export class TorrentEngine {
       this.statusInterval = null;
     }
 
-    if (this.server) {
-      this.server.close();
-      this.server = null;
-      this.serverPort = null;
-    }
+    this.closeServer();
+    this.serverPort = null;
 
     if (this.currentTorrent && this.client) {
       const infoHash = this.currentTorrent.infoHash;
@@ -1097,10 +1108,7 @@ export class TorrentEngine {
         this.statusInterval = null;
       }
 
-      if (this.server) {
-        this.server.close();
-        this.server = null;
-      }
+      this.closeServer();
 
       if (this.client) {
         this.client.destroy((err: Error | string) => {

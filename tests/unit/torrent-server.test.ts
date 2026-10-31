@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { once } from 'events';
+import * as http from 'http';
+import { Readable } from 'stream';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -84,6 +86,109 @@ describe('Streaming server (#18)', () => {
   });
 });
 
+describe('Closing a streaming server (#76)', () => {
+  let engine: TorrentEngine;
+  let silentServer: http.Server | undefined;
+
+  afterEach(async () => {
+    await engine.destroy();
+    silentServer?.closeAllConnections();
+    silentServer?.close();
+    silentServer = undefined;
+    send.mockClear();
+  });
+
+  /** A torrent file whose stream delivers one chunk and then stays open, like a video still being read. */
+  function loadEndlessTorrent(): void {
+    const file = loadFakeTorrent(engine);
+    file.createReadStream.mockImplementation(() => {
+      const stream = new Readable({ read() {} });
+      stream.push(Buffer.alloc(16));
+      return stream;
+    });
+  }
+
+  async function startStreaming(): Promise<ReadableStreamDefaultReader<Uint8Array>> {
+    const response = await fetch(await streamUrl(engine, 'Movie.mp4'), { headers: { Range: 'bytes=0-1023' } });
+    const reader = response.body!.getReader();
+    await reader.read();
+    return reader;
+  }
+
+  /** A URL that accepts connections and never answers, so ffprobe waits on it. */
+  async function unresponsiveUrl(): Promise<string> {
+    silentServer = http.createServer(() => {}).listen(0, '127.0.0.1');
+    await once(silentServer, 'listening');
+    return `http://127.0.0.1:${(silentServer.address() as AddressInfo).port}/movie.mp4`;
+  }
+
+  function runningProbe() {
+    const [probe] = (engine as any).probes;
+    return probe;
+  }
+
+  it('ends a response that is still streaming when the engine stops', async () => {
+    engine = new TorrentEngine(new StorageManager());
+    loadEndlessTorrent();
+    await engine.selectFile('Movie.mp4');
+    const reader = await startStreaming();
+    const server: Server = (engine as any).server;
+
+    await engine.stop();
+
+    await expect(reader.read()).rejects.toThrow(/terminated/);
+    expect(server.listening).toBe(false);
+  });
+
+  it('ends the responses of the server a file switch replaces', async () => {
+    engine = new TorrentEngine(new StorageManager());
+    loadEndlessTorrent();
+    await engine.selectFile('Movie.mp4');
+    const reader = await startStreaming();
+
+    await engine.selectFile('Movie.mp4');
+
+    await expect(reader.read()).rejects.toThrow(/terminated/);
+  });
+
+  it('kills the ffprobe that is probing the stream when the engine stops', async () => {
+    engine = new TorrentEngine(new StorageManager());
+    const probing = (engine as any).probeStream(await unresponsiveUrl());
+    const probe = runningProbe();
+
+    await engine.stop();
+    await once(probe, 'close');
+
+    expect(probe.killed).toBe(true);
+    expect((engine as any).probes.size).toBe(0);
+    await probing;
+  });
+
+  it('kills the ffprobe listing subtitles without reporting tracks when the engine is destroyed', async () => {
+    engine = new TorrentEngine(new StorageManager());
+    (engine as any).extractSubtitles(await unresponsiveUrl());
+    const probe = runningProbe();
+
+    await engine.destroy();
+    await once(probe, 'close');
+
+    expect(probe.killed).toBe(true);
+    expect(send).not.toHaveBeenCalledWith(IPC_CHANNELS.SUBTITLES, expect.anything());
+  });
+
+  it('kills the ffprobe of the server a file switch replaces', async () => {
+    engine = new TorrentEngine(new StorageManager());
+    loadFakeTorrent(engine);
+    (engine as any).probeStream(await unresponsiveUrl());
+    const probe = runningProbe();
+
+    await engine.selectFile('Movie.mp4');
+    await once(probe, 'close');
+
+    expect(probe.killed).toBe(true);
+  });
+});
+
 describe('Playing a local video file (#33)', () => {
   const content = Buffer.from('local video bytes');
   let engine: TorrentEngine;
@@ -92,9 +197,7 @@ describe('Playing a local video file (#33)', () => {
 
   afterEach(async () => {
     await engine.destroy();
-    // Our ffprobe for subtitles may still be reading the movie when a test ends, and
-    // Windows will not delete a file that is open: retry until it lets go.
-    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    fs.rmSync(dir, { recursive: true, force: true });
     send.mockClear();
   });
 
