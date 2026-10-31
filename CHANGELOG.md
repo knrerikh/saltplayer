@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Torrents are added with nothing selected, so WebTorrent no longer starts fetching the whole torrent before playback picks a file, or re-fetches failed pieces of other files.
 
 ### Fixed
+- **An ffprobe and open file handles could outlive a file switch or closing the video** ([#76](https://github.com/knrerikh/saltplayer/issues/76)): the old stream's open connections and the ffprobe reading through them were left running. They are now ended when the video is closed or another file is opened.
 - **The volume reset to full on every new video** ([#66](https://github.com/knrerikh/saltplayer/issues/66)): the video was set to full volume and unmuted while the slider kept showing the old value. The volume and mute you set now carry over to the next file.
 - **Status bar** ([#58](https://github.com/knrerikh/saltplayer/issues/58)): the progress bar no longer touches *Downloaded*; speeds under 2 KB/s (peer messages, not video data, e.g. while paused) show as `0.0 KB/s`; speeds are always in KB/s or MB/s with one decimal; the changing values sit next to their labels and only ever widen, never narrow back, so the bar no longer jitters.
 - **File → Open URL… on the start screen showed a second URL field** ([#50](https://github.com/knrerikh/saltplayer/issues/50)) in a dialog over the one already there. It now focuses and selects the start screen's field; the dialog appears only while a video is on screen.
