@@ -69,6 +69,10 @@ export const IPC_CHANNELS = {
   WINDOW_DRAG_END: 'window:dragEnd',
   WINDOW_FULLSCREEN: 'window:fullscreen',
   WINDOW_SET_FULLSCREEN: 'window:setFullscreen',
+  REMOTE_SET_ENABLED: 'remote:setEnabled',
+  REMOTE_STATUS: 'remote:status',
+  REMOTE_COMMAND: 'remote:command',
+  REMOTE_STATE: 'remote:state',
 } as const;
 
 export type PlaybackControlAction = 'play' | 'pause' | 'stop';
@@ -87,7 +91,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
 };
 
 /** Menu items the page carries out itself: it owns the URL prompt and the player state. */
-export type MenuCommand = 'open-url' | 'close-video';
+export type MenuCommand = 'open-url' | 'close-video' | 'remote-control';
 
 export interface SubtitleTrack {
   index: number;

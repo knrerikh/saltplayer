@@ -36,9 +36,25 @@ interface StatusBarProps {
   metadata: TorrentMetadata | null;
   currentVideoFile?: TorrentFile | null;
   videoDuration?: number | null;
+  /** Remote control is on; the item reopens its dialog. */
+  remoteEnabled?: boolean;
+  onOpenRemoteControl?: () => void;
 }
 
-const StatusBar: React.FC<StatusBarProps> = ({ status, metadata, currentVideoFile, videoDuration }) => {
+const StatusBar: React.FC<StatusBarProps> = ({
+  status,
+  metadata,
+  currentVideoFile,
+  videoDuration,
+  remoteEnabled = false,
+  onOpenRemoteControl,
+}) => {
+  const remoteItem = remoteEnabled && (
+    <button type="button" className="status-item status-remote" onClick={onOpenRemoteControl}>
+      Remote on
+    </button>
+  );
+
   // Calculate minimum speed required for smooth playback (bytes/sec)
   const getMinimumRequiredSpeed = (): number => {
     if (!currentVideoFile || !videoDuration || videoDuration <= 0) {
@@ -96,6 +112,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ status, metadata, currentVideoFil
             <span className="status-label">Size:</span>
             <span className="status-value">{formatSize(size)}</span>
           </div>
+          {remoteItem}
         </div>
       </div>
     );
@@ -108,6 +125,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ status, metadata, currentVideoFil
           <span className="status-item">
             <span className="status-label">Ready</span>
           </span>
+          {remoteItem}
         </div>
       </div>
     );
@@ -155,6 +173,8 @@ const StatusBar: React.FC<StatusBarProps> = ({ status, metadata, currentVideoFil
           <span className="status-label">Downloaded:</span>
           <SteadyValue>{formatSize(status.downloaded)}</SteadyValue>
         </div>
+
+        {remoteItem}
       </div>
 
       <div className="progress-bar">

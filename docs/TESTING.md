@@ -40,8 +40,14 @@ npx vitest run -t "seek"                    # tests whose name matches
 | `tests/unit/external-url.test.ts` | The URL scheme allow-list for opening links outside the app |
 | `tests/integration/escape-fullscreen.test.tsx` | The ⛶ button toggles window fullscreen; <kbd>Esc</kbd> leaves it, but closes an open subtitle or audio menu first |
 | `tests/integration/error-dismiss.test.tsx` | Error banner close button, hover pause and auto-dismiss timers |
+| `tests/unit/remote-server.test.ts` | The phone remote's server over real HTTP on loopback: off until started, token, `Host` and `Origin` checks, rate limit, commands, event stream, security headers and CSP nonce, token rotation, port fallback |
+| `tests/unit/remote-control.test.ts` | `RemoteControl`: pairing links, QR code, turning on and off, overlapping calls |
+| `tests/unit/rate-limiter.test.ts` | Fixed-window request limit per key, and expired windows being forgotten |
+| `tests/unit/remote.test.ts` | Parsing of remote commands and player state, which are untrusted input |
+| `tests/unit/network.test.ts` | Which local addresses are offered to the phone, and in what order |
+| `tests/integration/remote-control.test.tsx` | The remote control dialog, *Remote on* in the status bar, a phone's play/pause command, and the state sent to the phone |
 
-`tests/helpers/electron-api.ts` provides `mockElectronAPI()`, a complete `electronAPI` mock for rendering `<App />` with helpers that deliver main-process events. `tests/setup.ts` installs a default mocked `window.electronAPI` and a `File` subclass with a `path` property for drag-and-drop tests. Main-process tests mock `electron` and, where needed, `webtorrent` with `vi.mock`; no test touches the network.
+`tests/helpers/electron-api.ts` provides `mockElectronAPI()`, a complete `electronAPI` mock for rendering `<App />` with helpers that deliver main-process events. `tests/setup.ts` installs a default mocked `window.electronAPI` and a `File` subclass with a `path` property for drag-and-drop tests. Main-process tests mock `electron` and, where needed, `webtorrent` with `vi.mock`; no test goes beyond the loopback interface.
 
 ffprobe and ffmpeg are not mocked. Tests that need them run the bundled binaries on real media generated with `ffmpeg-static` (`local-file-playback.test.ts`) and allow for a slow cold start on CI runners. Tests that are only about the server read its address directly instead of waiting for the probe. Temporary fixtures must not be named `saltplayer-*`: `StorageManager` deletes such folders as stale sessions, also while a parallel test uses them.
 

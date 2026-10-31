@@ -297,6 +297,43 @@ body {
   gap: 8px;
 }
 
+/* Remote control dialog and status bar item */
+.remote-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+}
+
+.remote-note {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.remote-qr {
+  align-self: center;
+  width: 200px;
+  height: 200px;
+  image-rendering: pixelated;
+  border-radius: 4px;
+}
+
+.remote-link {
+  display: flex;
+  gap: 8px;
+}
+
+.status-remote {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
 .button-secondary {
   background-color: var(--bg-tertiary);
 }

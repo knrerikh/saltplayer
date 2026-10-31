@@ -18,6 +18,8 @@ global.window = global.window || {};
   onVideoUrl: vi.fn(),
   onError: vi.fn(),
   onWindowFullscreen: vi.fn(),
+  onRemoteCommand: vi.fn(),
+  sendRemoteState: vi.fn(),
   removeAllListeners: vi.fn(),
 };
 

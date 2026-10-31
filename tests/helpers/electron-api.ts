@@ -1,5 +1,6 @@
 import { vi } from 'vitest';
 import { act } from '@testing-library/react';
+import type { RemoteCommand, RemoteStatus } from '@/shared/remote';
 import type { AppSettings, AudioData, MenuCommand, SubtitleData, TorrentMetadata } from '@/shared/types';
 
 /**
@@ -16,6 +17,8 @@ export function mockElectronAPI() {
     mediaOpened?: (metadata: TorrentMetadata) => void;
     menuCommand?: (command: MenuCommand) => void;
     settingsChanged?: (settings: AppSettings) => void;
+    remoteStatus?: (status: RemoteStatus) => void;
+    remoteCommand?: (command: RemoteCommand) => void;
   } = {};
 
   const api = {
@@ -64,6 +67,14 @@ export function mockElectronAPI() {
     onSettingsChanged: vi.fn((callback: (settings: AppSettings) => void) => {
       listeners.settingsChanged = callback;
     }),
+    setRemoteEnabled: vi.fn(),
+    sendRemoteState: vi.fn(),
+    onRemoteStatus: vi.fn((callback: (status: RemoteStatus) => void) => {
+      listeners.remoteStatus = callback;
+    }),
+    onRemoteCommand: vi.fn((callback: (command: RemoteCommand) => void) => {
+      listeners.remoteCommand = callback;
+    }),
     removeAllListeners: vi.fn(),
   };
   (globalThis.window as any).electronAPI = api;
@@ -93,6 +104,14 @@ export function mockElectronAPI() {
     },
     sendMenuCommand(command: MenuCommand) {
       act(() => listeners.menuCommand?.(command));
+    },
+    /** Main turned the remote on or off. */
+    pushRemoteStatus(status: RemoteStatus) {
+      act(() => listeners.remoteStatus?.(status));
+    },
+    /** A phone sent a command. */
+    sendRemoteCommand(command: RemoteCommand) {
+      act(() => listeners.remoteCommand?.(command));
     },
     changeSettings(settings: AppSettings) {
       act(() => listeners.settingsChanged?.(settings));

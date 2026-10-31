@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { IPC_CHANNELS } from '@/shared/types';
 
 const handlers = new Map<string, (event: unknown, ...args: unknown[]) => unknown>();
+const listeners = new Map<string, (event: unknown, ...args: unknown[]) => unknown>();
 const senderWindow = { setFullScreen: vi.fn(), isDestroyed: () => false };
 const openExternal = vi.fn();
 
@@ -9,7 +10,8 @@ vi.mock('electron', () => ({
   ipcMain: {
     handle: (channel: string, handler: (event: unknown, ...args: unknown[]) => unknown) =>
       handlers.set(channel, handler),
-    on: vi.fn(),
+    on: (channel: string, listener: (event: unknown, ...args: unknown[]) => unknown) =>
+      listeners.set(channel, listener),
     removeHandler: vi.fn(),
     removeAllListeners: vi.fn(),
   },
@@ -146,5 +148,45 @@ describe('playback:savePosition (#51)', () => {
     await save(file, position, duration);
 
     expect(history.record).not.toHaveBeenCalled();
+  });
+});
+
+describe('remote control (#64)', () => {
+  const remote = { status: { enabled: false }, setEnabled: vi.fn(), broadcast: vi.fn() };
+  const state = { hasVideo: true, title: 'a.mkv', isPlaying: true, currentTime: 5, duration: 60 };
+
+  beforeEach(async () => {
+    handlers.clear();
+    listeners.clear();
+    remote.setEnabled.mockReset().mockResolvedValue({ enabled: true });
+    remote.broadcast.mockReset();
+    const { setupIPCHandlers } = await import('@/main/ipc-handlers');
+    setupIPCHandlers({} as any, {} as any, {} as any, {} as any, {} as any, remote as any);
+  });
+
+  it.each([true, false])('remote:setEnabled(%s) switches the remote and returns its status', async (enabled) => {
+    const status = await handlers.get(IPC_CHANNELS.REMOTE_SET_ENABLED)?.({}, enabled);
+
+    expect(remote.setEnabled).toHaveBeenCalledWith(enabled);
+    expect(status).toEqual({ enabled: true });
+  });
+
+  it('remote:setEnabled ignores anything but a boolean and returns the current status', async () => {
+    const status = await handlers.get(IPC_CHANNELS.REMOTE_SET_ENABLED)?.({}, 'yes');
+
+    expect(remote.setEnabled).not.toHaveBeenCalled();
+    expect(status).toBe(remote.status);
+  });
+
+  it('remote:state broadcasts a well-formed state', () => {
+    listeners.get(IPC_CHANNELS.REMOTE_STATE)?.({}, state);
+
+    expect(remote.broadcast).toHaveBeenCalledWith(state);
+  });
+
+  it('remote:state drops a malformed state', () => {
+    listeners.get(IPC_CHANNELS.REMOTE_STATE)?.({}, { ...state, isPlaying: 'yes' });
+
+    expect(remote.broadcast).not.toHaveBeenCalled();
   });
 });

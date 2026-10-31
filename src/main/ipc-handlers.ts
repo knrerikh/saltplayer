@@ -7,6 +7,8 @@ import { MediaOpener } from './media-opener';
 import { Settings } from './settings';
 import { WatchHistory } from './watch-history';
 import type { WatchedFile } from '@/shared/playback-key';
+import { parseRemoteState } from '@/shared/remote';
+import type { RemoteControl } from './remote-control/remote-control';
 
 const optionalString = (value: unknown) => value === undefined || typeof value === 'string';
 
@@ -26,7 +28,8 @@ export function setupIPCHandlers(
   storageManager: StorageManager,
   opener: MediaOpener,
   settings: Settings,
-  watchHistory: WatchHistory
+  watchHistory: WatchHistory,
+  remote: RemoteControl
 ): void {
   // Re-registering would throw ("second handler for ..."), so drop any handlers
   // left over from a previous initializeApp() before wiring the new instances up.
@@ -46,10 +49,12 @@ export function setupIPCHandlers(
     IPC_CHANNELS.WINDOW_DRAG_START,
     IPC_CHANNELS.WINDOW_DRAG_END,
     IPC_CHANNELS.WINDOW_SET_FULLSCREEN,
+    IPC_CHANNELS.REMOTE_SET_ENABLED,
   ]) {
     ipcMain.removeHandler(channel);
   }
   ipcMain.removeAllListeners(IPC_CHANNELS.WINDOW_DRAG_MOVE);
+  ipcMain.removeAllListeners(IPC_CHANNELS.REMOTE_STATE);
 
   // Load torrent or magnet link
   ipcMain.handle(IPC_CHANNELS.TORRENT_LOAD, async (_, source: string) => {
@@ -122,6 +127,16 @@ export function setupIPCHandlers(
       return watchHistory.record(watched, position as number, duration as number);
     }
   );
+
+  // Remote control: the dialog's switch, and the player state the phone shows
+  ipcMain.handle(IPC_CHANNELS.REMOTE_SET_ENABLED, (_, enabled: unknown) =>
+    typeof enabled === 'boolean' ? remote.setEnabled(enabled) : remote.status
+  );
+
+  ipcMain.on(IPC_CHANNELS.REMOTE_STATE, (_, state: unknown) => {
+    const parsed = parseRemoteState(state);
+    if (parsed) remote.broadcast(parsed);
+  });
 
   // Quit application
   ipcMain.handle(IPC_CHANNELS.APP_QUIT, async () => {
