@@ -4,7 +4,14 @@ export type RemoteCommand =
   /** Relative jump in seconds, negative to go back. */
   | { type: 'seek-by'; seconds: number }
   /** Absolute position in seconds. */
-  | { type: 'seek-to'; time: number };
+  | { type: 'seek-to'; time: number }
+  /** 0 (silent) to 1 (full). */
+  | { type: 'set-volume'; volume: number }
+  | { type: 'set-muted'; muted: boolean }
+  /** Window fullscreen on the computer. */
+  | { type: 'toggle-fullscreen' }
+  /** Closes the video, like File → Close Video. */
+  | { type: 'close-video' };
 
 /** The longest jump the remote may ask for. */
 export const MAX_SEEK_BY_SECONDS = 3600;
@@ -18,6 +25,10 @@ export interface RemoteState {
   currentTime: number;
   /** Seconds; 0 while unknown. */
   duration: number;
+  /** 0 to 1. */
+  volume: number;
+  muted: boolean;
+  isFullscreen: boolean;
 }
 
 /** Remote control as the dialog shows it. */
@@ -35,7 +46,7 @@ export const REMOTE_DISABLED: RemoteStatus = { enabled: false, urls: [], qrDataU
 /** The remote is untrusted input: anything but a known, well-formed command is rejected. */
 export function parseRemoteCommand(value: unknown): RemoteCommand | null {
   if (typeof value !== 'object' || value === null) return null;
-  const { type, seconds, time } = value as Record<string, unknown>;
+  const { type, seconds, time, volume, muted } = value as Record<string, unknown>;
   switch (type) {
     case 'toggle-play':
       return { type };
@@ -45,23 +56,37 @@ export function parseRemoteCommand(value: unknown): RemoteCommand | null {
         : null;
     case 'seek-to':
       return typeof time === 'number' && Number.isFinite(time) && time >= 0 ? { type, time } : null;
+    case 'set-volume':
+      return isVolume(volume) ? { type, volume } : null;
+    case 'set-muted':
+      return typeof muted === 'boolean' ? { type, muted } : null;
+    case 'toggle-fullscreen':
+    case 'close-video':
+      return { type };
     default:
       return null;
   }
 }
 
+function isVolume(value: unknown): value is number {
+  return typeof value === 'number' && value >= 0 && value <= 1;
+}
+
 /** The page is untrusted too: take a state only if every field has the right type. */
 export function parseRemoteState(value: unknown): RemoteState | null {
   if (typeof value !== 'object' || value === null) return null;
-  const { hasVideo, title, isPlaying, currentTime, duration } = value as Record<string, unknown>;
+  const { hasVideo, title, isPlaying, currentTime, duration, volume, muted, isFullscreen } = value as Record<string, unknown>;
   if (
     typeof hasVideo !== 'boolean' ||
     !(title === null || typeof title === 'string') ||
     typeof isPlaying !== 'boolean' ||
     typeof currentTime !== 'number' || !Number.isFinite(currentTime) ||
-    typeof duration !== 'number' || !Number.isFinite(duration)
+    typeof duration !== 'number' || !Number.isFinite(duration) ||
+    !isVolume(volume) ||
+    typeof muted !== 'boolean' ||
+    typeof isFullscreen !== 'boolean'
   ) {
     return null;
   }
-  return { hasVideo, title, isPlaying, currentTime, duration };
+  return { hasVideo, title, isPlaying, currentTime, duration, volume, muted, isFullscreen };
 }

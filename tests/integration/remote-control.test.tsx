@@ -190,6 +190,9 @@ describe('Remote control (#64)', () => {
         isPlaying: false,
         currentTime: 0,
         duration: 0,
+        volume: 1,
+        muted: false,
+        isFullscreen: false,
       });
 
       act(() => {
