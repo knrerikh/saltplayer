@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { type ComponentProps } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -874,12 +874,13 @@ describe('VideoPlayer Component', () => {
     });
   });
   describe('Idle Auto-Hide', () => {
-    const renderPlaying = () => {
+    const renderPlaying = (props: Partial<ComponentProps<typeof VideoPlayer>> = {}) => {
       const rendered = render(
         <VideoPlayer
           videoUrl="http://localhost:8080/video.mp4"
           title="Test Video"
           onClose={vi.fn()}
+          {...props}
         />
       );
       const video = rendered.container.querySelector('video') as HTMLVideoElement;
@@ -954,6 +955,82 @@ describe('VideoPlayer Component', () => {
       });
 
       expect(player.className).not.toContain('controls-hidden');
+    });
+
+    it('should keep controls visible while the pointer moves over them', () => {
+      const { container } = renderPlaying();
+      const player = container.querySelector('.video-container') as HTMLElement;
+      const controls = container.querySelector('.video-controls') as HTMLElement;
+
+      act(() => {
+        fireEvent.mouseMove(controls);
+      });
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+
+      expect(player.className).not.toContain('controls-hidden');
+    });
+
+    // Choosing a menu item unmounts the menu under the pointer; Chromium then
+    // sends no mouseleave to the controls, so the next move must settle it.
+    const expectHidesAfterMenuChoice = (
+      container: HTMLElement,
+      openMenu: () => void,
+      choose: () => void
+    ) => {
+      const player = container.querySelector('.video-container') as HTMLElement;
+      const video = container.querySelector('video') as HTMLVideoElement;
+
+      act(() => {
+        fireEvent.mouseEnter(container.querySelector('.video-controls') as HTMLElement);
+      });
+      act(openMenu);
+      act(choose);
+      act(() => {
+        fireEvent.mouseMove(video);
+      });
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+
+      expect(player.className).toContain('controls-hidden');
+    };
+
+    it('should hide controls again after a subtitle is chosen from the menu', () => {
+      const { container } = renderPlaying({
+        subtitleData: {
+          tracks: [
+            { index: 0, language: 'eng', title: 'English', url: 'http://localhost:8080/subtitle/0.vtt' },
+          ],
+          hasEmbeddedSubtitles: true,
+        },
+      });
+
+      expectHidesAfterMenuChoice(
+        container,
+        () => fireEvent.click(container.querySelector('.subtitle-control-arrow') as HTMLElement),
+        () => fireEvent.click(container.querySelector('.subtitle-menu-item:nth-child(2)') as HTMLElement)
+      );
+    });
+
+    it('should hide controls again after an audio track is chosen from the menu', () => {
+      const { container } = renderPlaying({
+        audioData: {
+          tracks: [
+            { index: 1, language: 'eng', title: 'English', codec: 'aac', channels: 2 },
+            { index: 2, language: 'rus', title: 'Russian', codec: 'ac3', channels: 6 },
+          ],
+          currentTrackIndex: 0,
+        },
+        onSelectAudioTrack: vi.fn(),
+      });
+
+      expectHidesAfterMenuChoice(
+        container,
+        () => fireEvent.click(container.querySelector('.volume-track-arrow') as HTMLElement),
+        () => fireEvent.click(container.querySelectorAll('.audio-menu-item')[1] as HTMLElement)
+      );
     });
   });
 });

@@ -125,6 +125,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const audioControlRef = useRef<HTMLDivElement>(null);
   const pendingAudioSwitchTime = useRef<number | null>(null);
   const idleTimerRef = useRef<number | null>(null);
+  const controlsRef = useRef<HTMLDivElement>(null);
   const pointerOverControlsRef = useRef(false);
 
   const autoplay = useAutoplayNext({
@@ -462,16 +463,24 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   // container so this also works in fullscreen, where the video covers the screen.
   useEffect(() => {
     if (!videoUrl) return;
-    const handleActivity = () => revealControls();
-    window.addEventListener('mousemove', handleActivity);
-    window.addEventListener('mousedown', handleActivity);
-    window.addEventListener('keydown', handleActivity);
-    window.addEventListener('wheel', handleActivity, { passive: true });
+    const handlePointerActivity = (event: Event) => {
+      // mouseenter/mouseleave alone can go stale: when the element under the
+      // pointer is removed (a menu item was chosen) Chromium sends no mouseleave
+      // to its ancestors. The target of the next pointer event is the truth.
+      pointerOverControlsRef.current =
+        event.target instanceof Node && !!controlsRef.current?.contains(event.target);
+      revealControls();
+    };
+    const handleKeyActivity = () => revealControls();
+    window.addEventListener('mousemove', handlePointerActivity);
+    window.addEventListener('mousedown', handlePointerActivity);
+    window.addEventListener('keydown', handleKeyActivity);
+    window.addEventListener('wheel', handlePointerActivity, { passive: true });
     return () => {
-      window.removeEventListener('mousemove', handleActivity);
-      window.removeEventListener('mousedown', handleActivity);
-      window.removeEventListener('keydown', handleActivity);
-      window.removeEventListener('wheel', handleActivity);
+      window.removeEventListener('mousemove', handlePointerActivity);
+      window.removeEventListener('mousedown', handlePointerActivity);
+      window.removeEventListener('keydown', handleKeyActivity);
+      window.removeEventListener('wheel', handlePointerActivity);
     };
   }, [videoUrl, revealControls]);
 
@@ -614,6 +623,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           
           <div
             className="video-controls"
+            ref={controlsRef}
             onMouseEnter={() => {
               pointerOverControlsRef.current = true;
               revealControls();
