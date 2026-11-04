@@ -8,6 +8,7 @@
 
 For a torrent, Salt Player fetches its metadata, picks the main video file and starts playing as soon as enough data is buffered. If no peers can be reached within 60 seconds, loading stops with a timeout error; try a magnet with more seeders. Public fallback trackers are added to every torrent automatically.
 
+- **From the file manager:** choose **Open With → Salt Player** on a video or `.torrent` file, or make Salt Player the default app for that type in your system and double-click it. Salt Player runs one window: if it is already open, the file opens there and the window comes to the front. (Needs an installed build; macOS shows the types after the app has been installed or moved to Applications.)
 - **Again:** **File → Open Recent** lists the last 10 torrents and files you opened, newest first. On macOS, files from disk also appear in the Dock icon's menu, and dropping a file on the Dock icon opens it.
 
 Opening something new from the menu replaces the video that is playing. **File → Close Video** (<kbd>⌘W</kbd> / <kbd>Ctrl+W</kbd>) returns to the start screen.
@@ -107,6 +108,7 @@ The status bar at the bottom of the window shows the torrent name, the size of t
 | *Torrent load timed out* | No reachable peers within 60 s. Try another magnet with more seeders. |
 | Constant buffering | Few seeders or a slow connection; watch the speed colour in the status bar. |
 | *No video file found in torrent* | The torrent contains no recognised video file. |
+| Opening Salt Player again only brings the window forward | Only one copy runs at a time. Double-click a file, or use **File → Open File…**, to play something else in it. |
 | macOS says the app can't be opened | The build is not notarised. Right-click the app and choose **Open**, or run `xattr -dr com.apple.quarantine "/Applications/Salt Player.app"`. |
 
 ## Legal notice

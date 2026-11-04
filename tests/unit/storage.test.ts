@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { StorageManager } from '@/main/storage';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as os from 'os';
 
 describe('StorageManager', () => {
   let storageManager: StorageManager;
@@ -146,6 +147,104 @@ describe('StorageManager', () => {
       );
       
       consoleSpy.mockRestore();
+    });
+  });
+
+  describe('stale session cleanup (#44)', () => {
+    let base: string;
+
+    // Our own folder, not a saltplayer-* one in os.tmpdir(), which parallel tests sweep.
+    beforeEach(async () => {
+      base = await fs.mkdtemp(path.join(os.tmpdir(), 'storage-test-'));
+    });
+
+    afterEach(async () => {
+      await fs.rm(base, { recursive: true, force: true });
+    });
+
+    async function session(name: string, marker?: string): Promise<string> {
+      const dir = path.join(base, name);
+      await fs.mkdir(dir);
+      if (marker !== undefined) await fs.writeFile(path.join(dir, 'session.pid'), marker);
+      return dir;
+    }
+
+    const exists = (dir: string) => fs.stat(dir).then(() => true, () => false);
+
+    it('writes its pid into the session folder', async () => {
+      const manager = new StorageManager({ baseDir: base });
+      await manager.initialize();
+      const marker = await fs.readFile(path.join(manager.getTempDir(), 'session.pid'), 'utf-8');
+      expect(marker.trim()).toBe(String(process.pid));
+      await manager.cleanup();
+    });
+
+    it('does not count the marker in the directory size', async () => {
+      const manager = new StorageManager({ baseDir: base });
+      await manager.initialize();
+      expect(await manager.getDirectorySize()).toBe(0);
+      await manager.cleanup();
+    });
+
+    it('keeps the folder of a live session', async () => {
+      const live = await session('saltplayer-live', '4242');
+      const manager = new StorageManager({ baseDir: base, isProcessAlive: (pid) => pid === 4242 });
+      await manager.initialize();
+      expect(await exists(live)).toBe(true);
+      await manager.cleanup();
+    });
+
+    it('removes the folder of a session whose owner is gone', async () => {
+      const dead = await session('saltplayer-dead', '4242');
+      const manager = new StorageManager({ baseDir: base, isProcessAlive: () => false });
+      await manager.initialize();
+      expect(await exists(dead)).toBe(false);
+      await manager.cleanup();
+    });
+
+    it.each([
+      ['no marker', undefined],
+      ['an empty marker', ''],
+      ['an unreadable marker', 'not a pid'],
+    ])('removes a folder with %s', async (_label, marker) => {
+      const old = await session('saltplayer-old', marker);
+      const manager = new StorageManager({ baseDir: base, isProcessAlive: () => true });
+      await manager.initialize();
+      expect(await exists(old)).toBe(false);
+      await manager.cleanup();
+    });
+
+    it('leaves folders that are not ours alone', async () => {
+      const other = await session('something-else');
+      const manager = new StorageManager({ baseDir: base, isProcessAlive: () => false });
+      await manager.initialize();
+      expect(await exists(other)).toBe(true);
+      await manager.cleanup();
+    });
+
+    describe('default liveness check', () => {
+      it('treats this process as alive', async () => {
+        const mine = await session('saltplayer-mine', String(process.pid));
+        const manager = new StorageManager({ baseDir: base });
+        await manager.initialize();
+        expect(await exists(mine)).toBe(true);
+        await manager.cleanup();
+      });
+
+      it.each([
+        ['ESRCH', false],
+        ['EPERM', true],
+      ])('%s: folder kept = %s', async (code, kept) => {
+        const dir = await session('saltplayer-other', '999999');
+        const kill = vi.spyOn(process, 'kill').mockImplementation(() => {
+          throw Object.assign(new Error(code), { code });
+        });
+        const manager = new StorageManager({ baseDir: base });
+        await manager.initialize();
+        kill.mockRestore();
+        expect(await exists(dir)).toBe(kept);
+        await manager.cleanup();
+      });
     });
   });
 });

@@ -3,12 +3,33 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { randomBytes } from 'crypto';
 
+/** Written into each session folder so a later launch can tell a live session from a stale one. */
+const OWNER_MARKER = 'session.pid';
+
+/** Signal 0 only checks. EPERM means the process exists but belongs to another user. */
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'EPERM';
+  }
+}
+
+interface StorageOptions {
+  /** Where session folders live; the system temp directory by default. */
+  baseDir?: string;
+  isProcessAlive?: (pid: number) => boolean;
+}
+
 export class StorageManager {
   private tempDir: string | null = null;
   private readonly baseTempDir: string;
+  private readonly isProcessAlive: (pid: number) => boolean;
 
-  constructor() {
-    this.baseTempDir = os.tmpdir();
+  constructor(options: StorageOptions = {}) {
+    this.baseTempDir = options.baseDir ?? os.tmpdir();
+    this.isProcessAlive = options.isProcessAlive ?? isProcessAlive;
   }
 
   /**
@@ -30,6 +51,7 @@ export class StorageManager {
 
     try {
       await fs.mkdir(dir, { recursive: true });
+      await fs.writeFile(path.join(dir, OWNER_MARKER), String(process.pid));
       this.tempDir = dir;
       console.log(`Temporary directory created: ${dir}`);
     } catch (error) {
@@ -39,19 +61,32 @@ export class StorageManager {
   }
 
   /**
-   * Clean up old session directories on startup
+   * Whether the process that created the session folder is still running. A folder with
+   * no readable marker predates the marker, so it is stale.
+   */
+  private async isSessionLive(dir: string): Promise<boolean> {
+    try {
+      const text = (await fs.readFile(path.join(dir, OWNER_MARKER), 'utf-8')).trim();
+      const pid = /^\d+$/.test(text) ? Number(text) : 0;
+      return pid > 0 && this.isProcessAlive(pid);
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Clean up session directories left by processes that are gone
    */
   private async cleanupOldSessions(): Promise<void> {
     try {
       const files = await fs.readdir(this.baseTempDir);
       const saltDirs = files.filter(f => f.startsWith('saltplayer-'));
-      
-      if (saltDirs.length > 0) {
-        console.log(`Found ${saltDirs.length} old session(s) to clean up.`);
-      }
 
       for (const dir of saltDirs) {
         const fullPath = path.join(this.baseTempDir, dir);
+        if (await this.isSessionLive(fullPath)) {
+          continue;
+        }
         try {
           await fs.rm(fullPath, { recursive: true, force: true });
           console.log(`Cleaned up old session: ${fullPath}`);
@@ -108,6 +143,7 @@ export class StorageManager {
       let totalSize = 0;
 
       for (const file of files) {
+        if (file === OWNER_MARKER) continue;
         const filePath = path.join(this.tempDir, file);
         const stats = await fs.stat(filePath);
         if (stats.isFile()) {

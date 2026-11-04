@@ -13,6 +13,8 @@ npm run test:unit    # unit tests
 npm test             # all tests in watch mode
 ```
 
+Quit an installed Salt Player before `npm run dev`. The two share one data folder and so one single-instance lock: with the installed app open, the dev window closes at once and hands its arguments to the running app.
+
 See the [README](README.md#development) for the project layout and the full command list.
 
 ## Workflow
