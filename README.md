@@ -27,7 +27,7 @@
 - **Phone remote.** Turn on **Playback → Remote Control…**, scan the QR code with a phone on the same Wi-Fi, and play and pause from its browser. Off until you turn it on; the link has a fresh random token every time and nothing leaves your local network.
 - **Stays out of the way.** Controls and cursor hide after 2.5 s without movement; the window has no chrome beyond a draggable title strip.
 - **A real desktop menu.** Open files and URLs, reopen recent torrents and files, close the video, toggle fullscreen; links to help and releases.
-- **Leaves nothing behind.** Pieces live in a per-session temp folder that is deleted on exit; folders left by a crash are removed on the next launch. The only things kept are your settings, the **Open Recent** list and where you stopped each file; **Clear Menu** forgets the last two. No accounts, no telemetry. The phone remote listens on your local network only while you have it on.
+- **Leaves nothing behind.** Pieces live in a per-session temp folder that is deleted on exit; folders left by a crash are removed on the next launch (never the folder of a session that is still running). The only things kept are your settings, the **Open Recent** list and where you stopped each file; **Clear Menu** forgets the last two. No accounts, no telemetry. The phone remote listens on your local network only while you have it on.
 
 Salt Player is deliberately not a library manager, a torrent search engine or a download manager. It plays one torrent, now.
 
@@ -50,7 +50,7 @@ Requires macOS 10.15+, Windows 10+ or a 64-bit Linux distribution from the last 
 
 ## Usage
 
-1. Paste a magnet link and press **Enter**, or drop a `.torrent` file onto the window (or click **Open File**). A video file from disk opens the same way. The **File** menu does the same at any time: **Open File…** (<kbd>⌘O</kbd> / <kbd>Ctrl+O</kbd>), **Open URL…** (<kbd>⌘U</kbd> / <kbd>Ctrl+U</kbd>) and **Open Recent**.
+1. Paste a magnet link and press **Enter**, or drop a `.torrent` file onto the window (or click **Open File**). A video file from disk opens the same way. The **File** menu does the same at any time: **Open File…** (<kbd>⌘O</kbd> / <kbd>Ctrl+O</kbd>), **Open URL…** (<kbd>⌘U</kbd> / <kbd>Ctrl+U</kbd>) and **Open Recent**. You can also open a video or `.torrent` from the file manager (**Open With**, or double-click once Salt Player is the default app for that type); it goes to the running window, as Salt Player runs one window at a time.
 2. Salt Player picks the main video file and starts playing after a short buffer. For a series, choose the episode from the list in the title bar.
 3. The status bar shows the size of the file playing, its progress, download and upload speed, peers and the amount downloaded.
 

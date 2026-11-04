@@ -19,6 +19,7 @@ electron-builder is configured in the `build` field of `package.json`:
 - **Files:** `dist/`, `assets/` and `package.json`.
 - **`asarUnpack`:** `ffmpeg-static` and `ffprobe-static` stay outside the asar archive, because `child_process.spawn` cannot execute a binary inside it.
 - **Icons:** `build/icon.icns` (macOS), `build/icon.ico` (Windows), and `assets/icon.png` for the window and Linux. Regenerate all of them with `npm run icons`.
+- **File associations:** `build.fileAssociations` registers `.torrent` and the extensions in `VIDEO_EXTENSIONS` with role `Viewer` (macOS `Info.plist` document types, Windows registry entries, Linux `.desktop` MIME types), so the system offers Salt Player for them. Add a new video extension to both lists; a unit test fails if they differ.
 - **`afterPack`:** `scripts/after-pack.js` ad-hoc signs the macOS app (`codesign --sign -`), which Apple Silicon requires to launch it at all.
 
 | Platform | Targets | Output |

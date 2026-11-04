@@ -5,6 +5,8 @@ import { TorrentEngine } from './torrent';
 import { StorageManager } from './storage';
 import { setupIPCHandlers } from './ipc-handlers';
 import { forwardFullscreenState } from './window-fullscreen';
+import { revealWindow } from './window-reveal';
+import { fileFromArgv } from './launch-args';
 import { RecentSources } from './recent-sources';
 import { Settings } from './settings';
 import { WatchHistory } from './watch-history';
@@ -264,52 +266,90 @@ async function cleanupApp(): Promise<void> {
   console.log('Cleanup complete');
 }
 
-// App lifecycle events
+/** Opens the file a launch's command line names, if any. */
+function openFileFromArgv(argv: readonly string[], workingDirectory: string): void {
+  const file = fileFromArgv(argv, { isPackaged: app.isPackaged, workingDirectory });
+  if (file) openSource(file);
+}
 
-app.whenReady().then(() => {
-  // Registered only after ready so a first-launch 'activate' cannot race
-  // initializeApp() into running twice.
-  app.on('activate', ensureWindow);
-
-  return initializeApp();
-}).catch((error) => {
-  console.error('Failed to initialize application:', error);
-  writeCrashLog('initializeApp', error);
-});
-
-// macOS: a file dropped on the Dock icon or picked from its recent documents. This can
-// arrive before 'ready', so it is registered at once and held until the page loads.
-app.on('open-file', (event, filePath) => {
-  event.preventDefault();
-  openSource(filePath);
-});
-
-app.on('window-all-closed', async () => {
-  if (process.platform === 'darwin') {
-    // The process stays alive on macOS, so keep storage/torrent engine intact
-    // (tearing them down left the IPC handlers holding a cleaned-up
-    // StorageManager — "Storage manager not initialized" on the next load).
-    // The torrent itself must still stop: otherwise its HTTP server, status
-    // interval and download keep running with no UI attached. So must the remote,
-    // which would be steering a page that is gone.
-    try {
-      await remoteControl?.setEnabled(false);
-      await torrentEngine?.stop();
-    } catch (error) {
-      console.error('Error stopping torrent on window close:', error);
-    }
+/** Brings the window forward, recreating it if the last one was closed (macOS). */
+function showApp(): void {
+  if (mainWindow === null) {
+    if (app.isReady()) ensureWindow();
     return;
   }
+  revealWindow(mainWindow);
+}
 
-  await cleanupApp();
-  app.quit();
-});
+/** Registers everything that runs the app; only the instance that holds the single-instance lock calls it. */
+function runApp(): void {
+  app.whenReady().then(() => {
+    // Registered only after ready so a first-launch 'activate' cannot race
+    // initializeApp() into running twice.
+    app.on('activate', ensureWindow);
 
-app.on('before-quit', async (event) => {
-  event.preventDefault();
-  await cleanupApp();
+    return initializeApp();
+  }).catch((error) => {
+    console.error('Failed to initialize application:', error);
+    writeCrashLog('initializeApp', error);
+  });
+
+  // Windows and Linux: a file chosen in the file manager arrives as a command-line argument.
+  openFileFromArgv(process.argv, process.cwd());
+
+  // A second launch (a double-clicked file, or the app started again) lands here instead of
+  // starting a second engine that would share the first one's temp folder.
+  app.on('second-instance', (_event, argv, workingDirectory) => {
+    openFileFromArgv(argv, workingDirectory);
+    showApp();
+  });
+
+  // macOS: a file dropped on the Dock icon or picked from its recent documents. This can
+  // arrive before 'ready', so it is registered at once and held until the page loads.
+  app.on('open-file', (event, filePath) => {
+    event.preventDefault();
+    openSource(filePath);
+    showApp();
+  });
+
+  app.on('window-all-closed', async () => {
+    if (process.platform === 'darwin') {
+      // The process stays alive on macOS, so keep storage/torrent engine intact
+      // (tearing them down left the IPC handlers holding a cleaned-up
+      // StorageManager — "Storage manager not initialized" on the next load).
+      // The torrent itself must still stop: otherwise its HTTP server, status
+      // interval and download keep running with no UI attached. So must the remote,
+      // which would be steering a page that is gone.
+      try {
+        await remoteControl?.setEnabled(false);
+        await torrentEngine?.stop();
+      } catch (error) {
+        console.error('Error stopping torrent on window close:', error);
+      }
+      return;
+    }
+
+    await cleanupApp();
+    app.quit();
+  });
+
+  app.on('before-quit', async (event) => {
+    event.preventDefault();
+    await cleanupApp();
+    app.exit(0);
+  });
+}
+
+// A second copy would sweep the first one's session folder and fight it for the
+// remote's port. The first copy gets this launch's arguments in 'second-instance'.
+// exit() rather than quit(): quit() is asynchronous, so 'ready' would still fire and
+// 'before-quit' would run cleanupApp(); exit() ends the process at once and touches nothing.
+if (app.requestSingleInstanceLock()) {
+  runApp();
+} else {
+  console.log('Salt Player is already running; handing this launch to it.');
   app.exit(0);
-});
+}
 
 // Handle uncaught errors — write to log file so packaged-app crashes are diagnosable.
 // Log path on macOS: ~/Library/Logs/saltplayer/crash.log
