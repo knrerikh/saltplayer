@@ -36,6 +36,37 @@ Commit subjects follow [Conventional Commits](https://www.conventionalcommits.or
 - No dead code, debug logging or commented-out experiments in a pull request.
 - Shared constants (IPC channels, timeouts) live in one place and are imported, never duplicated.
 
+## Tests
+
+- Tests must pass on macOS, Linux and Windows: no hard-coded POSIX paths; build them with `path.resolve` / `path.join`.
+- HTTP tests use Node's `http.request`, not `fetch`.
+- Temporary directories must not be named `saltplayer-*`; the app cleans those up at startup.
+- A run is clean only when it has no vitest `Errors` line, not merely passing tests. Run `npx tsc --noEmit -p .` and `npx vitest run` before opening a pull request.
+- The test of a bug fix must fail without the fix.
+
+## Manual checks
+
+Behaviour that depends on the real Electron or Chromium (fullscreen, layout, keys, protocol handlers, file associations, packaging) cannot be proven by happy-dom. The pull request lists step-by-step manual checks for every path the change touches.
+
+## Untrusted input
+
+Requests from the phone, links from websites, and torrent and file names are untrusted. Validate them where they enter the app, and render them only with `textContent`, never as HTML.
+
+## Pull requests
+
+The description says what changed and how, which docs were updated, which tests were added and which manual checks were done, and ends with `Fixes #N` for the issue it closes. Commits and pull requests carry no attribution lines: no `Co-Authored-By`, no "Generated with ..." footers.
+
+## OpenSpec
+
+Larger or riskier changes (several modules, security, new behaviour worth specifying) go through [OpenSpec](https://github.com/Fission-AI/OpenSpec):
+
+1. `/opsx:propose` creates `openspec/changes/<name>/` with a proposal, spec deltas, a design and tasks.
+2. The maintainer reviews the proposal.
+3. `/opsx:apply` implements it task by task.
+4. After the merge, `/opsx:archive` folds the deltas into `openspec/specs/`.
+
+Small fixes go straight from the issue to a pull request. `openspec/config.yaml` holds the project context that agents read.
+
 ## Releases
 
 Changes accumulate under `[Unreleased]` and are released together, when something user-visible has piled up or right away for urgent fixes (security, crashes). The maintainer decides when to release and picks the version from the largest change since the last release:
