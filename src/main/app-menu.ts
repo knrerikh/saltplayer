@@ -30,6 +30,8 @@ export interface AppMenuActions {
   setResumePlayback(enabled: boolean): void;
   openRemoteControl(): void;
   openLink(url: string): void;
+  /** Makes Salt Player the system's handler for `magnet:` links, or gives them back. */
+  setMagnetHandler(enabled: boolean): void;
 }
 
 interface AppMenuOptions {
@@ -39,6 +41,8 @@ interface AppMenuOptions {
   settings: AppSettings;
   actions: AppMenuActions;
   isDevelopment: boolean;
+  /** `registered` is what the system says right now, not a stored preference. */
+  magnetLinks: { available: boolean; registered: boolean };
 }
 
 /** Menu labels read `&` as a mnemonic marker; a torrent name must show as typed. */
@@ -57,6 +61,7 @@ export function buildAppMenuTemplate({
   settings,
   actions,
   isDevelopment,
+  magnetLinks,
 }: AppMenuOptions): MenuItemConstructorOptions[] {
   const isMac = platform === 'darwin';
   const separator: MenuItemConstructorOptions = { type: 'separator' };
@@ -76,6 +81,15 @@ export function buildAppMenuTemplate({
       { label: 'Open File…', accelerator: 'CmdOrCtrl+O', click: actions.openFile },
       { label: 'Open URL…', accelerator: 'CmdOrCtrl+U', click: actions.openUrl },
       { label: 'Open Recent', submenu: openRecent },
+      separator,
+      {
+        label: 'Open Magnet Links in Salt Player',
+        type: 'checkbox',
+        // Registering an unpackaged app would point the system at the Electron binary.
+        enabled: magnetLinks.available,
+        checked: magnetLinks.available && magnetLinks.registered,
+        click: (menuItem) => actions.setMagnetHandler(menuItem.checked),
+      },
       separator,
       { label: 'Close Video', accelerator: 'CmdOrCtrl+W', click: actions.closeVideo },
       ...(isMac ? [] : [separator, { role: 'quit' } as const]),

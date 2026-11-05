@@ -127,6 +127,18 @@ The setting, `AppSettings.autoplayNext` (on by default), lives in main. The page
 - **View → Toggle Full Screen** is Electron's `togglefullscreen` role, the same window fullscreen as the ⛶ button.
 - **Help** links go through `isSafeExternalUrl` like `app:openExternal`. About is the native panel on macOS and Linux and a message box on Windows, filled by `app.setAboutPanelOptions`.
 
+### Magnet links from the browser
+
+A link a user clicks in a browser reaches the main process three ways: macOS `app.on('open-url')` (registered in `runApp()` so a link that launches the app is caught before `ready`), `process.argv` on the first launch of Windows and Linux, and `second-instance` when the app is running (`magnetFromArgv()` in `launch-args.ts`). All end in `createMagnetLinkHandler()` (`magnet-handler.ts`), which validates, brings the window forward, and then:
+
+- nothing open: `openSource()` opens it, which waits for the page like a file does;
+- the same torrent open (same lowercase hex info hash, from `TorrentEngine.openInfoHash()`): only the window comes forward;
+- anything else open: a native `dialog.showMessageBox` asks *Open "name"? The current video will close.* with Cancel as the default; one question at a time, links that arrive meanwhile are dropped.
+
+Registration has no stored setting. **File → Open Magnet Links in Salt Player** shows `app.isDefaultProtocolClient('magnet')` each time the menu is built, and clicking calls `setAsDefaultProtocolClient` / `removeAsDefaultProtocolClient` and rebuilds the menu from the real answer, so a different client chosen later unticks it. It is disabled when `app.isPackaged` is false, where the registration would point at the Electron binary. A link that arrives is handled whether or not the box is ticked: the system routes it here only if it chose us. `build.protocols` (see [Deployment](DEPLOYMENT.md)) declares the scheme to the installers.
+
+Threat model: a magnet link is input from any website, and the system hands it over with no user action inside the app. So `parseMagnetLink()` (`magnet-link.ts`) accepts only a string that starts with `magnet:?`, is at most 8 KB and has an `xt` of `urn:btih:` (40 hex or 32 base32) or `urn:btmh:` (hex multihash); everything else is logged, without its text, and ignored. From `argv` only an argument that is such a link counts, never a flag or a path. The display name (`dn`) is untrusted: it is decoded, stripped of control and direction-override characters, capped at 200 characters and shown only as dialog text. A link never replaces a playing video without the dialog. A link also carries its own trackers and web seeds (`tr=`, `ws=`), so after the user confirms the app contacts addresses the website chose, as any torrent client does; only the hash and the name shown in the dialog are validated. Sources are dispatched by what they are, not how they end: `magnet:` and `http(s):` always go to `loadTorrent`, so a link ending in `.mkv` is not opened as a file (`isLinkSource`, `source-kind.ts`, also keeps such an argument out of `fileFromArgv()`).
+
 Every source that opens, from the page or from the menu, is recorded by `MediaOpener`: `RecentSources` keeps the newest 10, one per torrent info hash (a magnet and a `.torrent` of the same torrent are one entry) or per file path, and writes them to `recent-sources.json` in `app.getPath('userData')`. Files from disk also go to `app.addRecentDocument` for the Dock and the Jump List. A missing or corrupt file starts the list empty; a failed write is logged and never stops a video from opening.
 
 ### Window dragging

@@ -109,6 +109,9 @@
       { "ext": "flv", "name": "Flash video", "mimeType": "video/x-flv", "role": "Viewer" },
       { "ext": "wmv", "name": "Windows Media video", "mimeType": "video/x-ms-wmv", "role": "Viewer" }
     ],
+    "protocols": [
+      { "name": "Magnet link", "schemes": ["magnet"], "role": "Viewer" }
+    ],
     "mac": {
       "target": "dmg",
       "category": "public.app-category.video"

@@ -1,6 +1,7 @@
 import * as path from 'path';
 import { IPC_CHANNELS, type ErrorInfo, type TorrentMetadata } from '@/shared/types';
 import { isVideoFile } from '@/shared/video-files';
+import { isLinkSource } from './source-kind';
 import type { TorrentEngine } from './torrent';
 import type { RecentSources } from './recent-sources';
 
@@ -33,7 +34,7 @@ export class MediaOpener {
     const { send } = this.deps;
     send(IPC_CHANNELS.MEDIA_OPENING);
     try {
-      const metadata = await (isVideoFile(source) ? this.openVideoFile(source) : this.loadTorrent(source));
+      const metadata = await (!isLinkSource(source) && isVideoFile(source) ? this.openVideoFile(source) : this.loadTorrent(source));
       send(IPC_CHANNELS.MEDIA_OPENED, metadata);
     } catch (error) {
       const info: ErrorInfo = {

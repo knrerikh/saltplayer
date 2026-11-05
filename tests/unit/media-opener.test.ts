@@ -80,6 +80,21 @@ describe('MediaOpener (#31)', () => {
       },
     );
 
+    // isVideoFile only looks at the end of the string; a link is not a file.
+    it.each([
+      'magnet:?xt=urn:btih:aaa&dn=Movie.mkv',
+      'MAGNET:?xt=urn:btih:aaa&dn=Movie.mp4',
+      'https://example.com/Movie.mkv',
+      'http://example.com/Movie.webm',
+    ])('loads %s as a torrent even though it ends like a video', async (source) => {
+      const { deps, opener } = setup();
+
+      await opener.open(source);
+
+      expect(deps.engine.load).toHaveBeenCalledWith(source);
+      expect(deps.engine.openLocalFile).not.toHaveBeenCalled();
+    });
+
     it('reports a failure to the page instead of throwing', async () => {
       const { deps, opener } = setup();
       deps.engine.openLocalFile.mockRejectedValue(new Error('ENOENT: no such file'));

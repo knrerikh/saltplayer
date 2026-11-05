@@ -1060,6 +1060,17 @@ export class TorrentEngine {
   /**
    * Stop current torrent
    */
+  /** Whether a video is open: loaded and playing, or on its way. */
+  hasMedia(): boolean {
+    return this.serverPort !== null || this.currentTorrent !== null;
+  }
+
+  /** The lowercase hex info hash of the open torrent; null for a local file or nothing open. */
+  openInfoHash(): string | null {
+    const infoHash = this.currentTorrent?.infoHash;
+    return typeof infoHash === 'string' ? infoHash.toLowerCase() : null;
+  }
+
   async stop(): Promise<void> {
     if (this.statusInterval) {
       clearInterval(this.statusInterval);

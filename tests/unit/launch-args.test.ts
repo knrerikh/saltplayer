@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as path from 'path';
-import { fileFromArgv } from '@/main/launch-args';
+import { fileFromArgv, magnetFromArgv } from '@/main/launch-args';
 
 // path.resolve is platform-aware ('/movies/a.mkv' becomes 'D:\movies\a.mkv' on Windows),
 // so expectations are resolved the same way instead of written as literals.
@@ -57,6 +57,16 @@ describe('fileFromArgv (#46)', () => {
     );
   });
 
+  it.each([
+    'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&dn=Movie.mkv',
+    'MAGNET:?dn=a.torrent',
+    'https://example.com/film.mkv',
+    'http://example.com/show.torrent',
+  ])('never takes %s for a file', (link) => {
+    expect(fileFromArgv(['salt-player', link], packaged)).toBeNull();
+    expect(fileFromArgv(['salt-player', link, abs('/m/a.mp4')], packaged)).toBe(abs('/m/a.mp4'));
+  });
+
   it('takes the first match', () => {
     expect(fileFromArgv(['salt-player', abs('/m/a.mp4'), abs('/m/b.mkv')], packaged)).toBe(abs('/m/a.mp4'));
   });
@@ -75,5 +85,36 @@ describe('fileFromArgv (#46)', () => {
     expect(fileFromArgv([exe, 'films\\a.mkv'], { isPackaged: true, workingDirectory: 'C:\\Users\\me' })).toBe(
       'C:\\Users\\me\\films\\a.mkv',
     );
+  });
+});
+
+describe('magnetFromArgv (#90)', () => {
+  const HASH = '0123456789abcdef0123456789abcdef01234567';
+  const magnet = `magnet:?xt=urn:btih:${HASH}&dn=Movie.mkv`;
+
+  it('finds the magnet link after the executable of a packaged app', () => {
+    expect(magnetFromArgv(['/Applications/Salt Player', magnet], packaged)).toBe(magnet);
+  });
+
+  it('skips the executable and, in development, the app entry', () => {
+    expect(magnetFromArgv(['electron', '.', magnet], development)).toBe(magnet);
+    expect(magnetFromArgv(['electron', magnet], development)).toBeNull();
+    expect(magnetFromArgv([magnet], packaged)).toBeNull();
+  });
+
+  it('skips flags and files, and takes the first valid link', () => {
+    const other = `magnet:?xt=urn:btih:${'f'.repeat(40)}`;
+
+    expect(magnetFromArgv(['salt-player', '--no-sandbox', abs('/m/a.mkv'), magnet, other], packaged)).toBe(magnet);
+  });
+
+  it('skips a malformed link and a flag that carries one', () => {
+    expect(magnetFromArgv(['salt-player', 'magnet:?dn=nothing', `--url=${magnet}`], packaged)).toBeNull();
+    expect(magnetFromArgv(['salt-player', 'magnet:?dn=nothing', magnet], packaged)).toBe(magnet);
+  });
+
+  it('returns null when there is none', () => {
+    expect(magnetFromArgv(['salt-player'], packaged)).toBeNull();
+    expect(magnetFromArgv([], packaged)).toBeNull();
   });
 });
