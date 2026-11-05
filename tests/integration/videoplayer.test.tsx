@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event';
 import VideoPlayer from '@/renderer/components/VideoPlayer';
 import { SubtitleData, AudioData } from '@/shared/types';
+import { icons } from '@/shared/icons';
 
 describe('VideoPlayer Component', () => {
   beforeEach(() => {
@@ -56,7 +57,8 @@ describe('VideoPlayer Component', () => {
       // Check for play icon overlay
       const overlay = container.querySelector('.icon-overlay');
       expect(overlay).toBeTruthy();
-      expect(overlay?.textContent).toBe('▶');
+      expect(overlay?.querySelector('svg')).toBeTruthy();
+      expect([...overlay!.querySelectorAll('path')].map((p) => p.getAttribute('d'))).toEqual([...icons.play]);
     });
 
     it('should show pause overlay icon when video pauses', async () => {
@@ -77,7 +79,7 @@ describe('VideoPlayer Component', () => {
       // Check for pause icon overlay
       const overlay = container.querySelector('.icon-overlay');
       expect(overlay).toBeTruthy();
-      expect(overlay?.textContent).toBe('⏸');
+      expect([...overlay!.querySelectorAll('path')].map((p) => p.getAttribute('d'))).toEqual([...icons.pause]);
     });
 
     it('should hide overlay icon after animation', async () => {
