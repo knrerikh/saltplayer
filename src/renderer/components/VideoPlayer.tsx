@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { SubtitleData, SubtitleTrack, AudioData, AudioTrack } from '@/shared/types';
+import Icon from './Icon';
 import TitlebarDragRegion from './TitlebarDragRegion';
 import NextEpisodeOverlay from './NextEpisodeOverlay';
 import ResumeHint from './ResumeHint';
@@ -576,7 +577,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           
           {overlayIcon && (
             <div className="icon-overlay">
-              {overlayIcon === 'play' ? '▶' : '⏸'}
+              <Icon name={overlayIcon === 'play' ? 'play' : 'pause'} size={64} />
             </div>
           )}
 
@@ -665,12 +666,18 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 disabled={!onPrev}
                 style={{ opacity: !onPrev ? 0.3 : 1, cursor: !onPrev ? 'default' : 'pointer' }}
                 title="Previous Episode"
+                aria-label="Previous Episode"
               >
-                ⏮
+                <Icon name="previous" size={20} />
               </button>
 
-              <button className="control-button" onClick={togglePlay}>
-                {isPlaying ? '⏸' : '▶'}
+              <button
+                className="control-button"
+                onClick={togglePlay}
+                title={isPlaying ? 'Pause' : 'Play'}
+                aria-label={isPlaying ? 'Pause' : 'Play'}
+              >
+                <Icon name={isPlaying ? 'pause' : 'play'} size={20} />
               </button>
 
               <button 
@@ -679,8 +686,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 disabled={!onNext}
                 style={{ opacity: !onNext ? 0.3 : 1, cursor: !onNext ? 'default' : 'pointer' }}
                 title="Next Episode"
+                aria-label="Next Episode"
               >
-                ⏭
+                <Icon name="next" size={20} />
               </button>
               
               <div className="seek-bar" onClick={handleSeek}>
@@ -703,14 +711,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                     title={muted ? 'Unmute' : 'Mute'}
                     aria-label={muted ? 'Unmute' : 'Mute'}
                   >
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
-                      <path d="M3 9v6h4l5 5V4L7 9H3z" />
-                      {muted || volume === 0 ? (
-                        <path d="M16.3 9.7l1.4-1.4 2.3 2.3 2.3-2.3 1.4 1.4-2.3 2.3 2.3 2.3-1.4 1.4-2.3-2.3-2.3 2.3-1.4-1.4 2.3-2.3-2.3-2.3z" />
-                      ) : (
-                        <path d="M16.5 12A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z" />
-                      )}
-                    </svg>
+                    <Icon name={muted || volume === 0 ? 'speakerMuted' : 'speakerAudible'} size={18} />
                   </button>
                   <input
                     type="range"
