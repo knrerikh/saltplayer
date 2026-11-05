@@ -24,3 +24,9 @@ describe('build.fileAssociations (#46)', () => {
     }
   });
 });
+
+describe('build.protocols (#90)', () => {
+  it('registers the magnet scheme as a viewer, for macOS and Linux', () => {
+    expect(build.protocols).toEqual([{ name: 'Magnet link', schemes: ['magnet'], role: 'Viewer' }]);
+  });
+});

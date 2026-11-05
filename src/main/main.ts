@@ -6,7 +6,8 @@ import { StorageManager } from './storage';
 import { setupIPCHandlers } from './ipc-handlers';
 import { forwardFullscreenState } from './window-fullscreen';
 import { revealWindow } from './window-reveal';
-import { fileFromArgv } from './launch-args';
+import { fileFromArgv, magnetFromArgv } from './launch-args';
+import { createMagnetLinkHandler, magnetConfirmation } from './magnet-handler';
 import { RecentSources } from './recent-sources';
 import { Settings } from './settings';
 import { WatchHistory } from './watch-history';
@@ -155,6 +156,37 @@ async function doInitializeApp(): Promise<void> {
   createWindow();
 }
 
+const MAGNET_SCHEME = 'magnet';
+
+/**
+ * A magnet link that reached the app from outside (a website, via the system). The
+ * system routes only links it chose us for, so nothing here depends on the menu's checkbox.
+ */
+const handleMagnetLink = createMagnetLinkHandler({
+  isOpen: () => torrentEngine?.hasMedia() ?? false,
+  currentInfoHash: () => torrentEngine?.openInfoHash() ?? null,
+  confirm: async (name) => {
+    const options = magnetConfirmation(name);
+    const { response } = mainWindow
+      ? await dialog.showMessageBox(mainWindow, options)
+      : await dialog.showMessageBox(options);
+    return response === 0;
+  },
+  open: openSource,
+  reveal: showApp,
+  warn: (message) => console.warn(message),
+});
+
+/** Asks the system to route `magnet:` links here, or gives them back; the menu then shows what it says. */
+function setMagnetHandler(enabled: boolean): void {
+  const changed = enabled
+    ? app.setAsDefaultProtocolClient(MAGNET_SCHEME)
+    : app.removeAsDefaultProtocolClient(MAGNET_SCHEME);
+  if (!changed) console.warn(`Could not ${enabled ? 'register' : 'unregister'} Salt Player for magnet links.`);
+  // The system has the last word (it may refuse, or another client may have taken over).
+  updateAppMenu();
+}
+
 function sendToPage(channel: string, ...args: unknown[]): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(channel, ...args);
@@ -221,6 +253,10 @@ function updateAppMenu(): void {
     recents: recentSources?.list() ?? [],
     settings: settings?.get() ?? DEFAULT_SETTINGS,
     isDevelopment: process.env.NODE_ENV === 'development',
+    magnetLinks: {
+      available: app.isPackaged,
+      registered: app.isPackaged && app.isDefaultProtocolClient(MAGNET_SCHEME),
+    },
     actions: {
       openFile: () => void chooseFileToOpen(),
       openUrl: () => sendMenuCommand('open-url'),
@@ -235,6 +271,7 @@ function updateAppMenu(): void {
       openRemoteControl: () => sendMenuCommand('remote-control'),
       setAutoplayNext: (autoplayNext) => void settings?.set({ autoplayNext }),
       setResumePlayback: (resumePlayback) => void settings?.set({ resumePlayback }),
+      setMagnetHandler,
       openLink: (url) => {
         if (isSafeExternalUrl(url)) void shell.openExternal(url);
       },
@@ -266,8 +303,13 @@ async function cleanupApp(): Promise<void> {
   console.log('Cleanup complete');
 }
 
-/** Opens the file a launch's command line names, if any. */
-function openFileFromArgv(argv: readonly string[], workingDirectory: string): void {
+/** Opens what a launch's command line names: a magnet link (Windows, Linux), else a file. */
+function openFromArgv(argv: readonly string[], workingDirectory: string): void {
+  const magnet = magnetFromArgv(argv, { isPackaged: app.isPackaged });
+  if (magnet) {
+    void handleMagnetLink(magnet);
+    return;
+  }
   const file = fileFromArgv(argv, { isPackaged: app.isPackaged, workingDirectory });
   if (file) openSource(file);
 }
@@ -294,14 +336,22 @@ function runApp(): void {
     writeCrashLog('initializeApp', error);
   });
 
-  // Windows and Linux: a file chosen in the file manager arrives as a command-line argument.
-  openFileFromArgv(process.argv, process.cwd());
+  // Windows and Linux: a file chosen in the file manager, or a clicked magnet link,
+  // arrives as a command-line argument.
+  openFromArgv(process.argv, process.cwd());
 
   // A second launch (a double-clicked file, or the app started again) lands here instead of
   // starting a second engine that would share the first one's temp folder.
   app.on('second-instance', (_event, argv, workingDirectory) => {
-    openFileFromArgv(argv, workingDirectory);
+    openFromArgv(argv, workingDirectory);
     showApp();
+  });
+
+  // macOS: a clicked magnet link. Like 'open-file' it can arrive before 'ready', and the
+  // link is then held until the page loads.
+  app.on('open-url', (event, url) => {
+    event.preventDefault();
+    void handleMagnetLink(url);
   });
 
   // macOS: a file dropped on the Dock icon or picked from its recent documents. This can

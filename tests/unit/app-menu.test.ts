@@ -13,6 +13,7 @@ const actions = (): AppMenuActions => ({
   setResumePlayback: vi.fn(),
   openRemoteControl: vi.fn(),
   openLink: vi.fn(),
+  setMagnetHandler: vi.fn(),
 });
 
 const build = (overrides: Partial<Parameters<typeof buildAppMenuTemplate>[0]> = {}) =>
@@ -23,6 +24,7 @@ const build = (overrides: Partial<Parameters<typeof buildAppMenuTemplate>[0]> = 
     settings: { autoplayNext: true, resumePlayback: true },
     actions: actions(),
     isDevelopment: false,
+    magnetLinks: { available: true, registered: false },
     ...overrides,
   });
 
@@ -117,6 +119,37 @@ describe('buildAppMenuTemplate (#31)', () => {
       (item?.click as (menuItem: { checked: boolean }) => void)({ checked });
 
       expect(menuActions.setAutoplayNext).toHaveBeenCalledWith(checked);
+    });
+  });
+
+  describe('File → Open Magnet Links in Salt Player (#90)', () => {
+    const LABEL = 'Open Magnet Links in Salt Player';
+    const magnetItem = (template: MenuItemConstructorOptions[]) => itemIn(template, 'File', LABEL);
+
+    it.each([true, false])('is a checkbox showing whether the system hands magnet links to us (%s)', (registered) => {
+      const item = magnetItem(build({ magnetLinks: { available: true, registered } }));
+
+      expect(item).toMatchObject({ type: 'checkbox', checked: registered, enabled: true });
+    });
+
+    it.each([true, false])('asks for the new checkbox state (%s)', (checked) => {
+      const menuActions = actions();
+      const item = magnetItem(build({ actions: menuActions }));
+
+      (item?.click as (menuItem: { checked: boolean }) => void)({ checked });
+
+      expect(menuActions.setMagnetHandler).toHaveBeenCalledWith(checked);
+    });
+
+    it('is disabled and unticked where registration would point at the wrong program (unpackaged)', () => {
+      const item = magnetItem(build({ magnetLinks: { available: false, registered: true } }));
+
+      expect(item).toMatchObject({ enabled: false, checked: false });
+    });
+
+    it('is in the File menu of every platform', () => {
+      expect(magnetItem(build({ platform: 'win32' }))).toBeDefined();
+      expect(magnetItem(build({ platform: 'linux' }))).toBeDefined();
     });
   });
 
