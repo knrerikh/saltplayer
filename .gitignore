@@ -44,3 +44,6 @@ lerna-debug.log*
 
 # Electron
 out/
+
+# Temporary git worktrees of Claude Code subagents
+.claude/worktrees/
