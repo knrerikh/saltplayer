@@ -274,4 +274,20 @@ describe('remote page layout', () => {
     expect(h1).toMatch(/-webkit-line-clamp:\s*2/);
     expect(h1).toMatch(/text-overflow:\s*ellipsis/);
   });
+
+  it('fills only the vertical volume from the bottom, never the seek bar', () => {
+    const { css } = loadMarkup();
+    const rules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)];
+    const settingTop = rules.filter(([, , body]) => /--fill-direction:\s*to top/.test(body)).map(([, selector]) => selector.trim());
+
+    expect(settingTop).toEqual(['#volume']);
+    expect(landscape(css)).toMatch(/#volume\s*\{[^}]*--fill-direction:\s*to top/);
+  });
+
+  it('keeps the landscape volume capsule tall enough with no episodes shown', () => {
+    const { css } = loadMarkup();
+
+    expect(landscape(css)).toMatch(/#volume-row\s*\{[^}]*min-height:\s*clamp\(/);
+  });
 });
+

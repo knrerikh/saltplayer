@@ -6,7 +6,7 @@ const THUMB = '24px';
 /** The player's look at touch size. Colours come from shared/theme.ts, the layout from media queries alone. */
 const STYLE = `
   ${rootBlock()}
-  :root { color-scheme: dark; --skip: clamp(44px, 13vw, 56px); --play: clamp(72px, 24vw, 96px); --gap: clamp(8px, 2.4dvh, 20px); --fill-direction: to right; }
+  :root { color-scheme: dark; --skip: clamp(44px, 13vw, 56px); --play: clamp(72px, 24vw, 96px); --gap: clamp(8px, 2.4dvh, 20px); }
   * { box-sizing: border-box; }
   body {
     margin: 0; min-height: 100vh; min-height: 100dvh;
@@ -30,7 +30,7 @@ const STYLE = `
   button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   input[type='range'] {
     -webkit-appearance: none; appearance: none; width: 100%; height: 44px; margin: 0; background: transparent;
-    --fill: 0%;
+    --fill: 0%; --fill-direction: to right;
   }
   input[type='range']::-webkit-slider-runnable-track {
     height: 6px; border-radius: 3px;
@@ -68,7 +68,7 @@ const STYLE = `
   #connection[data-state='off'] { color: var(--error); }
 
   @media (orientation: landscape) {
-    :root { --play: 72px; --gap: clamp(8px, 2.4dvh, 16px); --fill-direction: to top; }
+    :root { --play: 72px; --gap: clamp(8px, 2.4dvh, 16px); }
     #layout { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); column-gap: 16px; align-items: center; max-width: 720px; }
     h1 { font-size: 18px; }
     #time { font-size: 20px; }
@@ -80,8 +80,8 @@ const STYLE = `
     #episode-list { grid-column: 1 / -1; grid-row: 1; }
     #options { flex-direction: column; }
     .option { width: 100%; }
-    #volume-row { flex: none; flex-direction: column; width: 52px; height: auto; padding: 4px 0 12px; }
-    #volume { writing-mode: vertical-lr; direction: rtl; flex: 1; width: 44px; min-height: 0; }
+    #volume-row { flex: none; flex-direction: column; width: 52px; height: auto; min-height: clamp(140px, 65dvh, 240px); padding: 4px 0 12px; }
+    #volume { writing-mode: vertical-lr; direction: rtl; flex: 1; width: 44px; min-height: 0; --fill-direction: to top; }
     #volume::-webkit-slider-runnable-track { width: 6px; }
     #volume::-webkit-slider-thumb { margin-top: 0; margin-left: -9px; }
   }
