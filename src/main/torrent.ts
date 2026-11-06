@@ -106,6 +106,9 @@ function normalizeLanguage(raw: string): string {
   return match ? match[1] : s;
 }
 
+/** How long stop() and destroy() wait for probes and files to let go before giving up. */
+const CLOSE_TIMEOUT_MS = 3000;
+
 export class TorrentEngine {
   private client: any | null = null;
   private currentTorrent: any | null = null;
@@ -116,6 +119,12 @@ export class TorrentEngine {
   private storageManager: StorageManager;
   private server: http.Server | null = null;
   private probes = new Set<ReturnType<typeof spawnChild>>();
+  /** Settles when a probe's process has exited, which is when Windows frees what it had open. */
+  private probeExits = new Set<Promise<void>>();
+  private localVideo: LocalVideo | null = null;
+  /** True from stop() until the next stream starts: nothing may be probed in between. */
+  private serverClosed = false;
+  private closeTimeoutMs = CLOSE_TIMEOUT_MS;
   private serverPort: number | null = null;
   private statusInterval: NodeJS.Timeout | null = null;
   private subtitleTracks: SubtitleTrack[] = [];
@@ -458,6 +467,7 @@ export class TorrentEngine {
     await this.stop();
 
     this.startStreamingServer(video);
+    this.localVideo = video;
 
     return {
       name: video.name,
@@ -637,25 +647,62 @@ export class TorrentEngine {
   }
 
   private spawnProbe(bin: string, args: string[]): ReturnType<typeof spawnChild> {
+    // A stopped engine has no stream to probe.
+    if (this.serverClosed) throw new Error('Streaming server is closed');
     const proc = spawnChild(bin, args);
     this.probes.add(proc);
-    proc.once('close', () => this.probes.delete(proc));
+    const exited = new Promise<void>((resolve) => {
+      proc.once('close', () => resolve());
+      proc.once('error', () => resolve());
+    });
+    this.probeExits.add(exited);
+    void exited.then(() => {
+      this.probes.delete(proc);
+      this.probeExits.delete(exited);
+    });
     return proc;
   }
 
-  /** Ends the server's open responses too, which closes their read streams and the file. */
-  private closeServer(): void {
-    this.server?.close();
-    this.server?.closeAllConnections();
+  /**
+   * Ends the server's open responses, which closes their read streams and the file, and kills
+   * the probes. Resolves once the server is closed, the probes have exited and the file is closed,
+   * or after `closeTimeoutMs`, so a process or stream that never settles cannot block quitting.
+   */
+  private async closeServer(): Promise<void> {
+    const server = this.server;
     this.server = null;
+    this.serverClosed = true;
+    const serverEnded = server
+      ? new Promise<void>((resolve) => {
+          server.close(() => resolve());
+          server.closeAllConnections();
+        })
+      : Promise.resolve();
     this.probes.forEach(probe => probe.kill());
+    const localVideo = this.localVideo;
+    this.localVideo = null;
+
+    const pending = new Set(['server', 'ffprobe', 'file']);
+    const settled = [
+      serverEnded.then(() => pending.delete('server')),
+      Promise.all(this.probeExits).then(() => pending.delete('ffprobe')),
+      (localVideo?.whenClosed() ?? Promise.resolve()).then(() => pending.delete('file')),
+    ];
+    let timer: NodeJS.Timeout | undefined;
+    const ceiling = new Promise<void>((resolve) => { timer = setTimeout(resolve, this.closeTimeoutMs); });
+    await Promise.race([Promise.all(settled), ceiling]);
+    clearTimeout(timer);
+    if (pending.size > 0) {
+      console.warn(`Did not finish closing within ${this.closeTimeoutMs} ms: ${[...pending].join(', ')}`);
+    }
   }
 
   /**
    * Start HTTP streaming server
    */
   private startStreamingServer(file: MediaSource): void {
-    this.closeServer();
+    void this.closeServer();
+    this.serverClosed = false;
     const encodedName = encodeURIComponent(file.name);
     const pathname = `/${encodedName}`;
     const totalSize: number = typeof file.length === 'number' ? file.length : Number(file.length);
@@ -1077,7 +1124,7 @@ export class TorrentEngine {
       this.statusInterval = null;
     }
 
-    this.closeServer();
+    await this.closeServer();
     this.serverPort = null;
 
     if (this.currentTorrent && this.client) {
@@ -1129,14 +1176,14 @@ export class TorrentEngine {
    * Destroy torrent client and cleanup
    */
   async destroy(): Promise<void> {
+    if (this.statusInterval) {
+      clearInterval(this.statusInterval);
+      this.statusInterval = null;
+    }
+
+    await this.closeServer();
+
     return new Promise((resolve) => {
-      if (this.statusInterval) {
-        clearInterval(this.statusInterval);
-        this.statusInterval = null;
-      }
-
-      this.closeServer();
-
       if (this.client) {
         this.client.destroy((err: Error | string) => {
           if (err) console.error('Error destroying client:', err);

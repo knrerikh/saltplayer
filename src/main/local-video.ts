@@ -21,6 +21,8 @@ export interface MediaSource {
 
 export interface LocalVideo extends MediaSource {
   path: string;
+  /** Resolves once every stream opened so far has closed its file descriptor. */
+  whenClosed(): Promise<void>;
 }
 
 /**
@@ -38,10 +40,22 @@ export async function openLocalVideo(filePath: string): Promise<LocalVideo> {
   const stats = await fs.promises.stat(filePath);
   if (!stats.isFile()) throw new Error(`Not a file: ${filePath}`);
 
+  const open = new Set<Promise<void>>();
+
   return {
     name,
     length: stats.size,
     path: filePath,
-    createReadStream: (range) => fs.createReadStream(filePath, range),
+    createReadStream: (range) => {
+      const stream = fs.createReadStream(filePath, range);
+      // A destroyed stream releases the file a tick later; Windows cannot delete the file before that.
+      const closed = new Promise<void>((resolve) => stream.once('close', () => resolve()));
+      open.add(closed);
+      void closed.then(() => open.delete(closed));
+      return stream;
+    },
+    whenClosed: async () => {
+      await Promise.all([...open]);
+    },
   };
 }

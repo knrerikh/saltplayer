@@ -157,8 +157,8 @@ describe('Closing a streaming server (#76)', () => {
     const probe = runningProbe();
 
     await engine.stop();
-    await once(probe, 'close');
 
+    expect(probe.signalCode).not.toBeNull();
     expect(probe.killed).toBe(true);
     expect((engine as any).probes.size).toBe(0);
     await probing;
@@ -170,8 +170,8 @@ describe('Closing a streaming server (#76)', () => {
     const probe = runningProbe();
 
     await engine.destroy();
-    await once(probe, 'close');
 
+    expect(probe.signalCode).not.toBeNull();
     expect(probe.killed).toBe(true);
     expect(send).not.toHaveBeenCalledWith(IPC_CHANNELS.SUBTITLES, expect.anything());
   });
