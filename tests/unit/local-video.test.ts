@@ -69,4 +69,17 @@ describe('openLocalVideo (#33)', () => {
   it('refuses anything but a string', async () => {
     await expect(openLocalVideo(42 as unknown as string)).rejects.toThrow(/absolute/);
   });
+
+  it('reports when every stream it opened has closed the file', async () => {
+    const source = await openLocalVideo(moviePath);
+    const stream = source.createReadStream();
+    let closed = false;
+    stream.once('close', () => { closed = true; });
+    stream.resume();
+
+    stream.destroy();
+    await source.whenClosed();
+
+    expect(closed).toBe(true);
+  });
 });
