@@ -23,7 +23,11 @@ npx vitest run -t "seek"                    # tests whose name matches
 | `tests/unit/torrent-optimization.test.ts` | Piece selection: file deselection, piece windows, critical and sequential ranges, episode switching, seek reprioritisation |
 | `tests/unit/torrent-server.test.ts` | The streaming server binds to loopback only; a local file is served with byte ranges and replaces a loaded torrent; a server stopped or replaced before it starts listening reports nothing |
 | `tests/unit/local-video.test.ts` | Opening a file on disk: range reads, and refusing relative paths, non-video files, directories and missing files |
-| `tests/integration/local-file-playback.test.ts` | Real media end to end: a generated MKV with AC3 audio is probed, needs transcoding and streams out of ffmpeg as Matroska |
+| `tests/integration/local-file-playback.test.ts` | Real media end to end: a generated MKV with AC3 audio is probed, needs transcoding and streams out of ffmpeg as Matroska; a generated 10-bit HEVC clip is converted to H.264 at 1080p |
+| `tests/unit/fetch-ffmpeg.test.ts` | `scripts/fetch-ffmpeg.mjs`: the asset chosen per platform, checksum refusal, unpacking only ffmpeg and ffprobe, skipping a download that is already installed |
+| `tests/unit/media-tools.test.ts` | Where the bundled ffmpeg and ffprobe are: `vendor/ffmpeg` in development, the resources folder when installed, `.exe` on Windows |
+| `tests/unit/video-conversion.test.ts` | Dolby Vision profile 5 detection from ffprobe JSON (the probed Netflix file, profile 8.1, SDR, H.264, no video), the 1080p size cap and the ffmpeg arguments per platform |
+| `tests/unit/torrent-conversion.test.ts` | The converted stream with ffmpeg replaced by a double: the URL the player gets, the options ffmpeg receives with and without audio track and start time, and the fallback when the conversion cannot start |
 | `tests/integration/open-local-file.test.tsx` | Dropping or picking a video or `.torrent`, routing each to its IPC call, and the status bar of a local file |
 | `tests/unit/storage.test.ts` | Temp directory creation and cleanup, size and free-space checks, and stale-session cleanup that keeps live sessions (`session.pid`) |
 | `tests/unit/launch-args.test.ts` | Picking the file to open out of `argv` (packaged and development, flags, relative paths) |
@@ -54,7 +58,7 @@ npx vitest run -t "seek"                    # tests whose name matches
 
 `tests/helpers/electron-api.ts` provides `mockElectronAPI()`, a complete `electronAPI` mock for rendering `<App />` with helpers that deliver main-process events. `tests/setup.ts` installs a default mocked `window.electronAPI` and a `File` subclass with a `path` property for drag-and-drop tests. Main-process tests mock `electron` and, where needed, `webtorrent` with `vi.mock`; no test goes beyond the loopback interface.
 
-ffprobe and ffmpeg are not mocked. Tests that need them run the bundled binaries on real media generated with `ffmpeg-static` (`local-file-playback.test.ts`) and allow for a slow cold start on CI runners. Tests that are only about the server read its address directly instead of waiting for the probe. Temporary fixtures must not be named `saltplayer-*`: `StorageManager` deletes such folders as stale sessions, also while a parallel test uses them.
+ffprobe and ffmpeg are not mocked. Tests that need them run the bundled binaries on real media generated with the same ffmpeg (`local-file-playback.test.ts`; `npm install` fetches it into `vendor/ffmpeg`) and allow for a slow cold start on CI runners. Tests that are only about the server read its address directly instead of waiting for the probe. Temporary fixtures must not be named `saltplayer-*`: `StorageManager` deletes such folders as stale sessions, also while a parallel test uses them.
 
 ## Conventions
 

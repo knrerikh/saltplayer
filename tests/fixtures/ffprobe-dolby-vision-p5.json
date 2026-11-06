@@ -1,0 +1,36 @@
+{
+  "streams": [
+    {
+      "index": 0,
+      "codec_type": "video",
+      "codec_name": "hevc",
+      "profile": "Main 10",
+      "width": 3840,
+      "height": 2160,
+      "pix_fmt": "yuv420p10le",
+      "side_data_list": [
+        {
+          "side_data_type": "DOVI configuration record",
+          "dv_version_major": 1,
+          "dv_version_minor": 0,
+          "dv_profile": 5,
+          "dv_level": 6,
+          "rpu_present_flag": 1,
+          "el_present_flag": 0,
+          "bl_present_flag": 1,
+          "dv_bl_signal_compatibility_id": 0,
+          "dv_md_compression": "none"
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "codec_type": "audio",
+      "codec_name": "eac3",
+      "channels": 6
+    }
+  ],
+  "format": {
+    "duration": "2967.200000"
+  }
+}

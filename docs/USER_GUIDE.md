@@ -33,6 +33,10 @@ While a video plays, the controls and cursor hide after 2.5 seconds without mous
 
 If the file has several audio tracks, pick one from the audio menu in the control bar. Audio in AC3, E-AC3, DTS, TrueHD or Vorbis is transcoded to AAC on the fly. Switching tracks or seeking in a transcoded file restarts the stream from the current position, which takes a moment.
 
+### Dolby Vision
+
+Dolby Vision profile 5 files (typical for Netflix 2160p WEB-DL releases) would show a purple and green cast in any plain player, so Salt Player converts them while playing: the picture is tone-mapped to normal SDR colours and delivered at up to 1080p (a 4K source is scaled down, a smaller one is left as it is). This uses the processor; on a slow computer playback can stutter. Seeking or switching the audio track takes a few seconds while the conversion restarts, and a spinner shows meanwhile. Other Dolby Vision files and HDR10 play as they are. If the conversion cannot start, the video plays unconverted and a message says its colours may be wrong.
+
 ### Subtitles
 
 Subtitle tracks embedded in the file are listed in the subtitle menu. The selected track is extracted when you choose it. <kbd>Esc</kbd> or a click outside closes either menu.

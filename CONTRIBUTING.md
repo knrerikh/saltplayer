@@ -13,6 +13,8 @@ npm run test:unit    # unit tests
 npm test             # all tests in watch mode
 ```
 
+`npm install` also downloads the pinned ffmpeg and ffprobe build for your platform into `vendor/ffmpeg/` (see `scripts/ffmpeg-manifest.json` and `scripts/fetch-ffmpeg.mjs`), so the first install needs a network connection to GitHub; the integration tests and the player need those binaries. Rerun `node scripts/fetch-ffmpeg.mjs` if the download failed.
+
 Quit an installed Salt Player before `npm run dev`. The two share one data folder and so one single-instance lock: with the installed app open, the dev window closes at once and hands its arguments to the running app.
 
 See the [README](README.md#development) for the project layout and the full command list.

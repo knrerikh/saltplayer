@@ -47,3 +47,4 @@ out/
 
 # Temporary git worktrees of Claude Code subagents
 .claude/worktrees/
+vendor/

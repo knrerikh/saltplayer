@@ -23,6 +23,7 @@
 - **Audio tracks and subtitles.** Switch between the audio tracks and embedded subtitle tracks of the file from the player controls.
 - **Picks up where you left off.** A file continues from where you stopped, a season from the episode you watched last; **Start over** is one click away.
 - **Series-friendly.** Multi-file torrents get an episode list and previous/next buttons, and the next episode starts by itself after a short countdown (Playback → Autoplay Next Episode). Its first megabytes are fetched ahead, so it starts without a long wait.
+- **Correct colours for Dolby Vision profile 5.** Netflix-style 2160p WEB-DL files that normally look purple and green are converted to 1080p SDR on the fly.
 - **Plays local files too.** Drop an MKV or MP4 from disk and get the same transcoding, track menus and subtitles.
 - **Phone remote.** Turn on **Playback → Remote Control…**, scan the QR code with a phone on the same Wi-Fi, and play and pause from its browser. Off until you turn it on; the link has a fresh random token every time and nothing leaves your local network.
 - **Stays out of the way.** Controls and cursor hide after 2.5 s without movement; the window has no chrome beyond a draggable title strip.
@@ -97,7 +98,7 @@ npm run icons         # regenerate app icons from scripts/icon/design.mts
 | `src/renderer/` | React UI: player, torrent input, status bar |
 | `src/shared/` | Types and IPC channel names shared by both processes |
 | `tests/` | Unit and integration tests |
-| `scripts/` | Packaging hooks, icon generator, release and coverage helpers for CI |
+| `scripts/` | ffmpeg download (`fetch-ffmpeg.mjs`, `ffmpeg-manifest.json`), packaging hooks, icon generator, release and coverage helpers for CI |
 
 How streaming, transcoding and piece prioritisation work is described in [Architecture](docs/ARCHITECTURE.md) and [Torrent optimisation](docs/TORRENT_OPTIMIZATION.md). Testing and release processes are in [Testing](docs/TESTING.md) and [Deployment](docs/DEPLOYMENT.md).
 
@@ -108,3 +109,5 @@ Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). Every change 
 Salt Player is a neutral tool. You are responsible for having the right to access the content you play; respect copyright law in your jurisdiction.
 
 Released under the [MIT License](LICENSE). Built on [WebTorrent](https://webtorrent.io/), [Electron](https://www.electronjs.org/), [React](https://react.dev/) and [FFmpeg](https://ffmpeg.org/).
+
+The installers include GPL builds of ffmpeg and ffprobe from [jellyfin-ffmpeg](https://github.com/jellyfin/jellyfin-ffmpeg) (version 8.1.3-2; downloaded and checked against a pinned checksum, see `scripts/ffmpeg-manifest.json`). They run as separate programs, not linked into the app. Their source code is at [jellyfin/jellyfin-ffmpeg, tag v8.1.3-2](https://github.com/jellyfin/jellyfin-ffmpeg/tree/v8.1.3-2).

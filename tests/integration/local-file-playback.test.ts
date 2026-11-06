@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from 'vitest';
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
+import * as http from 'http';
 import * as os from 'os';
 import * as path from 'path';
-import ffmpegPath from 'ffmpeg-static';
+import { hostMediaTools } from '@/main/media-tools';
 import { TorrentEngine } from '@/main/torrent';
 import { StorageManager } from '@/main/storage';
 import { IPC_CHANNELS } from '@/shared/types';
@@ -44,7 +45,7 @@ describe('Playing a local MKV with AC3 audio (#33)', () => {
     // Not `saltplayer-*`: StorageManager deletes those as stale sessions, even mid-test.
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'local-playback-test-'));
     moviePath = path.join(dir, 'Sample.mkv');
-    execFileSync(ffmpegPath!, [
+    execFileSync(hostMediaTools().ffmpeg, [
       '-v', 'error',
       '-f', 'lavfi', '-i', 'testsrc=duration=2:size=128x72:rate=10',
       '-f', 'lavfi', '-i', 'sine=frequency=440:duration=2',
@@ -86,5 +87,71 @@ describe('Playing a local MKV with AC3 audio (#33)', () => {
 
     expect(response.status).toBe(200);
     expect(Buffer.from(value!).subarray(0, 4)).toEqual(EBML_MAGIC);
+  }, MEDIA_TIMEOUT_MS + 5_000);
+});
+
+/**
+ * The picture conversion of #94 with real ffmpeg. The clip is plain 10-bit HEVC tagged
+ * as HDR (a real Dolby Vision profile 5 file is too large to generate here), so the probe
+ * finds nothing to convert; the test asks for the conversion the way the player does.
+ */
+describe('Converting a 10-bit HEVC picture to 1080p H.264 (#94)', () => {
+  let dir: string;
+  let moviePath: string;
+  let engine: TorrentEngine;
+
+  beforeAll(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'local-conversion-test-'));
+    moviePath = path.join(dir, 'Hdr.mkv');
+    execFileSync(hostMediaTools().ffmpeg, [
+      '-v', 'error',
+      '-f', 'lavfi', '-i', 'testsrc=duration=2:size=2560x1440:rate=10',
+      '-f', 'lavfi', '-i', 'sine=frequency=440:duration=2',
+      '-c:v', 'libx265', '-x265-params', 'log-level=error', '-pix_fmt', 'yuv420p10le',
+      '-colorspace', 'bt2020nc', '-color_primaries', 'bt2020', '-color_trc', 'smpte2084',
+      '-c:a', 'aac', '-shortest',
+      moviePath,
+    ]);
+  }, MEDIA_TIMEOUT_MS);
+
+  afterEach(async () => {
+    await engine.destroy();
+    send.mockClear();
+  });
+
+  afterAll(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  function download(url: string): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      http
+        .get(url, (res) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (chunk) => chunks.push(chunk));
+          res.on('end', () => resolve(Buffer.concat(chunks)));
+          res.on('error', reject);
+        })
+        .on('error', reject);
+    });
+  }
+
+  it('streams H.264 that fits 1920 x 1080, with its audio', async () => {
+    engine = new TorrentEngine(new StorageManager());
+    await engine.openLocalFile(moviePath);
+    const url = new URL(await sent<string>(IPC_CHANNELS.VIDEO_URL));
+    (engine as any).videoConversion = { kind: 'dolby-vision-sdr', width: 2560, height: 1440 };
+    url.searchParams.set('transcode', 'true');
+    url.searchParams.set('video', 'sdr');
+
+    const stream = path.join(dir, 'converted.mkv');
+    fs.writeFileSync(stream, await download(url.toString()));
+    const probe = JSON.parse(
+      execFileSync(hostMediaTools().ffprobe, ['-v', 'error', '-print_format', 'json', '-show_streams', stream]).toString(),
+    );
+
+    const [picture, sound] = probe.streams;
+    expect([picture.codec_name, picture.width, picture.height]).toEqual(['h264', 1920, 1080]);
+    expect(sound.codec_name).toBe('aac');
   }, MEDIA_TIMEOUT_MS + 5_000);
 });
