@@ -75,14 +75,22 @@ All channel names live in `IPC_CHANNELS` (`src/shared/types.ts`).
 3. **Prioritise pieces.** See [Piece selection](TORRENT_OPTIMIZATION.md).
 4. **Serve.** A local HTTP server bound to `127.0.0.1` (`STREAM_HOST`) on a random port streams the file with range support, a bounded chunk at a time, so the download follows what the player reads (see [Bounded reads](TORRENT_OPTIMIZATION.md#bounded-reads)).
 5. **Probe.** `ffprobe` (spawned directly, 10 s timeout, 5 MB probe size) reads the duration, codecs, audio tracks and subtitle tracks.
-6. **Hand over.** The renderer receives the stream URL. If the audio codec is one Chromium cannot play (AC3, E-AC3, DTS, TrueHD/MLP, Vorbis), the URL carries `?transcode=true`.
+6. **Hand over.** The renderer receives the stream URL. If the audio codec is one Chromium cannot play (AC3, E-AC3, DTS, TrueHD/MLP, Vorbis), the URL carries `?transcode=true`. If the first video stream is Dolby Vision profile 5 (see below), it carries `?transcode=true&video=sdr`.
+
+### Dolby Vision conversion
+
+Profile 5 keeps its picture in Dolby's own colour space with no HDR10 or SDR fallback (`dv_bl_signal_compatibility_id` 0 in ffprobe's `DOVI configuration record`), and Chromium does not apply the reshaping, so it shows a purple and green cast. `detectVideoConversion()` (`src/main/video-conversion.ts`) reads that record from the probe; profiles with a compatible base layer (7, 8.x) and everything else play as before. The engine remembers the result (`videoConversion`) and builds every stream URL through `buildStreamUrl()`, so the first URL, an audio-track switch and a fallback all carry `video=sdr` when it applies. The renderer's seek and resume keep a URL's parameters and change only `startTime`.
+
+With `video=sdr` the transcode route re-encodes the picture instead of copying it: `buildConversionArgs()` scales it to fit 1920 × 1080 (never up), applies the Dolby Vision reshaping and tone-maps to BT.709 SDR in limited range (`range=tv`, as browsers expect from H.264) with `tonemapx`, and encodes H.264 (`h264_videotoolbox` on macOS, `libx264` elsewhere) into the same Matroska stream. Scaling comes first so the heavy filter runs at 1080p; 4K output is too slow to keep up on a laptop CPU. Audio, `startTime` and `audioTrack` work as in the audio-only mode. This needs the Jellyfin build of ffmpeg, which is why that is what the app ships (see [Deployment](DEPLOYMENT.md#the-bundled-ffmpeg)).
+
+If the converting ffmpeg fails before its first byte (missing binary, unsupported encoder, filter error), the engine forgets the conversion, sends one `VIDEO_CONVERSION_FAILED` notice (*This video is Dolby Vision, which could not be converted; its colours may be wrong.*) and sends the URL again without `video=sdr`, keeping the position the stream was to start at.
 
 ### Streaming server routes
 
 | Request | Response |
 | --- | --- |
 | `/<file>` | The file itself, with HTTP range support |
-| `/<file>?transcode=true[&startTime=<s>][&audioTrack=<index>]` | Matroska stream from ffmpeg: video copied, audio transcoded to stereo AAC (or copied when the selected track is already playable). The input is the server's own raw URL, so ffmpeg can read the container index and `seekInput` accurately. |
+| `/<file>?transcode=true[&startTime=<s>][&audioTrack=<index>][&video=sdr]` | Matroska stream from ffmpeg: video copied (or, with `video=sdr` for a Dolby Vision profile 5 file, converted to SDR at up to 1080p), audio transcoded to stereo AAC (or copied when the selected track is already playable). The input is the server's own raw URL, so ffmpeg can read the container index and `seekInput` accurately. |
 | `/subtitle/<index>.vtt[?startTime=<s>]` | The embedded subtitle stream `<index>`, converted to WebVTT by ffmpeg on request. With `startTime` (finite, above 0; anything else is ignored) ffmpeg seeks the input, so cue times start at 0 like the transcoded stream restarted at that offset |
 
 ### Local files
@@ -97,7 +105,7 @@ In direct mode the `<video>` element seeks with range requests. In transcode mod
 
 ### Audio tracks and subtitles
 
-When there is more than one audio track, the renderer offers a menu. Choosing a track calls `audio:selectTrack`, and main replies with a new transcode URL that maps only that stream (`-map 0:v:0 -map 0:<index>`); playback resumes from the current position. Subtitle tracks are listed with human-readable language names and attached as `<track>` elements pointing at `/subtitle/<index>.vtt` (with `?startTime=` in transcode mode, see above).
+When there is more than one audio track, the renderer offers a menu. Choosing a track calls `audio:selectTrack`, and main replies with a new transcode URL that maps only that stream (`-map 0:v:0 -map 0:<index>`, with the picture conversion kept for Dolby Vision); playback resumes from the current position. Subtitle tracks are listed with human-readable language names and attached as `<track>` elements pointing at `/subtitle/<index>.vtt` (with `?startTime=` in transcode mode, see above).
 
 ### Resuming playback
 
@@ -190,7 +198,7 @@ Every response has `Cache-Control: no-store`, `Referrer-Policy: no-referrer`, `X
 - **TCP only.** WebTorrent is created with `utp: false`. Its uTP-first dialing took ~41 s to fall back to TCP, longer than the load timeout, on networks that drop uTP.
 - **No WebRTC.** `node-datachannel` is not rebuilt for Electron, so `Module._load` is intercepted while WebTorrent loads and the native module is replaced by a no-op stub. A desktop client only needs TCP peers.
 - **ffmpeg failures do not crash the app.** `ffprobe` is spawned directly instead of through `fluent-ffmpeg`, whose capability check could throw synchronously on an architecture mismatch (`EBADARCH`). Recoverable `uncaughtException`s are logged and the app keeps running without transcoding.
-- **Crash log.** Fatal errors and startup diagnostics (architecture, resolved ffmpeg paths) are appended to `crash.log` in the app's log directory (`~/Library/Logs/saltplayer/` on macOS).
+- **Crash log.** Fatal errors and startup diagnostics (architecture, ffmpeg and ffprobe paths) are appended to `crash.log` in the app's log directory (`~/Library/Logs/saltplayer/` on macOS).
 
 ## Security
 

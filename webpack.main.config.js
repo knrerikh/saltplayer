@@ -32,8 +32,6 @@ module.exports = {
     __filename: false
   },
   externals: {
-    'ffmpeg-static': 'commonjs ffmpeg-static',
-    'ffprobe-static': 'commonjs ffprobe-static',
     'fluent-ffmpeg': 'commonjs fluent-ffmpeg',
   },
   ignoreWarnings: [

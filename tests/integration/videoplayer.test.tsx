@@ -315,6 +315,37 @@ describe('VideoPlayer Component', () => {
     });
   });
 
+  describe('Spinner while a converted stream restarts (#94)', () => {
+    it('stays until playback has resumed, not just been requested', () => {
+      const { container } = render(
+        <VideoPlayer
+          videoUrl="http://localhost:8080/video.mkv?transcode=true&video=sdr"
+          serverDuration={3000}
+          title="Test Video"
+          onClose={vi.fn()}
+        />,
+      );
+      const video = container.querySelector('video') as HTMLVideoElement;
+      const seekBar = container.querySelector('.seek-bar') as HTMLElement;
+      seekBar.getBoundingClientRect = () => ({ left: 0, width: 100 } as DOMRect);
+      const spinner = () => container.querySelector('.loading-spinner');
+
+      // seekTo() has called play() by the time Chromium reports `canplay`.
+      Object.defineProperty(video, 'paused', { value: false, configurable: true });
+      fireEvent.click(seekBar, { clientX: 40 });
+      fireEvent(video, new Event('canplay'));
+      fireEvent(video, new Event('play'));
+      fireEvent(video, new Event('loadedmetadata'));
+
+      expect(new URL(video.src).searchParams.get('startTime')).toBe('1200');
+      expect(spinner()).toBeInTheDocument();
+
+      fireEvent(video, new Event('playing'));
+
+      expect(spinner()).not.toBeInTheDocument();
+    });
+  });
+
   describe('Subtitles', () => {
     const mockSubtitleData: SubtitleData = {
       tracks: [

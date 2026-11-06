@@ -237,9 +237,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
     };
     
+    // `play` fires when playback is requested, before a restarted stream has a frame:
+    // the spinner stays until `playing`.
     const handlePlay = () => {
       setIsPlaying(true);
-      setIsBuffering(false);
     };
     
     const handlePlaying = () => {
@@ -256,8 +257,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setIsBuffering(true);
     };
     
+    // A paused video never reports `playing`, so `canplay` ends its loading.
     const handleCanPlay = () => {
-      setIsBuffering(false);
+      if (video.paused) setIsBuffering(false);
     };
     
     const handleLoadStart = () => {
@@ -274,7 +276,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
       
       setDuration(Number.isFinite(video.duration) ? video.duration : (serverDuration || 0));
-      setIsBuffering(false);
     };
 
     const handleError = () => {

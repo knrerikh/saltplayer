@@ -19,21 +19,20 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { spawn as spawnChild } from 'child_process';
-import { pipeline, PassThrough } from 'stream';
+import { pipeline, PassThrough, Transform } from 'stream';
 import ffmpeg from 'fluent-ffmpeg';
-import ffmpegPath from 'ffmpeg-static';
-import ffprobePath from 'ffprobe-static';
+import { hostMediaTools } from './media-tools';
+import {
+  DOLBY_VISION_SDR_VALUE,
+  VIDEO_CONVERSION_PARAM,
+  VideoConversion,
+  buildConversionArgs,
+  detectVideoConversion,
+} from './video-conversion';
 
-// Resolve binary paths (files inside asar cannot be executed; asarUnpack moves them to app.asar.unpacked)
-const resolvedFfmpegPath = ffmpegPath
-  ? ffmpegPath.replace('app.asar', 'app.asar.unpacked')
-  : null;
-const resolvedFfprobePath = ffprobePath?.path
-  ? ffprobePath.path.replace('app.asar', 'app.asar.unpacked')
-  : null;
-
-if (resolvedFfmpegPath) ffmpeg.setFfmpegPath(resolvedFfmpegPath);
-if (resolvedFfprobePath) ffmpeg.setFfprobePath(resolvedFfprobePath);
+const mediaTools = hostMediaTools();
+ffmpeg.setFfmpegPath(mediaTools.ffmpeg);
+ffmpeg.setFfprobePath(mediaTools.ffprobe);
 
 /** The `startTime` of a request in seconds; 0 when it is missing, negative or not a finite number. */
 function parseStartTime(raw: string | null): number {
@@ -48,18 +47,22 @@ try {
   const diag = [
     `${new Date().toISOString()} [startup-diagnostics]`,
     `  process.arch: ${process.arch}`,
-    `  ffmpegPath raw: ${ffmpegPath}`,
-    `  ffmpegPath resolved: ${resolvedFfmpegPath}`,
-    `  ffmpeg exists: ${resolvedFfmpegPath ? fs.existsSync(resolvedFfmpegPath) : false}`,
-    `  ffprobePath raw: ${ffprobePath?.path}`,
-    `  ffprobePath resolved: ${resolvedFfprobePath}`,
-    `  ffprobe exists: ${resolvedFfprobePath ? fs.existsSync(resolvedFfprobePath) : false}`,
+    `  ffmpeg: ${mediaTools.ffmpeg}`,
+    `  ffmpeg exists: ${fs.existsSync(mediaTools.ffmpeg)}`,
+    `  ffprobe: ${mediaTools.ffprobe}`,
+    `  ffprobe exists: ${fs.existsSync(mediaTools.ffprobe)}`,
   ].join('\n') + '\n\n';
   fs.appendFileSync(path.join(logDir, 'crash.log'), diag);
 } catch { /* ignore */ }
 
 // WebTorrent will be loaded dynamically since it's an ESM module
 let WebTorrentClass: any = null;
+
+interface ProbeResult {
+  needsTranscode: boolean;
+  duration: number;
+  videoConversion: VideoConversion | null;
+}
 
 const UNSUPPORTED_AUDIO_CODECS = ['ac3', 'ac-3', 'eac3', 'ec-3', 'dts', 'truehd', 'mlp', 'vorbis'];
 
@@ -132,6 +135,10 @@ export class TorrentEngine {
   private selectedAudioIndex: number | null = null;
   private currentStreamUrl: string | null = null;
   private currentFilePathname: string | null = null;
+  /** The picture conversion of the open file, or null while it plays as it is. */
+  private videoConversion: VideoConversion | null = null;
+  /** Whether the open file's audio is in a codec Chromium cannot play. */
+  private audioNeedsTranscode = false;
 
   /**
    * @param history Where files were left: a torrent starts with the episode watched
@@ -481,21 +488,18 @@ export class TorrentEngine {
    * Spawns ffprobe directly to avoid fluent-ffmpeg's getAvailableFormats() capability check,
    * which calls spawn() synchronously in a way that can propagate EBADARCH as an uncaughtException.
    */
-  private async probeStream(streamUrl: string): Promise<{ needsTranscode: boolean; duration: number }> {
-    const ffprobeBin = resolvedFfprobePath;
-    if (!ffprobeBin) {
-      return { needsTranscode: false, duration: 0 };
-    }
+  private async probeStream(streamUrl: string): Promise<ProbeResult> {
+    const ffprobeBin = mediaTools.ffprobe;
 
     return new Promise((resolve) => {
       let settled = false;
-      const done = (result: { needsTranscode: boolean; duration: number }) => {
+      const done = (result: ProbeResult) => {
         if (!settled) { settled = true; resolve(result); }
       };
 
       const fallback = () => {
         const ext = streamUrl.split('?')[0].split('.').pop()?.toLowerCase();
-        done({ needsTranscode: ['mkv', 'avi', 'wmv', 'flv', 'mov'].includes(ext || ''), duration: 0 });
+        done({ needsTranscode: ['mkv', 'avi', 'wmv', 'flv', 'mov'].includes(ext || ''), duration: 0, videoConversion: null });
       };
 
       const timeoutId = setTimeout(() => {
@@ -517,7 +521,7 @@ export class TorrentEngine {
       } catch (err: any) {
         clearTimeout(timeoutId);
         console.error('FFprobe spawn failed:', err.message);
-        done({ needsTranscode: false, duration: 0 });
+        done({ needsTranscode: false, duration: 0, videoConversion: null });
         return;
       }
 
@@ -552,12 +556,12 @@ export class TorrentEngine {
                 needsTranscode = true;
               }
             }
-            done({ needsTranscode, duration });
+            done({ needsTranscode, duration, videoConversion: detectVideoConversion(data) });
           }
         } catch (e) {
           if (!settled) {
             console.error('FFprobe parse error:', e);
-            done({ needsTranscode: false, duration: 0 });
+            done({ needsTranscode: false, duration: 0, videoConversion: null });
           }
         }
       });
@@ -567,11 +571,7 @@ export class TorrentEngine {
   private async extractSubtitles(streamUrl: string): Promise<void> {
     this.subtitleTracks = [];
 
-    const ffprobeBin = resolvedFfprobePath;
-    if (!ffprobeBin) {
-      this.sendSubtitles([]);
-      return;
-    }
+    const ffprobeBin = mediaTools.ffprobe;
 
     return new Promise((resolve) => {
       let settled = false;
@@ -732,66 +732,7 @@ export class TorrentEngine {
         }
 
         if (isTranscode) {
-          const rawFileUrl = `http://${STREAM_HOST}:${this.serverPort}${pathname}`;
-          const audioTrackParam = reqUrl.searchParams.get('audioTrack');
-
-          res.writeHead(200, {
-            'Content-Type': 'video/x-matroska',
-            'Transfer-Encoding': 'chunked',
-          });
-
-          const command = ffmpeg(rawFileUrl);
-
-          if (startTime > 0) {
-            command.seekInput(startTime);
-          }
-
-          if (audioTrackParam) {
-            const audioStreamIndex = parseInt(audioTrackParam, 10);
-            command.outputOptions(['-map 0:v:0', `-map 0:${audioStreamIndex}`]);
-            const track = this.audioTracks.find(t => t.index === audioStreamIndex);
-            const codec = track?.codec?.toLowerCase() ?? '';
-            if (codec && UNSUPPORTED_AUDIO_CODECS.includes(codec)) {
-              command.audioCodec('aac').audioChannels(2);
-            } else {
-              command.audioCodec('copy');
-            }
-          } else {
-            command.audioCodec('aac').audioChannels(2);
-          }
-
-          command
-            .videoCodec('copy')
-            .format('matroska')
-            .on('codecData', (data) => {
-              if (data.duration) {
-                const parts = data.duration.split(':');
-                if (parts.length === 3) {
-                  const seconds = (+parts[0]) * 3600 + (+parts[1]) * 60 + (+parts[2]);
-                  if (seconds > 0) {
-                    this.sendVideoMetadata(seconds);
-                  }
-                }
-              }
-            })
-            .on('error', (err) => {
-              if (!err.message.includes('Output stream closed') && !err.message.includes('Premature close')) {
-                console.error('FFmpeg error:', err);
-              }
-            });
-
-          const out = new PassThrough();
-
-          res.once('close', () => {
-            try {
-              command.kill('SIGKILL');
-            } catch {
-              // no-op
-            }
-          });
-
-          command.pipe(out, { end: true });
-          pipeline(out, res, () => {});
+          this.serveTranscode(reqUrl, res, file, pathname, startTime);
           return;
         }
 
@@ -881,13 +822,17 @@ export class TorrentEngine {
       this.serverPort = address.port;
       this.currentFilePathname = pathname;
       this.selectedAudioIndex = null;
-      let streamUrl = `http://${STREAM_HOST}:${this.serverPort}${pathname}`;
+      this.videoConversion = null;
+      this.audioNeedsTranscode = false;
+      const streamUrl = `http://${STREAM_HOST}:${this.serverPort}${pathname}`;
 
       console.log(`Streaming server started at ${streamUrl}`);
       this.prioritizeStreamingPieces(file, 0);
       const probeResult = await this.probeStream(internalUrl(streamUrl));
       if (!isCurrent()) return;
       this.currentStreamUrl = streamUrl;
+      this.videoConversion = probeResult.videoConversion;
+      this.audioNeedsTranscode = probeResult.needsTranscode;
 
       if (probeResult.duration > 0) {
         this.sendVideoMetadata(probeResult.duration);
@@ -895,13 +840,122 @@ export class TorrentEngine {
 
       this.extractSubtitles(internalUrl(streamUrl));
 
-      if (probeResult.needsTranscode) {
-        console.log('Transcoding enabled due to unsupported audio codec');
-        streamUrl += '?transcode=true';
-      }
+      if (probeResult.videoConversion) console.log('Converting the picture: Dolby Vision profile 5');
+      if (probeResult.needsTranscode) console.log('Transcoding enabled due to unsupported audio codec');
 
-      this.sendVideoUrl(streamUrl, this.resumePositionOf(file));
+      this.sendVideoUrl(this.buildStreamUrl({ transcode: probeResult.needsTranscode }), this.resumePositionOf(file));
     });
+  }
+
+  /**
+   * The stream the player plays: the file as it is, or (`transcode`) through ffmpeg with
+   * its audio converted and, when the open video needs it, its picture converted too.
+   * Every URL goes through here, so no path can lose the picture conversion.
+   */
+  private buildStreamUrl({ transcode, audioTrack }: { transcode: boolean; audioTrack?: number }): string {
+    const url = new URL(`http://${STREAM_HOST}:${this.serverPort}${this.currentFilePathname}`);
+    if (transcode || this.videoConversion) url.searchParams.set('transcode', 'true');
+    if (audioTrack !== undefined) url.searchParams.set('audioTrack', String(audioTrack));
+    if (this.videoConversion) url.searchParams.set(VIDEO_CONVERSION_PARAM, DOLBY_VISION_SDR_VALUE);
+    return url.toString();
+  }
+
+  /** Streams the file through ffmpeg as Matroska: the transcode route (`?transcode=true`). */
+  private serveTranscode(reqUrl: URL, res: http.ServerResponse, file: MediaSource, pathname: string, startTime: number): void {
+    const rawFileUrl = `http://${STREAM_HOST}:${this.serverPort}${pathname}`;
+    const audioTrackParam = reqUrl.searchParams.get('audioTrack');
+    // The URL only asks; the probe decides, so a stale URL cannot convert a video that needs no conversion.
+    const conversion = reqUrl.searchParams.get(VIDEO_CONVERSION_PARAM) === DOLBY_VISION_SDR_VALUE ? this.videoConversion : null;
+
+    res.writeHead(200, {
+      'Content-Type': 'video/x-matroska',
+      'Transfer-Encoding': 'chunked',
+    });
+
+    const command = ffmpeg(rawFileUrl);
+
+    if (startTime > 0) {
+      command.seekInput(startTime);
+    }
+
+    if (conversion) {
+      command.outputOptions(buildConversionArgs({ platform: process.platform, width: conversion.width, height: conversion.height }));
+    } else {
+      command.videoCodec('copy');
+    }
+
+    if (audioTrackParam) {
+      const audioStreamIndex = parseInt(audioTrackParam, 10);
+      command.outputOptions(conversion ? ['-map', `0:${audioStreamIndex}`] : ['-map 0:v:0', `-map 0:${audioStreamIndex}`]);
+      const track = this.audioTracks.find(t => t.index === audioStreamIndex);
+      const codec = track?.codec?.toLowerCase() ?? '';
+      if (codec && UNSUPPORTED_AUDIO_CODECS.includes(codec)) {
+        command.audioCodec('aac').audioChannels(2);
+      } else {
+        command.audioCodec('copy');
+      }
+    } else {
+      // Mapping the picture by hand switches off ffmpeg's default choice of an audio stream.
+      if (conversion) command.outputOptions(['-map', '0:a:0?']);
+      command.audioCodec('aac').audioChannels(2);
+    }
+
+    let producedBytes = false;
+    let playerLeft = false;
+    const out = new Transform({
+      transform(chunk, _encoding, done) {
+        producedBytes = true;
+        done(null, chunk);
+      },
+    });
+
+    command
+      .format('matroska')
+      .on('codecData', (data) => {
+        if (data.duration) {
+          const parts = data.duration.split(':');
+          if (parts.length === 3) {
+            const seconds = (+parts[0]) * 3600 + (+parts[1]) * 60 + (+parts[2]);
+            if (seconds > 0) {
+              this.sendVideoMetadata(seconds);
+            }
+          }
+        }
+      })
+      .on('error', (err) => {
+        if (!err.message.includes('Output stream closed') && !err.message.includes('Premature close')) {
+          console.error('FFmpeg error:', err);
+        }
+        if (conversion && !producedBytes && !playerLeft) {
+          res.end();
+          this.fallBackToUnconvertedVideo(startTime);
+        }
+      });
+
+    res.once('close', () => {
+      playerLeft = true;
+      try {
+        command.kill('SIGKILL');
+      } catch {
+        // no-op
+      }
+    });
+
+    command.pipe(out, { end: true });
+    pipeline(out, res, () => {});
+  }
+
+  /**
+   * The picture conversion could not start: show the video as it is, and say once that its
+   * colours may be wrong. `startAt` keeps the player where the failed stream was to begin.
+   */
+  private fallBackToUnconvertedVideo(startAt: number): void {
+    if (!this.videoConversion) return;
+
+    this.videoConversion = null;
+    this.sendError('VIDEO_CONVERSION_FAILED', 'This video is Dolby Vision, which could not be converted; its colours may be wrong.');
+    const audioTrack = this.selectedAudioIndex ?? undefined;
+    this.sendVideoUrl(this.buildStreamUrl({ transcode: this.audioNeedsTranscode || audioTrack !== undefined, audioTrack }), startAt > 0 ? startAt : null);
   }
 
   private guessVideoContentType(filename: string): string {
@@ -1293,12 +1347,7 @@ export class TorrentEngine {
     this.selectedAudioIndex = streamIndex;
     console.log(`Selecting audio track: ${track.title} (index ${streamIndex}, codec ${track.codec})`);
 
-    const baseUrl = `http://${STREAM_HOST}:${this.serverPort}${this.currentFilePathname}`;
-    const url = new URL(baseUrl);
-    url.searchParams.set('transcode', 'true');
-    url.searchParams.set('audioTrack', String(streamIndex));
-
-    this.sendVideoUrl(url.toString());
+    this.sendVideoUrl(this.buildStreamUrl({ transcode: true, audioTrack: streamIndex }));
   }
 
   /**

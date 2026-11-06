@@ -61,6 +61,18 @@ describe('Resume playback (#51)', () => {
       expect(screen.getByText(/9:56/)).toBeInTheDocument();
     });
 
+    it('keeps a converted Dolby Vision picture when it resumes and when it seeks (#94)', () => {
+      watch(urlOf('S01E01.mkv', '?transcode=true&video=sdr'), 595);
+      const resumed = new URL(video.src);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Start over' }));
+      const restarted = new URL(video.src);
+
+      expect([resumed.searchParams.get('video'), resumed.searchParams.get('startTime')]).toEqual(['sdr', '595']);
+      expect([restarted.searchParams.get('video'), restarted.searchParams.get('startTime')]).toEqual(['sdr', '0']);
+      expect(restarted.searchParams.get('transcode')).toBe('true');
+    });
+
     it('starts over from the beginning on request', () => {
       watch(urlOf('S01E01.mkv'), 595);
 
