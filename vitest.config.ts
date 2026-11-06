@@ -1,9 +1,11 @@
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 import path from 'path';
 
 export default defineConfig({
   test: {
     globals: true,
+    // Agent worktrees hold full copies of the repository, and their tests are not ours.
+    exclude: [...configDefaults.exclude, '**/.claude/**'],
     environment: 'happy-dom',
     setupFiles: ['./tests/setup.ts'],
     coverage: {
