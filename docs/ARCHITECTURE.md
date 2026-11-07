@@ -196,7 +196,7 @@ Every response has `Cache-Control: no-store`, `Referrer-Policy: no-referrer`, `X
 ## Resilience
 
 - **TCP only.** WebTorrent is created with `utp: false`. Its uTP-first dialing took ~41 s to fall back to TCP, longer than the load timeout, on networks that drop uTP.
-- **No WebRTC.** `node-datachannel` is not rebuilt for Electron, so `Module._load` is intercepted while WebTorrent loads and the native module is replaced by a no-op stub. A desktop client only needs TCP peers.
+- **No WebRTC.** `node-datachannel` is not rebuilt for Electron, so `Module._load` is intercepted while WebTorrent loads and the native module is replaced by a no-op stub. The stub only lets `webrtc-polyfill` load; it cannot make peers, so the client is also created with `tracker: { wrtc: false }`, which makes `bittorrent-tracker` skip `wss://` trackers (a warning) instead of building WebRTC peers that throw. A desktop client only needs TCP peers.
 - **ffmpeg failures do not crash the app.** `ffprobe` is spawned directly instead of through `fluent-ffmpeg`, whose capability check could throw synchronously on an architecture mismatch (`EBADARCH`). Recoverable `uncaughtException`s are logged and the app keeps running without transcoding.
 - **Crash log.** Fatal errors and startup diagnostics (architecture, ffmpeg and ffprobe paths) are appended to `crash.log` in the app's log directory (`~/Library/Logs/saltplayer/` on macOS).
 
