@@ -12,6 +12,7 @@ import {
   readAheadPieces,
   readInChunks,
 } from './download-window';
+import { shouldAddWebSeeds } from './web-seed-fallback';
 import { BrowserWindow } from 'electron';
 import * as http from 'http';
 import type { AddressInfo } from 'net';
@@ -130,6 +131,7 @@ export class TorrentEngine {
   private closeTimeoutMs = CLOSE_TIMEOUT_MS;
   private serverPort: number | null = null;
   private statusInterval: NodeJS.Timeout | null = null;
+  private webSeedTimer: NodeJS.Timeout | null = null;
   private subtitleTracks: SubtitleTrack[] = [];
   private audioTracks: AudioTrack[] = [];
   private selectedAudioIndex: number | null = null;
@@ -216,8 +218,14 @@ export class TorrentEngine {
       // The stub above lets webrtc-polyfill load but cannot make peers. Without this
       // a wss:// tracker would still build a WebRTC peer, which throws out of the
       // tracker's announce and kills the app (#106). With it bittorrent-tracker skips
-      // wss:// trackers with a warning; UDP/HTTP trackers, DHT and web seeds remain.
+      // wss:// trackers with a warning; UDP/HTTP trackers and DHT remain.
       tracker: { wrtc: false },
+      // Web seeds stay off while peers can serve: a web seed takes a whole piece in one
+      // request, and for a piece shared by several files that is one HTTP request per
+      // file. If one never answers the piece stays reserved, no peer may take it and the
+      // download ends one piece short (#108). watchForWebSeedFallback() adds them
+      // when a torrent has no peers.
+      webSeeds: false,
     });
 
     this.client.on('error', (error: any) => {
@@ -424,7 +432,46 @@ export class TorrentEngine {
           console.log('Torrent download complete');
         });
       });
+      this.watchForWebSeedFallback(addedTorrent);
     });
+  }
+
+  /**
+   * Adds the torrent's own web seeds (`ws=` of a magnet, `url-list` of a .torrent) once
+   * it has had no peers for WEB_SEED_FALLBACK_MS, so a torrent that only has web seeds
+   * still downloads. The wait starts when the torrent is added and again whenever the
+   * peers drop to 0. The timer ends with the torrent.
+   */
+  private watchForWebSeedFallback(torrent: any): void {
+    this.stopWebSeedFallback();
+    let noPeersSince: number | null = Date.now();
+    let added = false;
+
+    this.webSeedTimer = setInterval(() => {
+      if (torrent.destroyed || torrent.done) {
+        this.stopWebSeedFallback();
+        return;
+      }
+      const now = Date.now();
+      if (torrent.numPeers > 0) {
+        noPeersSince = null;
+        return;
+      }
+      noPeersSince ??= now;
+      if (!shouldAddWebSeeds({ peers: torrent.numPeers, done: torrent.done, added, noPeersSince, now })) return;
+
+      added = true;
+      this.stopWebSeedFallback();
+      const urls: string[] = torrent.urlList ?? [];
+      if (urls.length === 0) return;
+      console.log(`No peers: adding ${urls.length} web seed(s)`);
+      urls.forEach((url) => torrent.addWebSeed(url));
+    }, 1000);
+  }
+
+  private stopWebSeedFallback(): void {
+    if (this.webSeedTimer) clearInterval(this.webSeedTimer);
+    this.webSeedTimer = null;
   }
 
   /**
@@ -1178,6 +1225,7 @@ export class TorrentEngine {
   }
 
   async stop(): Promise<void> {
+    this.stopWebSeedFallback();
     if (this.statusInterval) {
       clearInterval(this.statusInterval);
       this.statusInterval = null;
@@ -1235,6 +1283,7 @@ export class TorrentEngine {
    * Destroy torrent client and cleanup
    */
   async destroy(): Promise<void> {
+    this.stopWebSeedFallback();
     if (this.statusInterval) {
       clearInterval(this.statusInterval);
       this.statusInterval = null;

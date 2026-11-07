@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Magnet links with `wss://` trackers crashed the player** ([#106](https://github.com/knrerikh/saltplayer/issues/106)): such a tracker (the WebTorrent demo torrent has two) made WebTorrent build a WebRTC peer, and the no-op WebRTC stub could not back it, so the app died with `Cannot read properties of undefined (reading 'isOpen')`. WebTorrent is now told not to use WebRTC: `wss://` trackers are skipped with a warning, while UDP/HTTP trackers, DHT and web seeds still find peers.
+- **Magnet links with `wss://` trackers crashed the player** ([#106](https://github.com/knrerikh/saltplayer/issues/106)): such a tracker (the WebTorrent demo torrent has two) made WebTorrent build a WebRTC peer, and the no-op WebRTC stub could not back it, so the app died with `Cannot read properties of undefined (reading 'isOpen')`. WebTorrent is now told not to use WebRTC: `wss://` trackers are skipped with a warning, while UDP/HTTP trackers and DHT still find peers.
+- **A torrent no longer stops at 99.9 %** ([#108](https://github.com/knrerikh/saltplayer/issues/108)): when the video's first or last piece is shared with other files (the Sintel torrent: subtitles before and after the video), a web seed (`ws=` in a magnet link, `url-list` in a `.torrent`) could keep that piece reserved with a request that never finished, so no peer could fetch it and playback never started. Web seeds are now only a fallback: they are added when a torrent has had no peers for 15 seconds (and again after the peers drop to 0), so torrents that only have web seeds still download, after a short wait.
 
 ## [1.8.0] - 2026-11-07
 
