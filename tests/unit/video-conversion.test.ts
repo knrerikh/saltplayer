@@ -31,6 +31,11 @@ describe('detectVideoConversion', () => {
     expect(detectVideoConversion(probe)).toBeNull();
   });
 
+  it('leaves other profiles without a compatible base layer alone (e.g. profile 20)', () => {
+    const probe = { streams: [video({ side_data_list: [doviRecord(20, 0)] })] };
+    expect(detectVideoConversion(probe)).toBeNull();
+  });
+
   it('leaves plain HEVC SDR alone', () => {
     expect(detectVideoConversion({ streams: [video()] })).toBeNull();
   });

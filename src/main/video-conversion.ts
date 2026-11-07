@@ -15,12 +15,14 @@ export const DOLBY_VISION_SDR_VALUE = 'sdr';
 const MAX_WIDTH = 1920;
 const MAX_HEIGHT = 1080;
 const DOVI_RECORD = 'DOVI configuration record';
+/** The only profile whose reshaping tonemapx is known to get right; others with id 0 (e.g. 20, MV-HEVC) stay as they are. */
+const DOLBY_VISION_PROFILE_5 = 5;
 
 interface ProbedStream {
   codec_type?: string;
   width?: number;
   height?: number;
-  side_data_list?: { side_data_type?: string; dv_bl_signal_compatibility_id?: number }[];
+  side_data_list?: { side_data_type?: string; dv_profile?: number; dv_bl_signal_compatibility_id?: number }[];
 }
 
 /**
@@ -33,7 +35,7 @@ export function detectVideoConversion(probe: { streams?: ProbedStream[] }): Vide
   if (!video?.width || !video.height) return null;
 
   const record = video.side_data_list?.find((data) => data.side_data_type === DOVI_RECORD);
-  if (record?.dv_bl_signal_compatibility_id !== 0) return null;
+  if (record?.dv_profile !== DOLBY_VISION_PROFILE_5 || record.dv_bl_signal_compatibility_id !== 0) return null;
 
   return { kind: 'dolby-vision-sdr', width: video.width, height: video.height };
 }
