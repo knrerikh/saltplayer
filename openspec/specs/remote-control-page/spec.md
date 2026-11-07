@@ -10,7 +10,7 @@ The remote page SHALL use the same palette, font stack and control shapes as the
 
 #### Scenario: Controls at rest
 - **WHEN** the remote page shows a video with every control enabled
-- **THEN** buttons and capsules use the player's translucent control fill on the player's background, and no control other than the seek bar's played part and the active toggles uses the accent colour
+- **THEN** buttons and capsules use the player's translucent control fill on the player's background, and the accent colour appears only on the played part of the seek bar and the volume slider, on active toggles and on the keyboard focus ring
 
 #### Scenario: Close video at rest
 - **WHEN** the Close video control is shown and not touched
