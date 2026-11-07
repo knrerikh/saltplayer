@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-11-07
+
 ### Added
 
 - **Remote control: the page looks like the player, in both orientations** ([#87](https://github.com/knrerikh/saltplayer/issues/87), part of [#41](https://github.com/knrerikh/saltplayer/issues/41)): the phone page now uses the player's palette, font, translucent round buttons and capsules, a thin seek bar with an accent fill and the volume as a capsule with the speaker icon; blue marks only progress and the active state, and **Close video** is neutral until pressed. Colours, the control fill and the font come from `src/shared/theme.ts`, and the icons both sides share from `src/shared/icons.ts`, so the player and the page cannot drift apart (a test keeps `styles.css` equal to the theme). Upright, the page is one column that fits a 320 × 568 screen; turned sideways it has two columns without scrolling, with a vertical volume slider where the browser supports one. Every control is at least 44 px, and long titles clamp to two lines. The User Guide now says that the phone's own volume buttons do not change the computer's volume.
@@ -226,7 +228,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full API documentation in code comments
 - Architecture documentation
 
-[Unreleased]: https://github.com/knrerikh/saltplayer/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/knrerikh/saltplayer/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/knrerikh/saltplayer/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/knrerikh/saltplayer/compare/v1.6.2...v1.7.0
 [1.6.2]: https://github.com/knrerikh/saltplayer/compare/v1.6.1...v1.6.2
 [1.6.1]: https://github.com/knrerikh/saltplayer/releases/tag/v1.6.1

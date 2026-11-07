@@ -1,6 +1,6 @@
 {
   "name": "saltplayer",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "Minimalist torrent player with progressive streaming",
   "main": "dist/main/main.js",
   "author": "Konstantin Rerikh <knrerikh@gmail.com>",
@@ -92,7 +92,10 @@
       {
         "from": "vendor/ffmpeg/${platform}-${arch}",
         "to": "ffmpeg",
-        "filter": ["ffmpeg*", "ffprobe*"]
+        "filter": [
+          "ffmpeg*",
+          "ffprobe*"
+        ]
       }
     ],
     "files": [
@@ -101,18 +104,69 @@
       "package.json"
     ],
     "fileAssociations": [
-      { "ext": "torrent", "name": "BitTorrent file", "mimeType": "application/x-bittorrent", "role": "Viewer" },
-      { "ext": "mp4", "name": "MP4 video", "mimeType": "video/mp4", "role": "Viewer" },
-      { "ext": "mkv", "name": "Matroska video", "mimeType": "video/x-matroska", "role": "Viewer" },
-      { "ext": "avi", "name": "AVI video", "mimeType": "video/x-msvideo", "role": "Viewer" },
-      { "ext": "mov", "name": "QuickTime movie", "mimeType": "video/quicktime", "role": "Viewer" },
-      { "ext": "webm", "name": "WebM video", "mimeType": "video/webm", "role": "Viewer" },
-      { "ext": "m4v", "name": "M4V video", "mimeType": "video/x-m4v", "role": "Viewer" },
-      { "ext": "flv", "name": "Flash video", "mimeType": "video/x-flv", "role": "Viewer" },
-      { "ext": "wmv", "name": "Windows Media video", "mimeType": "video/x-ms-wmv", "role": "Viewer" }
+      {
+        "ext": "torrent",
+        "name": "BitTorrent file",
+        "mimeType": "application/x-bittorrent",
+        "role": "Viewer"
+      },
+      {
+        "ext": "mp4",
+        "name": "MP4 video",
+        "mimeType": "video/mp4",
+        "role": "Viewer"
+      },
+      {
+        "ext": "mkv",
+        "name": "Matroska video",
+        "mimeType": "video/x-matroska",
+        "role": "Viewer"
+      },
+      {
+        "ext": "avi",
+        "name": "AVI video",
+        "mimeType": "video/x-msvideo",
+        "role": "Viewer"
+      },
+      {
+        "ext": "mov",
+        "name": "QuickTime movie",
+        "mimeType": "video/quicktime",
+        "role": "Viewer"
+      },
+      {
+        "ext": "webm",
+        "name": "WebM video",
+        "mimeType": "video/webm",
+        "role": "Viewer"
+      },
+      {
+        "ext": "m4v",
+        "name": "M4V video",
+        "mimeType": "video/x-m4v",
+        "role": "Viewer"
+      },
+      {
+        "ext": "flv",
+        "name": "Flash video",
+        "mimeType": "video/x-flv",
+        "role": "Viewer"
+      },
+      {
+        "ext": "wmv",
+        "name": "Windows Media video",
+        "mimeType": "video/x-ms-wmv",
+        "role": "Viewer"
+      }
     ],
     "protocols": [
-      { "name": "Magnet link", "schemes": ["magnet"], "role": "Viewer" }
+      {
+        "name": "Magnet link",
+        "schemes": [
+          "magnet"
+        ],
+        "role": "Viewer"
+      }
     ],
     "mac": {
       "target": "dmg",
