@@ -1,0 +1,36 @@
+# CodeRabbit review settings: https://docs.coderabbit.ai/reference/configuration
+language: en-US
+reviews:
+  profile: chill
+  high_level_summary: true
+  poem: false
+  review_status: true
+  auto_review:
+    enabled: true
+    drafts: false
+  path_filters:
+    - "!package-lock.json"
+    - "!vendor/**"
+    - "!openspec/changes/archive/**"
+  path_instructions:
+    - path: "src/main/remote-control/**"
+      instructions: >-
+        This HTTP server is reachable from the local network. Check every request path for the
+        documented order of checks (rate limit, Host, Origin on POST, timing-safe token), that the
+        page stays self-contained under its nonce-only CSP, and that untrusted text is rendered
+        only with textContent.
+    - path: "src/main/**"
+      instructions: >-
+        Input from torrents, file names, magnet links and the phone is untrusted: it must be
+        validated where it enters. Child processes (ffmpeg, ffprobe) must not outlive the stream
+        that started them.
+    - path: "tests/**"
+      instructions: >-
+        Tests must pass on macOS, Linux and Windows (no hard-coded POSIX paths), use Node's
+        http.request rather than fetch for HTTP, and must not name temp directories saltplayer-*.
+    - path: "openspec/changes/**"
+      instructions: >-
+        Check that every requirement has testable WHEN/THEN scenarios and that tasks state how
+        each is verified.
+chat:
+  auto_reply: true
