@@ -14,7 +14,7 @@ The player SHALL detect a video stream in Dolby Vision profile 5 without a compa
 
 #### Scenario: Other Dolby Vision profiles
 - **WHEN** the video is Dolby Vision with an HDR10 or SDR compatible base layer (for example profile 8.1)
-- **THEN** it plays as today, without conversion
+- **THEN** its video is not converted, as today; its audio is still converted when Chromium cannot play the codec
 
 ### Requirement: Converted resolution
 A converted Dolby Vision video SHALL be delivered at no more than 1920 × 1080, keeping its aspect ratio, and SHALL NOT be upscaled.
@@ -65,8 +65,8 @@ While a converted stream starts or restarts after a seek, the player SHALL show 
 - **THEN** the loading indicator is shown until playback resumes
 
 ### Requirement: Failure to convert
-If the conversion cannot run (the converter is missing or fails to start), the player SHALL still play the video as is and SHALL tell the user once that its colours may be wrong.
+If the video conversion fails to start (for example the tone-mapping filter or the encoder is unavailable), the player SHALL play the video without video conversion, keeping the audio conversion when the audio codec needs it, and SHALL tell the user once that its colours may be wrong.
 
 #### Scenario: Converter fails
 - **WHEN** the conversion of a Dolby Vision profile 5 video fails to start
-- **THEN** the video plays unconverted and a message says the colours may be wrong because the video is Dolby Vision
+- **THEN** the video plays without video conversion, its audio is still converted if Chromium cannot play it, and a message says the colours may be wrong because the video is Dolby Vision
