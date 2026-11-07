@@ -213,6 +213,11 @@ export class TorrentEngine {
       // retries before falling back to TCP (~41-45s to first wire). Disabling uTP
       // makes peers connect over TCP immediately (~2.5s to first wire).
       utp: false,
+      // The stub above lets webrtc-polyfill load but cannot make peers. Without this
+      // a wss:// tracker would still build a WebRTC peer, which throws out of the
+      // tracker's announce and kills the app (#106). With it bittorrent-tracker skips
+      // wss:// trackers with a warning; UDP/HTTP trackers, DHT and web seeds remain.
+      tracker: { wrtc: false },
     });
 
     this.client.on('error', (error: any) => {
