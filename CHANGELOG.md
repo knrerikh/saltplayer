@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-11-07
+
 ### Fixed
 
 - **Magnet links with `wss://` trackers crashed the player** ([#106](https://github.com/knrerikh/saltplayer/issues/106)): such a tracker (the WebTorrent demo torrent has two) made WebTorrent build a WebRTC peer, and the no-op WebRTC stub could not back it, so the app died with `Cannot read properties of undefined (reading 'isOpen')`. WebTorrent is now told not to use WebRTC: `wss://` trackers are skipped with a warning, while UDP/HTTP trackers and DHT still find peers.
@@ -233,7 +235,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full API documentation in code comments
 - Architecture documentation
 
-[Unreleased]: https://github.com/knrerikh/saltplayer/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/knrerikh/saltplayer/compare/v1.8.1...HEAD
+[1.8.1]: https://github.com/knrerikh/saltplayer/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/knrerikh/saltplayer/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/knrerikh/saltplayer/compare/v1.6.2...v1.7.0
 [1.6.2]: https://github.com/knrerikh/saltplayer/compare/v1.6.1...v1.6.2
