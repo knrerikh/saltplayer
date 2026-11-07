@@ -17,11 +17,11 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/player.jpg" width="800" alt="Salt Player playing a video, with the controls and the status bar visible">
+  <img src="docs/images/start-screen.jpg" width="800" alt="Salt Player's start screen: a field for a magnet link or torrent URL and a drop zone for files">
 </p>
 
 <p align="center">
-  <img src="docs/images/start-screen.jpg" width="480" alt="Salt Player's start screen: a field for a magnet link or torrent URL and a drop zone for files">
+  <img src="docs/images/player.jpg" width="800" alt="Salt Player playing a video, with the controls and the status bar visible">
 </p>
 
 <p align="center"><sub>Video: <a href="https://durian.blender.org/">Sintel</a> © Blender Foundation, <a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>.</sub></p>
