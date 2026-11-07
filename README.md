@@ -16,6 +16,16 @@
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey" alt="Platforms">
 </p>
 
+<p align="center">
+  <img src="docs/images/player.jpg" width="800" alt="Salt Player playing a video, with the controls and the status bar visible">
+</p>
+
+<p align="center">
+  <img src="docs/images/start-screen.jpg" width="480" alt="Salt Player's start screen: a field for a magnet link or torrent URL and a drop zone for files">
+</p>
+
+<p align="center"><sub>Video: <a href="https://durian.blender.org/">Sintel</a> © Blender Foundation, <a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>.</sub></p>
+
 ## Features
 
 - **Streams while it downloads.** Playback starts once the first pieces arrive; pieces are fetched in playback order, about five minutes ahead, and only for the episode you are watching. Pausing stops the download, and an episode you switch away from is removed from disk, so a 30 GB season never takes 30 GB.
@@ -108,6 +118,6 @@ Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). Every change 
 
 Salt Player is a neutral tool. You are responsible for having the right to access the content you play; respect copyright law in your jurisdiction.
 
-Released under the [MIT License](LICENSE). Built on [WebTorrent](https://webtorrent.io/), [Electron](https://www.electronjs.org/), [React](https://react.dev/) and [FFmpeg](https://ffmpeg.org/).
+Released under the [MIT License](LICENSE). Built on [WebTorrent](https://webtorrent.io/), [Electron](https://www.electronjs.org/), [React](https://react.dev/) and [FFmpeg](https://ffmpeg.org/). Inspired by [Soda Player](https://www.sodaplayer.com/).
 
 The installers include GPL builds of ffmpeg and ffprobe from [jellyfin-ffmpeg](https://github.com/jellyfin/jellyfin-ffmpeg) (version 8.1.3-2; downloaded and checked against a pinned checksum, see `scripts/ffmpeg-manifest.json`). They run as separate programs, not linked into the app. Their source code is at [jellyfin/jellyfin-ffmpeg, tag v8.1.3-2](https://github.com/jellyfin/jellyfin-ffmpeg/tree/v8.1.3-2).
