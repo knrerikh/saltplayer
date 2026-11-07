@@ -64,10 +64,15 @@ Larger or riskier changes (several modules, security, new behaviour worth specif
 
 1. `/opsx:propose` creates `openspec/changes/<name>/` with a proposal, spec deltas, a design and tasks.
 2. The maintainer reviews the proposal.
-3. `/opsx:apply` implements it task by task.
-4. After the merge, `/opsx:archive` folds the deltas into `openspec/specs/`.
+3. Acceptance tests are written from the spec's scenarios before the code, by someone other than the implementer, who sees the spec but not the implementation. The implementer makes them pass and does not change them; a test that turns out to be wrong goes back to its author.
+4. `/opsx:apply` implements it task by task.
+5. After the merge, `/opsx:archive` folds the deltas into `openspec/specs/`.
 
 Small fixes go straight from the issue to a pull request. `openspec/config.yaml` holds the project context that agents read.
+
+## Review
+
+Whoever wrote the spec or the code does not review it alone. Every pull request gets an automatic review from [CodeRabbit](https://coderabbit.ai) (settings in `.coderabbit.yaml`), and changes planned with OpenSpec also a review from someone who sees only the spec and the diff. Each comment is either fixed or answered with the reason it does not apply; the maintainer decides on the merge.
 
 ## Releases
 
