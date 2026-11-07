@@ -33,7 +33,7 @@ The icons the remote page and the player both show (play, pause, previous, next,
 
 #### Scenario: No emoji
 - **WHEN** the remote page is rendered on a phone
-- **THEN** it contains no emoji or pictographic symbol characters
+- **THEN** its controls and their labels contain no emoji or pictographic symbol characters; titles and episode names from the video are shown as they are
 
 ### Requirement: Portrait layout
 In portrait orientation the remote page SHALL show all its controls in one column that fits the screen without scrolling, from a 320 × 568 CSS-pixel viewport upwards.
