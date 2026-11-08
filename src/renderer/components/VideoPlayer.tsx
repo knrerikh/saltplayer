@@ -359,6 +359,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       video.volume = volume;
 
       if (stayPaused) {
+        // The <video> has autoPlay, which a new src would honour.
+        video.pause();
         setIsBuffering(false);
         return;
       }

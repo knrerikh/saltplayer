@@ -88,11 +88,11 @@ describe('A probe that answers after its 10 s timeout (#113)', () => {
 
   it('does not restart a video that needs no conversion', async () => {
     await openAndTimeOut();
-    // .mkv guesses "transcode" on timeout; an H.264/AAC answer changes nothing visible to the player only if the URL is equal.
+    // .mkv guesses "transcode" on timeout; a late H.264/AAC answer needs nothing more, so the playing stream is kept.
     answer(probes.list[0], { streams: [{ index: 0, codec_type: 'video', codec_name: 'h264', width: 1920, height: 1080 }], format: {} });
 
     await new Promise((r) => setImmediate(r));
-    expect(urls().slice(1).every((u) => u.searchParams.get('video') === null)).toBe(true);
+    expect(urls()).toHaveLength(1);
   });
 
   it('forgets a late answer for a file that was switched away', async () => {

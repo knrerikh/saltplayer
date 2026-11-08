@@ -915,14 +915,20 @@ export class TorrentEngine {
    * choosing another audio track does.
    */
   private applyLateProbe(late: ProbeResult, file: MediaSource): void {
-    const audioTrack = this.selectedAudioIndex ?? undefined;
-    const before = this.buildStreamUrl({ transcode: this.audioNeedsTranscode || audioTrack !== undefined, audioTrack });
-    this.videoConversion = late.videoConversion;
-    this.audioNeedsTranscode = late.needsTranscode;
     if (late.duration > 0) this.sendVideoMetadata(late.duration);
-    if (late.videoConversion) console.log('Converting the picture: Dolby Vision profile 5 (found after the probe timeout)');
-    const after = this.buildStreamUrl({ transcode: late.needsTranscode || audioTrack !== undefined, audioTrack });
-    if (after !== before) this.sendVideoUrl(after);
+    const audioTrack = this.selectedAudioIndex ?? undefined;
+    const transcoding = this.audioNeedsTranscode || audioTrack !== undefined;
+    const gainsConversion = late.videoConversion !== null && this.videoConversion === null;
+    const gainsTranscode = late.needsTranscode && !transcoding;
+    // Only restart for something the playing stream lacks; anything else would just interrupt it.
+    if (!gainsConversion && !gainsTranscode) return;
+
+    if (gainsConversion) {
+      this.videoConversion = late.videoConversion;
+      console.log('Converting the picture: Dolby Vision profile 5 (found after the probe timeout)');
+    }
+    this.audioNeedsTranscode = transcoding || late.needsTranscode;
+    this.sendVideoUrl(this.buildStreamUrl({ transcode: this.audioNeedsTranscode, audioTrack }));
   }
 
   /**
