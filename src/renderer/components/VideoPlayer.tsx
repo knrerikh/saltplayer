@@ -124,7 +124,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [resumedFrom, setResumedFrom] = useState<number | null>(null);
   const subtitleControlRef = useRef<HTMLDivElement>(null);
   const audioControlRef = useRef<HTMLDivElement>(null);
-  const pendingAudioSwitchTime = useRef<number | null>(null);
+  /** Film time to keep when a new URL restarts the stream of the file already playing. */
+  const pendingRestartTime = useRef<number | null>(null);
+  const pendingRestartPaused = useRef(false);
+  const lastVideoUrl = useRef<string | null>(null);
   const idleTimerRef = useRef<number | null>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
   const pointerOverControlsRef = useRef(false);
@@ -156,9 +159,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     return url.toString();
   }, [subtitleData?.tracks, currentSubtitleIndex, isTranscode, timeOffset]);
 
-  // Reset time offset and subtitle index when video URL changes (but not for audio track switches)
+  // Reset time offset and subtitle index when video URL changes, but not when the same file
+  // gets a new stream (another audio track, a picture conversion found or given up): that
+  // restarts where the viewer is, paused or playing.
   useEffect(() => {
-    if (pendingAudioSwitchTime.current !== null) return;
+    const previous = lastVideoUrl.current;
+    lastVideoUrl.current = videoUrl;
+    if (isSameFile(previous, videoUrl)) {
+      pendingRestartTime.current = currentTime;
+      pendingRestartPaused.current = videoRef.current?.paused ?? false;
+      return;
+    }
     // A new file: drop the old one's position so it is not taken for the new one's end.
     setCurrentTime(0);
     setDuration(serverDuration && Number.isFinite(serverDuration) ? serverDuration : 0);
@@ -322,10 +333,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setPlaybackError(null);
       setIsBuffering(true);
 
-      // An audio track switch restarts the stream where it was; a newly opened file
+      // A new stream of the same file restarts where it was; a newly opened file
       // may resume where it was left last time.
-      const switchedAt = pendingAudioSwitchTime.current;
-      pendingAudioSwitchTime.current = null;
+      const switchedAt = pendingRestartTime.current;
+      const stayPaused = switchedAt !== null && pendingRestartPaused.current;
+      pendingRestartTime.current = null;
       const resumeTime = switchedAt ?? resumeAt;
       setResumedFrom(switchedAt === null ? resumeAt : null);
 
@@ -335,6 +347,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         setTimeOffset(resumeTime);
         video.src = url.toString();
       } else {
+        setTimeOffset(0);
         video.src = videoUrl;
         if (resumeTime !== null) video.currentTime = resumeTime;
       }
@@ -345,6 +358,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       video.muted = muted;
       video.volume = volume;
 
+      if (stayPaused) {
+        // The <video> has autoPlay, which a new src would honour.
+        video.pause();
+        setIsBuffering(false);
+        return;
+      }
       video.play().catch(err => {
         console.warn('Auto-play failed:', err);
         setIsPlaying(false);
@@ -746,7 +765,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                             className={`audio-menu-item${index === selectedAudioTrackIndex ? ' active' : ''}`}
                             onClick={() => {
                               setSelectedAudioTrackIndex(index);
-                              pendingAudioSwitchTime.current = currentTime;
                               onSelectAudioTrack(track.index);
                               setAudioMenuOpen(false);
                             }}
@@ -835,5 +853,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     </div>
   );
 };
+
+/** Whether two stream URLs are the same file (origin and path) and differ at most in their query. */
+function isSameFile(previous: string | null, next: string | null): boolean {
+  if (!previous || !next) return false;
+  try {
+    const a = new URL(previous);
+    const b = new URL(next);
+    return a.origin === b.origin && a.pathname === b.pathname;
+  } catch {
+    return false;
+  }
+}
 
 export default VideoPlayer;

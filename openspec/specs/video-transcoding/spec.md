@@ -12,6 +12,14 @@ The player SHALL detect a video stream in Dolby Vision profile 5 without a compa
 - **WHEN** the user plays a file whose video is Dolby Vision profile 5 with compatibility id 0
 - **THEN** the picture has natural colours (no purple or green cast, not washed out)
 
+#### Scenario: Episode reached by switching
+- **WHEN** the user switches to another episode of a torrent and that episode is Dolby Vision profile 5
+- **THEN** it is converted exactly as the first file opened would be
+
+#### Scenario: Slow start
+- **WHEN** reading the file's header takes longer than the probe's timeout and the video turns out to be Dolby Vision profile 5
+- **THEN** the player keeps probing in the background and, once it is detected, restarts the video converted and playback continues from the same position (paused stays paused)
+
 #### Scenario: Other Dolby Vision profiles
 - **WHEN** the video is Dolby Vision with an HDR10 or SDR compatible base layer (for example profile 8.1)
 - **THEN** its video is not converted, as today; its audio is still converted when Chromium cannot play the codec
@@ -70,3 +78,11 @@ If the video conversion fails to start (for example the tone-mapping filter or t
 #### Scenario: Converter fails
 - **WHEN** the conversion of a Dolby Vision profile 5 video fails to start
 - **THEN** the video plays without video conversion, its audio is still converted if Chromium cannot play it, and a message says the colours may be wrong because the video is Dolby Vision
+
+#### Scenario: Conversion stopped on purpose
+- **WHEN** a conversion is ended because the user seeks, switches file or stops, or the response closes
+- **THEN** this is not a failure: nothing falls back and no message is shown
+
+#### Scenario: Failure stays with its file
+- **WHEN** a conversion failed to start for one file and the user switches to another Dolby Vision profile 5 file
+- **THEN** the other file is converted

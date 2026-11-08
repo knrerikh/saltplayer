@@ -834,6 +834,68 @@ describe('VideoPlayer Component', () => {
       expect(video.src).toContain('startTime=120');
     });
 
+    describe('a new stream of the file already playing (#113)', () => {
+      const FILE = 'http://localhost:8080/video.mkv';
+      const mount = (url: string) =>
+        render(<VideoPlayer videoUrl={url} title="Test" onClose={vi.fn()} />);
+      const setTime = (video: HTMLVideoElement, seconds: number) => {
+        Object.defineProperty(video, 'currentTime', { value: seconds, writable: true, configurable: true });
+        fireEvent(video, new Event('timeupdate'));
+      };
+
+      it('restarts a converted stream at the film time, and shows it', () => {
+        const { container, rerender } = mount(`${FILE}?transcode=true`);
+        const video = container.querySelector('video') as HTMLVideoElement;
+        Object.defineProperty(video, 'paused', { value: false, configurable: true });
+        setTime(video, 120);
+
+        rerender(<VideoPlayer videoUrl={`${FILE}?transcode=true&video=sdr`} title="Test" onClose={vi.fn()} />);
+
+        expect(new URL(video.src).searchParams.get('startTime')).toBe('120');
+        setTime(video, 0);
+        expect(screen.getByText(/2:00/)).toBeTruthy();
+      });
+
+      it('restarts a stream that was already offset at the film time', () => {
+        const { container, rerender } = mount(`${FILE}?transcode=true&startTime=0`);
+        const video = container.querySelector('video') as HTMLVideoElement;
+        setTime(video, 120);
+        rerender(<VideoPlayer videoUrl={`${FILE}?transcode=true&video=sdr`} title="Test" onClose={vi.fn()} />);
+        setTime(video, 10);
+        rerender(<VideoPlayer videoUrl={`${FILE}?transcode=true`} title="Test" onClose={vi.fn()} />);
+
+        expect(new URL(video.src).searchParams.get('startTime')).toBe('130');
+      });
+
+      it('keeps a paused video paused', () => {
+        const { container, rerender } = mount(`${FILE}?transcode=true`);
+        const video = container.querySelector('video') as HTMLVideoElement;
+        Object.defineProperty(video, 'paused', { value: true, configurable: true });
+        setTime(video, 120);
+        (video.play as ReturnType<typeof vi.fn>).mockClear();
+        const pause = vi.spyOn(video, 'pause');
+
+        rerender(<VideoPlayer videoUrl={`${FILE}?transcode=true&video=sdr`} title="Test" onClose={vi.fn()} />);
+
+        expect(new URL(video.src).searchParams.get('startTime')).toBe('120');
+        expect(video.play).not.toHaveBeenCalled();
+        // The element has autoPlay, which the new src would honour.
+        expect(pause).toHaveBeenCalled();
+      });
+
+      it('does not give another file the position', () => {
+        const { container, rerender } = mount(`${FILE}?transcode=true`);
+        const video = container.querySelector('video') as HTMLVideoElement;
+        setTime(video, 120);
+
+        rerender(<VideoPlayer videoUrl="http://localhost:8080/other.mkv?transcode=true" title="Test" onClose={vi.fn()} />);
+        expect(video.src).not.toContain('startTime');
+
+        rerender(<VideoPlayer videoUrl="http://localhost:9999/other.mkv?transcode=true" title="Test" onClose={vi.fn()} />);
+        expect(video.src).not.toContain('startTime');
+      });
+    });
+
     it('should not add startTime when URL changes for non-audio reasons', () => {
       const { container, rerender } = render(
         <VideoPlayer

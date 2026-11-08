@@ -540,7 +540,7 @@ export class TorrentEngine {
    * Spawns ffprobe directly to avoid fluent-ffmpeg's getAvailableFormats() capability check,
    * which calls spawn() synchronously in a way that can propagate EBADARCH as an uncaughtException.
    */
-  private async probeStream(streamUrl: string): Promise<ProbeResult> {
+  private async probeStream(streamUrl: string, onLateResult?: (result: ProbeResult) => void): Promise<ProbeResult> {
     const ffprobeBin = mediaTools.ffprobe;
 
     return new Promise((resolve) => {
@@ -598,7 +598,7 @@ export class TorrentEngine {
           const duration = data.format?.duration ? Number(data.format.duration) : 0;
           this.extractAudioTracks(data);  // sends audio tracks regardless of timeout
 
-          if (!settled) {
+          {
             let needsTranscode = false;
             const audioStream = (data.streams || []).find((s: any) => s.codec_type === 'audio');
             if (audioStream) {
@@ -608,7 +608,11 @@ export class TorrentEngine {
                 needsTranscode = true;
               }
             }
-            done({ needsTranscode, duration, videoConversion: detectVideoConversion(data) });
+            const result = { needsTranscode, duration, videoConversion: detectVideoConversion(data) };
+            // After the timeout the file was already started on the fallback guess; ffprobe kept
+            // waiting for the header's pieces and has now read it, so the caller can correct course.
+            if (settled) onLateResult?.(result);
+            else done(result);
           }
         } catch (e) {
           if (!settled) {
@@ -755,6 +759,10 @@ export class TorrentEngine {
   private startStreamingServer(file: MediaSource): void {
     void this.closeServer();
     this.serverClosed = false;
+    // What was learned about the previous file says nothing about this one, and a conversion
+    // of the old file that fails while the server is closing must not find it still set.
+    this.videoConversion = null;
+    this.audioNeedsTranscode = false;
     const encodedName = encodeURIComponent(file.name);
     const pathname = `/${encodedName}`;
     const totalSize: number = typeof file.length === 'number' ? file.length : Number(file.length);
@@ -880,7 +888,9 @@ export class TorrentEngine {
 
       console.log(`Streaming server started at ${streamUrl}`);
       this.prioritizeStreamingPieces(file, 0);
-      const probeResult = await this.probeStream(internalUrl(streamUrl));
+      const probeResult = await this.probeStream(internalUrl(streamUrl), (late) => {
+        if (isCurrent()) this.applyLateProbe(late, file);
+      });
       if (!isCurrent()) return;
       this.currentStreamUrl = streamUrl;
       this.videoConversion = probeResult.videoConversion;
@@ -897,6 +907,28 @@ export class TorrentEngine {
 
       this.sendVideoUrl(this.buildStreamUrl({ transcode: probeResult.needsTranscode }), this.resumePositionOf(file));
     });
+  }
+
+  /**
+   * The probe finished after its timeout, when the file was already playing on the fallback
+   * guess. A picture or audio conversion it found now restarts the stream where it is, the way
+   * choosing another audio track does.
+   */
+  private applyLateProbe(late: ProbeResult, file: MediaSource): void {
+    if (late.duration > 0) this.sendVideoMetadata(late.duration);
+    const audioTrack = this.selectedAudioIndex ?? undefined;
+    const transcoding = this.audioNeedsTranscode || audioTrack !== undefined;
+    const gainsConversion = late.videoConversion !== null && this.videoConversion === null;
+    const gainsTranscode = late.needsTranscode && !transcoding;
+    // Only restart for something the playing stream lacks; anything else would just interrupt it.
+    if (!gainsConversion && !gainsTranscode) return;
+
+    if (gainsConversion) {
+      this.videoConversion = late.videoConversion;
+      console.log('Converting the picture: Dolby Vision profile 5 (found after the probe timeout)');
+    }
+    this.audioNeedsTranscode = transcoding || late.needsTranscode;
+    this.sendVideoUrl(this.buildStreamUrl({ transcode: this.audioNeedsTranscode, audioTrack }));
   }
 
   /**
@@ -918,6 +950,7 @@ export class TorrentEngine {
     const audioTrackParam = reqUrl.searchParams.get('audioTrack');
     // The URL only asks; the probe decides, so a stale URL cannot convert a video that needs no conversion.
     const conversion = reqUrl.searchParams.get(VIDEO_CONVERSION_PARAM) === DOLBY_VISION_SDR_VALUE ? this.videoConversion : null;
+    const serving = this.server;
 
     res.writeHead(200, {
       'Content-Type': 'video/x-matroska',
@@ -980,7 +1013,9 @@ export class TorrentEngine {
         }
         if (conversion && !producedBytes && !playerLeft) {
           res.end();
-          this.fallBackToUnconvertedVideo(startTime);
+          // Only a conversion of the file now open can fail it: one that dies because its
+          // server was closed (episode switch, stop) belongs to a file that is gone.
+          if (this.server === serving && this.videoConversion === conversion) this.fallBackToUnconvertedVideo(startTime);
         }
       });
 
