@@ -85,6 +85,10 @@ With `video=sdr` the transcode route re-encodes the picture instead of copying i
 
 If the converting ffmpeg fails before its first byte (missing binary, unsupported encoder, filter error), the engine forgets the conversion, sends one `VIDEO_CONVERSION_FAILED` notice (*This video is Dolby Vision, which could not be converted; its colours may be wrong.*) and sends the URL again without `video=sdr`, keeping the position the stream was to start at.
 
+Only a conversion that fails while its file is still the open one counts: ffmpeg killed on purpose (the response closing on a seek, an episode switch or stop, which also closes the server) is never a failure, and the conversion state is cleared as soon as another file starts, so a fallback never carries over to the next episode.
+
+If the probe takes longer than 10 s (a freshly switched 4K episode whose header pieces have not arrived), the file starts on the extension guess. The ffprobe process is not killed: it keeps waiting for the header and, when it finishes, `applyLateProbe()` stores its result and, if the stream URL changes (Dolby Vision found, or an audio conversion needed), sends the new URL the way an audio-track switch does, so the player restarts at the same position with the right colours. A late result for a file that was switched away is dropped (the switch kills that probe).
+
 ### Streaming server routes
 
 | Request | Response |
