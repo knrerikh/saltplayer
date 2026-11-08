@@ -331,5 +331,43 @@ describe('Converting a Dolby Vision video (#94)', () => {
       expect(errorNotices()).toHaveLength(0);
       expect(await sentUrls(engine)).toHaveLength(1);
     });
+
+    it('does not take a conversion killed with its server by an episode switch for a failure (#113)', async () => {
+      stubProbe(engine, { videoConversion: DOLBY_VISION });
+      await engine.selectFile('Movie.mp4');
+      const first = await firstUrl(engine);
+      ffmpegDouble.state.onPipe = () => {};
+      const port = await serverPort(engine);
+      const req = http.get({ host: '127.0.0.1', port, path: '/Movie.mp4?transcode=true&video=sdr' });
+      req.on('error', () => {});
+      await vi.waitFor(() => expect(ffmpegDouble.state.commands).toHaveLength(1));
+      const killed = lastCommand();
+
+      // The switch closes the server; ffmpeg reports its input gone before the response's own close is seen.
+      await engine.selectFile('Movie.mp4');
+      killed.emit('error', new Error('Error in the pull function'));
+      await new Promise((resolve) => setTimeout(resolve, 30));
+
+      expect(errorNotices()).toHaveLength(0);
+      const forOldServer = send.mock.calls.filter(([channel, url]) => channel === IPC_CHANNELS.VIDEO_URL && new URL(url as string).port === first.port);
+      expect(forOldServer).toHaveLength(1);
+    });
+
+    it('converts the next file after a fallback on the previous one (#113)', async () => {
+      stubProbe(engine, { videoConversion: DOLBY_VISION });
+      await engine.selectFile('Movie.mp4');
+      await firstUrl(engine);
+      failBeforeAnyBytes();
+      await request(engine, 'transcode=true&video=sdr');
+      await vi.waitFor(async () => expect(await sentUrls(engine)).toHaveLength(2));
+      ffmpegDouble.state.onPipe = (_command, out) => { out.end('matroska bytes'); };
+
+      await engine.selectFile('Movie.mp4');
+      const next = await firstUrl(engine);
+      await request(engine, 'transcode=true&video=sdr');
+
+      expect(next.searchParams.get('video')).toBe('sdr');
+      expect(lastCommand().videoCodecs).toEqual([]);
+    });
   });
 });
