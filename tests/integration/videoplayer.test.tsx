@@ -873,11 +873,14 @@ describe('VideoPlayer Component', () => {
         Object.defineProperty(video, 'paused', { value: true, configurable: true });
         setTime(video, 120);
         (video.play as ReturnType<typeof vi.fn>).mockClear();
+        const pause = vi.spyOn(video, 'pause');
 
         rerender(<VideoPlayer videoUrl={`${FILE}?transcode=true&video=sdr`} title="Test" onClose={vi.fn()} />);
 
         expect(new URL(video.src).searchParams.get('startTime')).toBe('120');
         expect(video.play).not.toHaveBeenCalled();
+        // The element has autoPlay, which the new src would honour.
+        expect(pause).toHaveBeenCalled();
       });
 
       it('does not give another file the position', () => {
