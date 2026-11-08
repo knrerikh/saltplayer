@@ -78,7 +78,8 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        shell: bash
+        run: bash scripts/ci-install.sh
 
       - name: Run linter
         run: npm run lint --if-present
@@ -116,7 +117,8 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        shell: bash
+        run: bash scripts/ci-install.sh
 
       # npm ci fetched the build for the runner's own architecture. The x64 DMG is
       # cross-built on an ARM64 runner; shipping that build would crash with EBADARCH
