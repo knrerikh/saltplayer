@@ -75,6 +75,8 @@ ffprobe and ffmpeg are not mocked. Tests that need them run the bundled binaries
 - **test:** unit and integration tests on Ubuntu, macOS and Windows with Node 18 and 20. On Ubuntu with Node 20 it also runs `npm run test:coverage`, which fails if coverage of `src/` drops below the thresholds in `vitest.config.ts` (lines and statements 60%, functions 55%, branches 75%), and writes the coverage table to the run's summary page (`scripts/coverage-summary.mjs`). Raise the thresholds when coverage grows.
 - **build:** after the tests pass, the app is built and packaged (without publishing) on all three platforms.
 
+Dependencies are installed with `scripts/ci-install.sh`, which retries `npm ci` up to three times: downloads from GitHub during install (Electron, prebuilt native modules such as `node-datachannel`) fail now and then with 5xx errors. The test matrix does not fail fast, so one flaky job shows as one red job instead of cancelling the others.
+
 The release workflow runs the same tests before publishing; see [Deployment](DEPLOYMENT.md).
 
 ## Manual smoke test before a release
