@@ -21,7 +21,7 @@ Recognised video files: MP4, MKV, WebM, MOV, M4V, AVI, FLV, WMV. Video is played
 | Action | How |
 | --- | --- |
 | Play / pause | <kbd>Space</kbd> (ignored while typing in a field), click the video, or the play button |
-| Seek | Click the progress bar |
+| Seek | Click the progress bar; the time next to it reads `hh:mm:ss`, e.g. `00:00:08 / 00:17:36` |
 | Volume | Volume slider |
 | Mute | Speaker button beside the volume slider |
 | Fullscreen | Fullscreen button, **View → Toggle Full Screen**, or the green window button on macOS; <kbd>Esc</kbd> leaves either |
@@ -43,7 +43,7 @@ Subtitle tracks embedded in the file are listed in the subtitle menu. The select
 
 ### Resuming
 
-A file you open again continues where you stopped, 10 seconds earlier to pick up the scene, and *Resumed from 23:14* appears for a moment; **Start over** plays it from the beginning. A season opens at the episode you watched last, or at the next one if you finished it. Files you watched to the end, or stopped within the first 30 seconds, start from the beginning.
+A file you open again continues where you stopped, 10 seconds earlier to pick up the scene, and *Resumed from 00:23:14* appears for a moment; **Start over** plays it from the beginning. A season opens at the episode you watched last, or at the next one if you finished it. Files you watched to the end, or stopped within the first 30 seconds, start from the beginning.
 
 Turn this off with **Playback → Resume Playback**: everything then starts from the beginning and nothing is recorded.
 

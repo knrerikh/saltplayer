@@ -7,6 +7,7 @@ import ResumeHint from './ResumeHint';
 import { useAutoplayNext } from '../hooks/useAutoplayNext';
 import { useSavePosition } from '../hooks/useSavePosition';
 import { useRemoteControl } from '../hooks/useRemoteControl';
+import { formatClock } from '@/shared/time-format';
 
 const LANGUAGE_NAMES: Record<string, string> = {
   eng: 'English', rus: 'Russian', spa: 'Spanish', fra: 'French', deu: 'German',
@@ -534,13 +535,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     seekTo(time);
   };
 
-  const formatTime = (seconds: number): string => {
-    if (!isFinite(seconds)) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
   // Show spinner if parent is loading (initial metadata) OR if video is buffering locally
   const showSpinner = parentLoading || (videoUrl && isBuffering);
 
@@ -603,7 +597,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
           {resumedFrom !== null && (
             <ResumeHint
-              from={formatTime(resumedFrom)}
+              from={formatClock(resumedFrom)}
               onStartOver={() => {
                 dismissResumeHint();
                 seekTo(0);
@@ -719,7 +713,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               </div>
               
               <div className="time-display">
-                {formatTime(currentTime)} / {formatTime(duration)}
+                {formatClock(currentTime)} / {formatClock(duration)}
               </div>
               
               <div className="volume-group" ref={audioControlRef}>

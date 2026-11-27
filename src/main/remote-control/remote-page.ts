@@ -109,12 +109,11 @@ const SCRIPT = `
   let muted = false;
   const connection = document.getElementById('connection');
 
+  // hh:mm:ss, the same as formatClock() in src/shared/time-format.ts shows in the player.
   const clock = (seconds) => {
     const whole = Math.max(0, Math.floor(seconds || 0));
-    const h = Math.floor(whole / 3600);
-    const mm = String(Math.floor((whole % 3600) / 60)).padStart(h > 0 ? 2 : 1, '0');
-    const ss = String(whole % 60).padStart(2, '0');
-    return (h > 0 ? h + ':' : '') + mm + ':' + ss;
+    const pad = (value) => String(value).padStart(2, '0');
+    return pad(Math.floor(whole / 3600)) + ':' + pad(Math.floor((whole % 3600) / 60)) + ':' + pad(whole % 60);
   };
 
   // Each icon button holds all its states as inline SVGs; only the one named here is visible.
@@ -259,7 +258,7 @@ export function remotePage(nonce: string): string {
 <main id="layout">
   <section id="transport">
     <h1 id="title">Nothing is playing</h1>
-    <div id="time">0:00 / 0:00</div>
+    <div id="time">00:00:00 / 00:00:00</div>
     <input id="timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Position" disabled>
     <div id="controls">
       <button class="skip" type="button" data-seconds="-30" aria-label="Back 30 seconds" disabled>−30</button>
