@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Playback time is shown as `hh:mm:ss`** ([#120](https://github.com/knrerikh/saltplayer/issues/120)): `00:00:08 / 00:17:36` instead of `0:08 / 17:36`, so a film over an hour no longer reads as `95:12`. The phone remote and the *Resumed from …* hint use the same format.
+- **Playback time with two-digit fields, and hours for long videos** ([#120](https://github.com/knrerikh/saltplayer/issues/120)): a video under an hour reads `00:08 / 17:36` (`mm:ss`), one of an hour or more `00:00:08 / 01:52:10` (`hh:mm:ss`) instead of `95:12`. The format follows the video's length, so the counter keeps its shape. The phone remote and the *Resumed from …* hint read the same way.
 
 ## [1.8.1] - 2026-11-07
 

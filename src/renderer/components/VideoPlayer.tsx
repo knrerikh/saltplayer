@@ -597,7 +597,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
           {resumedFrom !== null && (
             <ResumeHint
-              from={formatClock(resumedFrom)}
+              from={formatClock(resumedFrom, duration)}
               onStartOver={() => {
                 dismissResumeHint();
                 seekTo(0);
@@ -713,7 +713,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               </div>
               
               <div className="time-display">
-                {formatClock(currentTime)} / {formatClock(duration)}
+                {formatClock(currentTime, duration)} / {formatClock(duration)}
               </div>
               
               <div className="volume-group" ref={audioControlRef}>

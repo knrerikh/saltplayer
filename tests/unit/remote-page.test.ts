@@ -296,11 +296,12 @@ describe('remote page layout', () => {
 
 
 describe('remote page time (#120)', () => {
-  it('shows the position and the length as hh:mm:ss, like the player', () => {
+  let source: FakeEventSource;
+
+  beforeEach(() => {
     const html = remotePage('nonce');
     document.documentElement.innerHTML = html.replace(/<script[\s\S]*<\/script>/, '');
     const script = /<script nonce="nonce">([\s\S]*)<\/script>/.exec(html)![1];
-    let source!: FakeEventSource;
     class Source extends FakeEventSource {
       constructor(url: string) {
         super(url);
@@ -308,12 +309,24 @@ describe('remote page time (#120)', () => {
       }
     }
     new Function('EventSource', 'fetch', 'location', 'confirm', script)(Source, vi.fn(), { search: '?t=abc' }, vi.fn());
+  });
 
+  const showPlaying = (currentTime: number, duration: number) =>
     source.emit('state', {
-      hasVideo: true, title: 'Movie', isPlaying: true, currentTime: 8, duration: 17 * 60 + 36,
+      hasVideo: true, title: 'Movie', isPlaying: true, currentTime, duration,
       volume: 1, muted: false, isFullscreen: false, episodes: [], episodeIndex: -1, hasPrevious: false, hasNext: false,
     });
+  const time = () => document.getElementById('time')!.textContent;
 
-    expect(document.getElementById('time')!.textContent).toBe('00:00:08 / 00:17:36');
+  it('shows mm:ss for a video under an hour, like the player', () => {
+    showPlaying(8, 17 * 60 + 36);
+
+    expect(time()).toBe('00:08 / 17:36');
+  });
+
+  it('shows hh:mm:ss for a video of an hour or more', () => {
+    showPlaying(8, 3600 + 52 * 60 + 10);
+
+    expect(time()).toBe('00:00:08 / 01:52:10');
   });
 });

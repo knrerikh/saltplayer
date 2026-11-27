@@ -50,7 +50,7 @@ describe('Resume playback (#51)', () => {
       watch(urlOf('S01E01.mkv'), 595);
 
       expect(video.currentTime).toBe(595);
-      expect(hint()).toHaveTextContent('Resumed from 00:09:55');
+      expect(hint()).toHaveTextContent('Resumed from 09:55');
     });
 
     it('restarts a transcoded stream from that point and shows the right time', () => {
@@ -58,7 +58,7 @@ describe('Resume playback (#51)', () => {
 
       expect(new URL(video.src).searchParams.get('startTime')).toBe('595');
       playAt(1);
-      expect(screen.getByText('00:09:56 / 00:50:00')).toBeInTheDocument();
+      expect(screen.getByText('09:56 / 50:00')).toBeInTheDocument();
     });
 
     it('keeps a converted Dolby Vision picture when it resumes and when it seeks (#94)', () => {
