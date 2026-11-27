@@ -109,11 +109,13 @@ const SCRIPT = `
   let muted = false;
   const connection = document.getElementById('connection');
 
-  // hh:mm:ss, the same as formatClock() in src/shared/time-format.ts shows in the player.
-  const clock = (seconds) => {
+  // mm:ss, or hh:mm:ss for a video of an hour or more: formatClock() in
+  // src/shared/time-format.ts, repeated here because this script cannot import.
+  const clock = (seconds, length = seconds) => {
     const whole = Math.max(0, Math.floor(seconds || 0));
     const pad = (value) => String(value).padStart(2, '0');
-    return pad(Math.floor(whole / 3600)) + ':' + pad(Math.floor((whole % 3600) / 60)) + ':' + pad(whole % 60);
+    const mmss = pad(Math.floor((whole % 3600) / 60)) + ':' + pad(whole % 60);
+    return Math.max(whole, Math.floor(length || 0)) >= 3600 ? pad(Math.floor(whole / 3600)) + ':' + mmss : mmss;
   };
 
   // Each icon button holds all its states as inline SVGs; only the one named here is visible.
@@ -134,7 +136,7 @@ const SCRIPT = `
   };
 
   const showTime = (seconds) => {
-    time.textContent = clock(seconds) + ' / ' + clock(duration);
+    time.textContent = clock(seconds, duration) + ' / ' + clock(duration);
   };
 
   const send = (command) => {
@@ -258,7 +260,7 @@ export function remotePage(nonce: string): string {
 <main id="layout">
   <section id="transport">
     <h1 id="title">Nothing is playing</h1>
-    <div id="time">00:00:00 / 00:00:00</div>
+    <div id="time">00:00 / 00:00</div>
     <input id="timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Position" disabled>
     <div id="controls">
       <button class="skip" type="button" data-seconds="-30" aria-label="Back 30 seconds" disabled>−30</button>

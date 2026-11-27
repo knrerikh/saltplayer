@@ -50,7 +50,7 @@ Salt Player is an Electron app with a strict split between the main process (Nod
 | `src/shared/icons.ts` | The SVG paths of the icons the player and the phone page share (play, pause, previous, next, speaker) |
 | `src/shared/remote.ts` | `RemoteCommand`, `RemoteState`, `RemoteStatus` and the parsers for what the phone and the page send |
 | `src/shared/video-files.ts` | Video extensions, playlist ordering and the choice of the file to play first |
-| `src/shared/time-format.ts` | `formatClock()`: positions and lengths as `hh:mm:ss`; the phone page's script repeats it inline, since it cannot import |
+| `src/shared/time-format.ts` | `formatClock()`: `mm:ss`, or `hh:mm:ss` when the video is an hour or longer (the format follows the video's length); the phone page's script repeats it inline, since it cannot import |
 | `src/renderer/App.tsx` | Root component: subscribes to main-process events, owns torrent, playlist, track and error state |
 | `src/renderer/components/` | `TorrentInput`, `VideoPlayer`, `StatusBar`, `TitlebarDragRegion`, `OpenUrlDialog`, `NextEpisodeOverlay`, `RemoteControlDialog` |
 | `src/renderer/hooks/useAutoplayNext.ts` | The next-episode countdown and the prefetch trigger |

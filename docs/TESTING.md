@@ -34,7 +34,8 @@ npx vitest run -t "seek"                    # tests whose name matches
 | `tests/unit/window-reveal.test.ts` | Bringing the window forward: restore, show, focus |
 | `tests/unit/file-associations.test.ts` | `build.fileAssociations` equals `VIDEO_EXTENSIONS` plus `torrent`, as viewer |
 | `tests/unit/utils.test.ts` | Speed and size formatting; magnet link validation |
-| `tests/unit/time-format.test.ts` | `formatClock()`: `hh:mm:ss`, hours past 99, fractions, unknown and negative values |
+| `tests/unit/time-format.test.ts` | `formatClock()`: `mm:ss` under an hour, `hh:mm:ss` from an hour, the format following the video's length, fractions, unknown and negative values |
+| `tests/integration/time-display.test.tsx` | The control bar's time for a video under an hour and one of an hour or more |
 | `tests/unit/icon.test.ts` | Icon geometry, the ICO encoder, and drift between `build/icon.svg` and the design code |
 | `tests/unit/coverage-summary.test.ts` | The coverage table published in the CI run summary |
 | `tests/unit/release.test.ts` | Release helpers: version bumps, cutting `[Unreleased]` into a version section, release notes |

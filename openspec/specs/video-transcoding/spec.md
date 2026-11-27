@@ -50,8 +50,8 @@ Videos that are not Dolby Vision profile 5 SHALL keep today's behaviour: the vid
 On a converted Dolby Vision video the user SHALL be able to seek, choose another audio track, show subtitles in sync, and resume from a saved position, and the video SHALL keep its correct colours after each of these.
 
 #### Scenario: Seeking
-- **WHEN** the user seeks to 00:20:00 in a converted video
-- **THEN** playback continues from 00:20:00 with correct colours and the shown time is 00:20:00
+- **WHEN** the user seeks to 20:00 in a converted video
+- **THEN** playback continues from 20:00 with correct colours and the shown time is 20:00
 
 #### Scenario: Another audio track
 - **WHEN** the user picks another audio track in a converted video
