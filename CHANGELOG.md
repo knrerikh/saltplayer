@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Magnets that find their peers through DHT timed out** ([#122](https://github.com/knrerikh/saltplayer/issues/122)): DHT started only from the three routers built into WebTorrent, and on networks where two of them do not answer it was left with a single node and found no peers. A rutracker magnet, whose tracker gives an anonymous announce no peers, failed with *Timeout: torrent loading took too long* after 60 s. DHT now also starts from `dht.libtorrent.org`, and the same magnet loads in about a second.
+
 ### Changed
 
 - **Playback time with two-digit fields, and hours for long videos** ([#120](https://github.com/knrerikh/saltplayer/issues/120)): a video under an hour reads `00:08 / 17:36` (`mm:ss`), one of an hour or more `00:00:08 / 01:52:10` (`hh:mm:ss`) instead of `95:12`. The format follows the video's length, so the counter keeps its shape. The phone remote and the *Resumed from …* hint read the same way.
