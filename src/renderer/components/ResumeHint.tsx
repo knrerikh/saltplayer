@@ -10,7 +10,7 @@ interface ResumeHintProps {
   onDismiss: () => void;
 }
 
-/** "Resumed from 23:14 · Start over", shown briefly when a file continues where it was left. */
+/** "Resumed from 00:23:14 · Start over", shown briefly when a file continues where it was left. */
 const ResumeHint: React.FC<ResumeHintProps> = ({ from, onStartOver, onDismiss }) => {
   useEffect(() => {
     const timer = setTimeout(onDismiss, RESUME_HINT_MS);

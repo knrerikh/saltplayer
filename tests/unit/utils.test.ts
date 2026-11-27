@@ -71,42 +71,6 @@ describe('Utility Functions', () => {
     });
   });
 
-  describe('formatTime', () => {
-    const formatTime = (seconds: number): string => {
-      if (!isFinite(seconds)) return '0:00';
-      const mins = Math.floor(seconds / 60);
-      const secs = Math.floor(seconds % 60);
-      return `${mins}:${secs.toString().padStart(2, '0')}`;
-    };
-
-    it('should format 0 seconds', () => {
-      expect(formatTime(0)).toBe('0:00');
-    });
-
-    it('should format seconds less than a minute', () => {
-      expect(formatTime(30)).toBe('0:30');
-      expect(formatTime(5)).toBe('0:05');
-    });
-
-    it('should format minutes and seconds', () => {
-      expect(formatTime(90)).toBe('1:30');
-      expect(formatTime(125)).toBe('2:05');
-    });
-
-    it('should format hours (as minutes)', () => {
-      expect(formatTime(3600)).toBe('60:00');
-      expect(formatTime(3665)).toBe('61:05');
-    });
-
-    it('should handle Infinity', () => {
-      expect(formatTime(Infinity)).toBe('0:00');
-    });
-
-    it('should handle decimal values', () => {
-      expect(formatTime(90.7)).toBe('1:30');
-    });
-  });
-
   describe('validateMagnetLink', () => {
     const validateMagnetLink = (link: string): boolean => {
       return link.startsWith('magnet:?') && link.includes('xt=urn:btih:');

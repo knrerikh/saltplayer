@@ -646,6 +646,9 @@ body {
 .time-display {
   color: white;
   font-size: 13px;
+  /* Same-width digits: the hh:mm:ss text keeps its width while the seconds tick. */
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   min-width: 100px;
   text-align: center;
 }

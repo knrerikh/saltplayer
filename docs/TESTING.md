@@ -33,7 +33,8 @@ npx vitest run -t "seek"                    # tests whose name matches
 | `tests/unit/launch-args.test.ts` | Picking the file to open out of `argv` (packaged and development, flags, relative paths) |
 | `tests/unit/window-reveal.test.ts` | Bringing the window forward: restore, show, focus |
 | `tests/unit/file-associations.test.ts` | `build.fileAssociations` equals `VIDEO_EXTENSIONS` plus `torrent`, as viewer |
-| `tests/unit/utils.test.ts` | Speed, size and time formatting; magnet link validation |
+| `tests/unit/utils.test.ts` | Speed and size formatting; magnet link validation |
+| `tests/unit/time-format.test.ts` | `formatClock()`: `hh:mm:ss`, hours past 99, fractions, unknown and negative values |
 | `tests/unit/icon.test.ts` | Icon geometry, the ICO encoder, and drift between `build/icon.svg` and the design code |
 | `tests/unit/coverage-summary.test.ts` | The coverage table published in the CI run summary |
 | `tests/unit/release.test.ts` | Release helpers: version bumps, cutting `[Unreleased]` into a version section, release notes |

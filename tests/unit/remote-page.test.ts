@@ -7,10 +7,13 @@ import { icons, iconViewBox } from '@/shared/icons';
 class FakeEventSource {
   static readonly CLOSED = 2;
   readyState = 1;
-  private readonly listeners = new Map<string, () => void>();
+  private readonly listeners = new Map<string, (event?: { data: string }) => void>();
   constructor(readonly url: string) {}
-  addEventListener(type: string, listener: () => void) {
+  addEventListener(type: string, listener: (event?: { data: string }) => void) {
     this.listeners.set(type, listener);
+  }
+  emit(type: string, data: unknown) {
+    this.listeners.get(type)?.({ data: JSON.stringify(data) });
   }
   fail(readyState: number) {
     this.readyState = readyState;
@@ -291,3 +294,26 @@ describe('remote page layout', () => {
   });
 });
 
+
+describe('remote page time (#120)', () => {
+  it('shows the position and the length as hh:mm:ss, like the player', () => {
+    const html = remotePage('nonce');
+    document.documentElement.innerHTML = html.replace(/<script[\s\S]*<\/script>/, '');
+    const script = /<script nonce="nonce">([\s\S]*)<\/script>/.exec(html)![1];
+    let source!: FakeEventSource;
+    class Source extends FakeEventSource {
+      constructor(url: string) {
+        super(url);
+        source = this;
+      }
+    }
+    new Function('EventSource', 'fetch', 'location', 'confirm', script)(Source, vi.fn(), { search: '?t=abc' }, vi.fn());
+
+    source.emit('state', {
+      hasVideo: true, title: 'Movie', isPlaying: true, currentTime: 8, duration: 17 * 60 + 36,
+      volume: 1, muted: false, isFullscreen: false, episodes: [], episodeIndex: -1, hasPrevious: false, hasNext: false,
+    });
+
+    expect(document.getElementById('time')!.textContent).toBe('00:00:08 / 00:17:36');
+  });
+});
