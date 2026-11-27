@@ -275,6 +275,25 @@ describe('TorrentEngine - magnet load contract', () => {
     expect(opts.maxConns).toBe(100);
   });
 
+  it('A.3 bootstraps DHT from more than the three routers bittorrent-dht knows (#122)', async () => {
+    const mod = await importTorrentModule();
+    const engine = createEngine(mod);
+
+    track(engine.load(MAGNET));
+    await waitForAdd();
+
+    const { bootstrap } = mocks.ctor.mock.calls[0][0].dht;
+    expect(bootstrap).toBe((mod as any).DHT_BOOTSTRAP);
+    expect(bootstrap).toEqual(
+      expect.arrayContaining([
+        'dht.libtorrent.org:25401',
+        'router.bittorrent.com:6881',
+        'router.utorrent.com:6881',
+        'dht.transmissionbt.com:6881',
+      ]),
+    );
+  });
+
   // ------------------------------------------------------------- B: timeout
   it('B.1 exports TORRENT_LOAD_TIMEOUT_MS in [60000, 90000] and uses it for the load timer', async () => {
     const mod = await importTorrentModule();

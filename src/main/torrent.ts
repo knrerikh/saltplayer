@@ -97,6 +97,19 @@ export const FALLBACK_TRACKERS = [
 ];
 
 /**
+ * Where the DHT finds its first nodes. bittorrent-dht knows only the last three; on
+ * networks where the first two do not answer it ended up with a single node and found
+ * no peers, so a magnet that relies on DHT timed out (#122). dht.libtorrent.org
+ * answered there and filled the routing table within seconds.
+ */
+export const DHT_BOOTSTRAP = [
+  'dht.libtorrent.org:25401',
+  'router.bittorrent.com:6881',
+  'router.utorrent.com:6881',
+  'dht.transmissionbt.com:6881',
+];
+
+/**
  * How much of the next episode `prefetchFile()` fetches ahead: enough for ffprobe and
  * the first seconds of playback, so autoplay does not start on an empty buffer.
  */
@@ -226,6 +239,7 @@ export class TorrentEngine {
       // download ends one piece short (#108). watchForWebSeedFallback() adds them
       // when a torrent has no peers.
       webSeeds: false,
+      dht: { bootstrap: DHT_BOOTSTRAP },
     });
 
     this.client.on('error', (error: any) => {

@@ -19,7 +19,7 @@ npx vitest run -t "seek"                    # tests whose name matches
 | --- | --- |
 | `tests/unit/torrent.test.ts` | Magnet link validation |
 | `tests/unit/video-files.test.ts` | Video extensions and the choice of the file to play first: samples, extras, series |
-| `tests/unit/torrent-magnet-load.test.ts` | The load contract with a mocked WebTorrent: TCP-only client, fallback trackers, timeout and removal, settling exactly once, stopping before re-adding |
+| `tests/unit/torrent-magnet-load.test.ts` | The load contract with a mocked WebTorrent: TCP-only client, DHT bootstrap list, fallback trackers, timeout and removal, settling exactly once, stopping before re-adding |
 | `tests/unit/torrent-optimization.test.ts` | Piece selection: file deselection, piece windows, critical and sequential ranges, episode switching, seek reprioritisation |
 | `tests/unit/torrent-server.test.ts` | The streaming server binds to loopback only; a local file is served with byte ranges and replaces a loaded torrent; a server stopped or replaced before it starts listening reports nothing |
 | `tests/unit/local-video.test.ts` | Opening a file on disk: range reads, and refusing relative paths, non-video files, directories and missing files |
