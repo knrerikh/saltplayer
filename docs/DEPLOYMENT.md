@@ -52,7 +52,7 @@ Merged changes collect under `## [Unreleased]` in the CHANGELOG. Releasing them 
 2. **Publish.** Merge the release PR. `.github/workflows/release.yml` sees that `package.json` has a version without a tag and:
    1. **prepare:** tags the merge commit `v<x.y.z>` and creates a **draft** GitHub release with the version's CHANGELOG section as notes (`scripts/release/notes.mjs`);
    2. **test:** unit and integration tests on Ubuntu, macOS and Windows (Node 20);
-   3. **publish:** four jobs (Linux, Windows, macOS arm64, macOS x64) install dependencies, rebuild native modules for Electron (`@electron/rebuild`), build, and run `electron-builder --publish always`, which uploads the installers to the draft;
+   3. **publish:** four jobs (Linux, Windows, macOS arm64, macOS x64) install dependencies, rebuild native modules for Electron (`@electron/rebuild`), build, and run `electron-builder --publish always`, which uploads the installers to the draft. The Linux job runs on `ubuntu-24.04` because the RPM target fails on Ubuntu 26.04 ([#117](https://github.com/knrerikh/saltplayer/issues/117));
    4. **finalize:** publishes the draft and marks it as latest, only if every platform succeeded.
 
    Every other push to `master` finds the version already tagged and skips all jobs.

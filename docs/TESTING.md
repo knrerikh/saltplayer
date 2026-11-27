@@ -73,7 +73,7 @@ ffprobe and ffmpeg are not mocked. Tests that need them run the bundled binaries
 `.github/workflows/test.yml` runs on every push to `master` and every pull request:
 
 - **test:** unit and integration tests on Ubuntu, macOS and Windows with Node 18 and 20. On Ubuntu with Node 20 it also runs `npm run test:coverage`, which fails if coverage of `src/` drops below the thresholds in `vitest.config.ts` (lines and statements 60%, functions 55%, branches 75%), and writes the coverage table to the run's summary page (`scripts/coverage-summary.mjs`). Raise the thresholds when coverage grows.
-- **build:** after the tests pass, the app is built and packaged (without publishing) on all three platforms.
+- **build:** after the tests pass, the app is built and packaged (without publishing) on all three platforms. Linux packaging runs on `ubuntu-24.04`, not `ubuntu-latest`: on Ubuntu 26.04 the RPM target fails inside the `fpm` that electron-builder 24 downloads ([#117](https://github.com/knrerikh/saltplayer/issues/117)).
 
 Dependencies are installed with `scripts/ci-install.sh`, which retries `npm ci` up to three times: downloads from GitHub during install (Electron, prebuilt native modules such as `node-datachannel`) fail now and then with 5xx errors. The test matrix does not fail fast, so one flaky job shows as one red job instead of cancelling the others.
 

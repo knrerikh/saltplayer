@@ -99,7 +99,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          # Not ubuntu-latest: on Ubuntu 26.04 the RPM target fails in electron-builder's fpm (#117).
+          - os: ubuntu-24.04
           - os: macos-latest
             arch: arm64
           - os: macos-latest
